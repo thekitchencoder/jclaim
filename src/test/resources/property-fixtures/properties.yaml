@@ -1,0 +1,1508 @@
+# Synthetic UK property dataset for JClaim integration tests.
+#
+# Each entry is one real-world UK property (identified by the synthetic
+# `id` field) with their source-system records nested under `records`.
+# This document IS the ground truth: every record under one entry must
+# end up linked to the same canonical entity after ingestion.
+#
+# Source systems:
+#   royal_mail_paf  — postal addressing (uprn, postcode, address_line_1,
+#                     thoroughfare, building_number, sub_building)
+#   os_addressbase  — geospatial authoritative (uprn, postcode,
+#                     classification, easting, northing)
+#   land_registry   — ownership (uprn, title_number, tenure, registered_at)
+#   council_tax     — taxation (uprn, postcode, band)
+#
+# Synthetic data conventions:
+#   - UPRNs are 12-digit plausible-shape but not real (they sit in the
+#     unallocated `100099xxxxxx` range so they cannot collide with live
+#     records).
+#   - Postcodes are a mix of London landmark postcodes (clearly synthetic
+#     when paired with the made-up street names) and fully fictional
+#     postcodes such as `XX1 1XX`.
+#   - Title numbers follow real UK Land Registry shape: 2-3 letter region
+#     prefix + 6 digits (e.g. `NGL123456`).
+#   - Street names are common (`Acacia Avenue`, `High Street`, `Mill Road`)
+#     but combined with the synthetic UPRNs and landmark postcodes so
+#     no entry corresponds to a real address.
+#   - Eastings / Northings approximate the UK National Grid range but
+#     are deliberately rounded to the nearest 100m so they're clearly
+#     synthetic.
+#
+# Scenario properties (prop-001..prop-010) are explicitly engineered to
+# exercise particular reconciliation patterns; see
+# property-fixtures/README.md. Bulk properties (prop-011..prop-100)
+# provide volume and a realistic distribution of source-coverage.
+
+properties:
+
+  # ─── Scenario properties ───────────────────────────────────────────
+
+  # prop-001 — known to all four sources. The README quick-start hero.
+  - id: prop-001
+    notes: "Detached house in all four sources — README quick-start example."
+    records:
+      royal_mail_paf:
+        source_id: "paf-100099000001"
+        uprn: "100099000001"
+        postcode: "SW1A 1AA"
+        address_line_1: "12 Acacia Avenue"
+        thoroughfare: "Acacia Avenue"
+        building_number: "12"
+      os_addressbase:
+        source_id: "osab-100099000001"
+        uprn: "100099000001"
+        postcode: "SW1A 1AA"
+        classification: "residential"
+        easting: 530100
+        northing: 180200
+      land_registry:
+        source_id: "lr-NGL100001"
+        uprn: "100099000001"
+        title_number: "NGL100001"
+        tenure: "freehold"
+        registered_at: "2018-04-12"
+      council_tax:
+        source_id: "ct-12001-A"
+        uprn: "100099000001"
+        postcode: "SW1A 1AA"
+        band: "E"
+
+  # prop-002 — three sources (paf + os + council_tax). Unregistered land
+  # — no Land Registry record (common for properties never sold since the
+  # introduction of compulsory registration in their area).
+  - id: prop-002
+    notes: "Three-source coverage; unregistered land has no Land Registry entry."
+    records:
+      royal_mail_paf:
+        source_id: "paf-100099000002"
+        uprn: "100099000002"
+        postcode: "EH99 1SP"
+        address_line_1: "47 Church Lane"
+        thoroughfare: "Church Lane"
+        building_number: "47"
+      os_addressbase:
+        source_id: "osab-100099000002"
+        uprn: "100099000002"
+        postcode: "EH99 1SP"
+        classification: "residential"
+        easting: 325400
+        northing: 673100
+      council_tax:
+        source_id: "ct-12002-B"
+        uprn: "100099000002"
+        postcode: "EH99 1SP"
+        band: "C"
+
+  # prop-003 — two sources (paf + council_tax). Basic dwelling, missing
+  # from OS AddressBase and Land Registry (older property, gaps in the
+  # geospatial data, no recent sale).
+  - id: prop-003
+    notes: "Two-source coverage: basic council dwelling, no OS or LR record."
+    records:
+      royal_mail_paf:
+        source_id: "paf-100099000003"
+        uprn: "100099000003"
+        postcode: "W2 1NY"
+        address_line_1: "9 Mill Road"
+        thoroughfare: "Mill Road"
+        building_number: "9"
+      council_tax:
+        source_id: "ct-12003-A"
+        uprn: "100099000003"
+        postcode: "W2 1NY"
+        band: "B"
+
+  # prop-004, prop-005, prop-006 — three flats in one converted Victorian
+  # house at 23 High Street. Distinct UPRNs because each flat is its own
+  # rateable unit. Demonstrates that "shared building" is not a basis for
+  # merging under exact-alias matching.
+  - id: prop-004
+    notes: "Flat 1 of 3 in a converted Victorian house. Distinct UPRN from prop-005, prop-006."
+    records:
+      royal_mail_paf:
+        source_id: "paf-100099000041"
+        uprn: "100099000041"
+        postcode: "NW1 6XE"
+        address_line_1: "Flat 1, 23 High Street"
+        thoroughfare: "High Street"
+        building_number: "23"
+        sub_building: "Flat 1"
+      council_tax:
+        source_id: "ct-12041-A"
+        uprn: "100099000041"
+        postcode: "NW1 6XE"
+        band: "B"
+
+  - id: prop-005
+    notes: "Flat 2 of 3 in the same building as prop-004 / prop-006."
+    records:
+      royal_mail_paf:
+        source_id: "paf-100099000051"
+        uprn: "100099000051"
+        postcode: "NW1 6XE"
+        address_line_1: "Flat 2, 23 High Street"
+        thoroughfare: "High Street"
+        building_number: "23"
+        sub_building: "Flat 2"
+      council_tax:
+        source_id: "ct-12051-A"
+        uprn: "100099000051"
+        postcode: "NW1 6XE"
+        band: "B"
+
+  - id: prop-006
+    notes: "Flat 3 of 3 in the same building as prop-004 / prop-005."
+    records:
+      royal_mail_paf:
+        source_id: "paf-100099000061"
+        uprn: "100099000061"
+        postcode: "NW1 6XE"
+        address_line_1: "Flat 3, 23 High Street"
+        thoroughfare: "High Street"
+        building_number: "23"
+        sub_building: "Flat 3"
+      council_tax:
+        source_id: "ct-12061-A"
+        uprn: "100099000061"
+        postcode: "NW1 6XE"
+        band: "B"
+
+  # prop-007 — address representation variation. The PAF and OS records
+  # describe the same property (same UPRN) but with different address
+  # representations: PAF uses the sub-building form, OS uses the
+  # alphabetic-suffix form. Under exact-alias matching these are distinct
+  # claims that would mint two entities; the ground-truth-aware ingest
+  # links them with addAlias. (The future matching DSL would fold them
+  # via the shared UPRN attribute.)
+  - id: prop-007
+    notes: "Same UPRN, variant address strings across PAF and OS. Linked via addAlias."
+    records:
+      royal_mail_paf:
+        source_id: "paf-100099000070"
+        uprn: "100099000070"
+        postcode: "SE1 7TY"
+        address_line_1: "Flat 1, 23 The Old Bakery, High Street"
+        thoroughfare: "High Street"
+        building_number: "23"
+        sub_building: "Flat 1, The Old Bakery"
+      os_addressbase:
+        source_id: "osab-100099000070"
+        uprn: "100099000070"
+        postcode: "SE1 7TY"
+        classification: "residential"
+        easting: 531100
+        northing: 179400
+
+  # prop-008 — UPRN with conflicting postcode (data quality issue from
+  # postcode renumbering). The original PAF record has the post-1996
+  # postcode; updates.yaml re-asserts the same PAF alias with the
+  # subsequently-corrected postcode — triggers a conflict event.
+  - id: prop-008
+    notes: "updates.yaml re-asserts paf-100099000080 with corrected postcode — conflict path."
+    records:
+      royal_mail_paf:
+        source_id: "paf-100099000080"
+        uprn: "100099000080"
+        postcode: "EC2A 4DP"
+        address_line_1: "42 Station Approach"
+        thoroughfare: "Station Approach"
+        building_number: "42"
+      os_addressbase:
+        source_id: "osab-100099000080"
+        uprn: "100099000080"
+        postcode: "EC2A 4DP"
+        classification: "residential"
+        easting: 533100
+        northing: 181800
+      land_registry:
+        source_id: "lr-NGL100080"
+        uprn: "100099000080"
+        title_number: "NGL100080"
+        tenure: "freehold"
+        registered_at: "2010-06-22"
+      council_tax:
+        source_id: "ct-12080-D"
+        uprn: "100099000080"
+        postcode: "EC2A 4DP"
+        band: "D"
+
+  # prop-009 — new build with provisional address but no UPRN at
+  # creation time. updates.yaml re-asserts the same paf alias once the
+  # UPRN has been allocated — triggers a conflict event because the
+  # attributes set diverges.
+  - id: prop-009
+    notes: "New build pre-UPRN. updates.yaml re-asserts paf-PROV-009 with UPRN — conflict path."
+    records:
+      royal_mail_paf:
+        source_id: "paf-PROV-009"
+        postcode: "XX1 1XX"
+        address_line_1: "Plot 9, Hanover Place"
+        thoroughfare: "Hanover Place"
+        provisional_address: "true"
+
+  # prop-010 — first of two distinct properties on Acacia Avenue with
+  # similar addresses ("10 Acacia Avenue" / "10A Acacia Avenue"). Must
+  # NOT merge with prop-026 which is the alphabetic-suffix neighbour.
+  - id: prop-010
+    notes: "10 Acacia Avenue. Distinct from 10A Acacia Avenue at prop-026."
+    records:
+      royal_mail_paf:
+        source_id: "paf-100099000100"
+        uprn: "100099000100"
+        postcode: "SW1A 2AA"
+        address_line_1: "10 Acacia Avenue"
+        thoroughfare: "Acacia Avenue"
+        building_number: "10"
+      council_tax:
+        source_id: "ct-12100-A"
+        uprn: "100099000100"
+        postcode: "SW1A 2AA"
+        band: "D"
+
+  # ─── Bulk properties (prop-011..prop-100) ──────────────────────────
+  #
+  # Distribution from here on:
+  #   prop-011..prop-014  all four sources (4 properties)
+  #   prop-015..prop-025  three-source    (11 properties)
+  #   prop-026..prop-050  two-source      (25 properties)
+  #   prop-051..prop-100  single-source   (50 properties)
+  #
+  # prop-026 is the distinct-similar-address partner of prop-010.
+
+  # ─── Four-source bulk (prop-011..prop-014) ─────────────────────────
+
+  - id: prop-011
+    records:
+      royal_mail_paf:
+        source_id: "paf-100099000110"
+        uprn: "100099000110"
+        postcode: "W1A 1AA"
+        address_line_1: "8 King Street"
+        thoroughfare: "King Street"
+        building_number: "8"
+      os_addressbase:
+        source_id: "osab-100099000110"
+        uprn: "100099000110"
+        postcode: "W1A 1AA"
+        classification: "residential"
+        easting: 528900
+        northing: 181000
+      land_registry:
+        source_id: "lr-NGL100110"
+        uprn: "100099000110"
+        title_number: "NGL100110"
+        tenure: "freehold"
+        registered_at: "2015-09-30"
+      council_tax:
+        source_id: "ct-12110-D"
+        uprn: "100099000110"
+        postcode: "W1A 1AA"
+        band: "F"
+
+  - id: prop-012
+    records:
+      royal_mail_paf:
+        source_id: "paf-100099000120"
+        uprn: "100099000120"
+        postcode: "CF99 1NA"
+        address_line_1: "15 Queen Street"
+        thoroughfare: "Queen Street"
+        building_number: "15"
+      os_addressbase:
+        source_id: "osab-100099000120"
+        uprn: "100099000120"
+        postcode: "CF99 1NA"
+        classification: "residential"
+        easting: 318400
+        northing: 176200
+      land_registry:
+        source_id: "lr-WLD100120"
+        uprn: "100099000120"
+        title_number: "WLD100120"
+        tenure: "leasehold"
+        registered_at: "2017-11-04"
+      council_tax:
+        source_id: "ct-12120-C"
+        uprn: "100099000120"
+        postcode: "CF99 1NA"
+        band: "C"
+
+  - id: prop-013
+    records:
+      royal_mail_paf:
+        source_id: "paf-100099000130"
+        uprn: "100099000130"
+        postcode: "EH99 1SP"
+        address_line_1: "Flat 4, 6 Park View"
+        thoroughfare: "Park View"
+        building_number: "6"
+        sub_building: "Flat 4"
+      os_addressbase:
+        source_id: "osab-100099000130"
+        uprn: "100099000130"
+        postcode: "EH99 1SP"
+        classification: "residential"
+        easting: 325800
+        northing: 673900
+      land_registry:
+        source_id: "lr-MID100130"
+        uprn: "100099000130"
+        title_number: "MID100130"
+        tenure: "leasehold"
+        registered_at: "2019-02-18"
+      council_tax:
+        source_id: "ct-12130-B"
+        uprn: "100099000130"
+        postcode: "EH99 1SP"
+        band: "B"
+
+  - id: prop-014
+    records:
+      royal_mail_paf:
+        source_id: "paf-100099000140"
+        uprn: "100099000140"
+        postcode: "BT99 1AA"
+        address_line_1: "21 Manor Close"
+        thoroughfare: "Manor Close"
+        building_number: "21"
+      os_addressbase:
+        source_id: "osab-100099000140"
+        uprn: "100099000140"
+        postcode: "BT99 1AA"
+        classification: "residential"
+        easting: 333200
+        northing: 374100
+      land_registry:
+        source_id: "lr-BEL100140"
+        uprn: "100099000140"
+        title_number: "BEL100140"
+        tenure: "freehold"
+        registered_at: "2020-07-15"
+      council_tax:
+        source_id: "ct-12140-E"
+        uprn: "100099000140"
+        postcode: "BT99 1AA"
+        band: "E"
+
+  # ─── Three-source bulk (prop-015..prop-025) ────────────────────────
+
+  - id: prop-015
+    records:
+      royal_mail_paf:
+        source_id: "paf-100099000150"
+        uprn: "100099000150"
+        postcode: "M99 1AA"
+        address_line_1: "3 Beech Drive"
+        thoroughfare: "Beech Drive"
+        building_number: "3"
+      os_addressbase:
+        source_id: "osab-100099000150"
+        uprn: "100099000150"
+        postcode: "M99 1AA"
+        classification: "residential"
+        easting: 384100
+        northing: 398200
+      council_tax:
+        source_id: "ct-12150-C"
+        uprn: "100099000150"
+        postcode: "M99 1AA"
+        band: "C"
+
+  - id: prop-016
+    records:
+      royal_mail_paf:
+        source_id: "paf-100099000160"
+        uprn: "100099000160"
+        postcode: "L99 1AA"
+        address_line_1: "27 Cedar Crescent"
+        thoroughfare: "Cedar Crescent"
+        building_number: "27"
+      os_addressbase:
+        source_id: "osab-100099000160"
+        uprn: "100099000160"
+        postcode: "L99 1AA"
+        classification: "residential"
+        easting: 335400
+        northing: 391100
+      land_registry:
+        source_id: "lr-LAN100160"
+        uprn: "100099000160"
+        title_number: "LAN100160"
+        tenure: "freehold"
+        registered_at: "2008-03-09"
+
+  - id: prop-017
+    records:
+      royal_mail_paf:
+        source_id: "paf-100099000170"
+        uprn: "100099000170"
+        postcode: "B99 1AA"
+        address_line_1: "11 Elm Grove"
+        thoroughfare: "Elm Grove"
+        building_number: "11"
+      land_registry:
+        source_id: "lr-WAR100170"
+        uprn: "100099000170"
+        title_number: "WAR100170"
+        tenure: "freehold"
+        registered_at: "2012-12-04"
+      council_tax:
+        source_id: "ct-12170-D"
+        uprn: "100099000170"
+        postcode: "B99 1AA"
+        band: "D"
+
+  - id: prop-018
+    records:
+      royal_mail_paf:
+        source_id: "paf-100099000180"
+        uprn: "100099000180"
+        postcode: "S99 1AA"
+        address_line_1: "5 Birch Lane"
+        thoroughfare: "Birch Lane"
+        building_number: "5"
+      os_addressbase:
+        source_id: "osab-100099000180"
+        uprn: "100099000180"
+        postcode: "S99 1AA"
+        classification: "residential"
+        easting: 435400
+        northing: 388100
+      council_tax:
+        source_id: "ct-12180-B"
+        uprn: "100099000180"
+        postcode: "S99 1AA"
+        band: "B"
+
+  - id: prop-019
+    records:
+      royal_mail_paf:
+        source_id: "paf-100099000190"
+        uprn: "100099000190"
+        postcode: "BS99 1AA"
+        address_line_1: "33 Oak Way"
+        thoroughfare: "Oak Way"
+        building_number: "33"
+      os_addressbase:
+        source_id: "osab-100099000190"
+        uprn: "100099000190"
+        postcode: "BS99 1AA"
+        classification: "residential"
+        easting: 358700
+        northing: 172800
+      land_registry:
+        source_id: "lr-AVN100190"
+        uprn: "100099000190"
+        title_number: "AVN100190"
+        tenure: "leasehold"
+        registered_at: "2016-08-21"
+
+  - id: prop-020
+    records:
+      royal_mail_paf:
+        source_id: "paf-100099000200"
+        uprn: "100099000200"
+        postcode: "NE99 1AA"
+        address_line_1: "7 Maple Court"
+        thoroughfare: "Maple Court"
+        building_number: "7"
+      land_registry:
+        source_id: "lr-NTH100200"
+        uprn: "100099000200"
+        title_number: "NTH100200"
+        tenure: "freehold"
+        registered_at: "2014-05-12"
+      council_tax:
+        source_id: "ct-12200-C"
+        uprn: "100099000200"
+        postcode: "NE99 1AA"
+        band: "C"
+
+  - id: prop-021
+    records:
+      royal_mail_paf:
+        source_id: "paf-100099000210"
+        uprn: "100099000210"
+        postcode: "LS99 1AA"
+        address_line_1: "Flat 2, 18 Hazel Road"
+        thoroughfare: "Hazel Road"
+        building_number: "18"
+        sub_building: "Flat 2"
+      os_addressbase:
+        source_id: "osab-100099000210"
+        uprn: "100099000210"
+        postcode: "LS99 1AA"
+        classification: "residential"
+        easting: 430100
+        northing: 433100
+      council_tax:
+        source_id: "ct-12210-A"
+        uprn: "100099000210"
+        postcode: "LS99 1AA"
+        band: "A"
+
+  - id: prop-022
+    records:
+      royal_mail_paf:
+        source_id: "paf-100099000220"
+        uprn: "100099000220"
+        postcode: "NG99 1AA"
+        address_line_1: "16 Willow Drive"
+        thoroughfare: "Willow Drive"
+        building_number: "16"
+      os_addressbase:
+        source_id: "osab-100099000220"
+        uprn: "100099000220"
+        postcode: "NG99 1AA"
+        classification: "residential"
+        easting: 458100
+        northing: 339200
+      land_registry:
+        source_id: "lr-NOT100220"
+        uprn: "100099000220"
+        title_number: "NOT100220"
+        tenure: "freehold"
+        registered_at: "2011-10-30"
+
+  - id: prop-023
+    records:
+      royal_mail_paf:
+        source_id: "paf-100099000230"
+        uprn: "100099000230"
+        postcode: "RG99 1AA"
+        address_line_1: "44 Pine Walk"
+        thoroughfare: "Pine Walk"
+        building_number: "44"
+      land_registry:
+        source_id: "lr-BRK100230"
+        uprn: "100099000230"
+        title_number: "BRK100230"
+        tenure: "freehold"
+        registered_at: "2007-01-17"
+      council_tax:
+        source_id: "ct-12230-E"
+        uprn: "100099000230"
+        postcode: "RG99 1AA"
+        band: "E"
+
+  - id: prop-024
+    records:
+      royal_mail_paf:
+        source_id: "paf-100099000240"
+        uprn: "100099000240"
+        postcode: "OX99 1AA"
+        address_line_1: "2 Rowan Avenue"
+        thoroughfare: "Rowan Avenue"
+        building_number: "2"
+      os_addressbase:
+        source_id: "osab-100099000240"
+        uprn: "100099000240"
+        postcode: "OX99 1AA"
+        classification: "residential"
+        easting: 451100
+        northing: 206200
+      council_tax:
+        source_id: "ct-12240-D"
+        uprn: "100099000240"
+        postcode: "OX99 1AA"
+        band: "D"
+
+  - id: prop-025
+    records:
+      royal_mail_paf:
+        source_id: "paf-100099000250"
+        uprn: "100099000250"
+        postcode: "CB99 1AA"
+        address_line_1: "29 Sycamore Close"
+        thoroughfare: "Sycamore Close"
+        building_number: "29"
+      land_registry:
+        source_id: "lr-CAM100250"
+        uprn: "100099000250"
+        title_number: "CAM100250"
+        tenure: "freehold"
+        registered_at: "2013-04-08"
+      council_tax:
+        source_id: "ct-12250-C"
+        uprn: "100099000250"
+        postcode: "CB99 1AA"
+        band: "C"
+
+  # ─── Two-source bulk (prop-026..prop-050) ──────────────────────────
+
+  # prop-026 — the alphabetic-suffix neighbour of prop-010.
+  - id: prop-026
+    notes: "10A Acacia Avenue. Distinct from 10 Acacia Avenue at prop-010."
+    records:
+      royal_mail_paf:
+        source_id: "paf-100099000260"
+        uprn: "100099000260"
+        postcode: "SW1A 2AA"
+        address_line_1: "10A Acacia Avenue"
+        thoroughfare: "Acacia Avenue"
+        building_number: "10A"
+      council_tax:
+        source_id: "ct-12260-A"
+        uprn: "100099000260"
+        postcode: "SW1A 2AA"
+        band: "C"
+
+  - id: prop-027
+    records:
+      royal_mail_paf:
+        source_id: "paf-100099000270"
+        uprn: "100099000270"
+        postcode: "PL99 1AA"
+        address_line_1: "1 Holly Lane"
+        thoroughfare: "Holly Lane"
+        building_number: "1"
+      os_addressbase:
+        source_id: "osab-100099000270"
+        uprn: "100099000270"
+        postcode: "PL99 1AA"
+        classification: "residential"
+        easting: 248100
+        northing: 55900
+
+  - id: prop-028
+    records:
+      royal_mail_paf:
+        source_id: "paf-100099000280"
+        uprn: "100099000280"
+        postcode: "EX99 1AA"
+        address_line_1: "12 Larch Way"
+        thoroughfare: "Larch Way"
+        building_number: "12"
+      land_registry:
+        source_id: "lr-DEV100280"
+        uprn: "100099000280"
+        title_number: "DEV100280"
+        tenure: "freehold"
+        registered_at: "2005-11-22"
+
+  - id: prop-029
+    records:
+      os_addressbase:
+        source_id: "osab-100099000290"
+        uprn: "100099000290"
+        postcode: "TR99 1AA"
+        classification: "residential"
+        easting: 182500
+        northing: 50500
+      council_tax:
+        source_id: "ct-12290-B"
+        uprn: "100099000290"
+        postcode: "TR99 1AA"
+        band: "B"
+
+  - id: prop-030
+    records:
+      royal_mail_paf:
+        source_id: "paf-100099000300"
+        uprn: "100099000300"
+        postcode: "BA99 1AA"
+        address_line_1: "8 Spruce Close"
+        thoroughfare: "Spruce Close"
+        building_number: "8"
+      council_tax:
+        source_id: "ct-12300-C"
+        uprn: "100099000300"
+        postcode: "BA99 1AA"
+        band: "C"
+
+  - id: prop-031
+    records:
+      land_registry:
+        source_id: "lr-SOM100310"
+        uprn: "100099000310"
+        title_number: "SOM100310"
+        tenure: "freehold"
+        registered_at: "2009-03-15"
+      council_tax:
+        source_id: "ct-12310-D"
+        uprn: "100099000310"
+        postcode: "TA99 1AA"
+        band: "D"
+
+  - id: prop-032
+    records:
+      royal_mail_paf:
+        source_id: "paf-100099000320"
+        uprn: "100099000320"
+        postcode: "DT99 1AA"
+        address_line_1: "20 Aspen Way"
+        thoroughfare: "Aspen Way"
+        building_number: "20"
+      os_addressbase:
+        source_id: "osab-100099000320"
+        uprn: "100099000320"
+        postcode: "DT99 1AA"
+        classification: "residential"
+        easting: 367400
+        northing: 90800
+
+  - id: prop-033
+    records:
+      royal_mail_paf:
+        source_id: "paf-100099000330"
+        uprn: "100099000330"
+        postcode: "SP99 1AA"
+        address_line_1: "5 Yew Tree Avenue"
+        thoroughfare: "Yew Tree Avenue"
+        building_number: "5"
+      land_registry:
+        source_id: "lr-WIL100330"
+        uprn: "100099000330"
+        title_number: "WIL100330"
+        tenure: "freehold"
+        registered_at: "2003-07-09"
+
+  - id: prop-034
+    records:
+      os_addressbase:
+        source_id: "osab-100099000340"
+        uprn: "100099000340"
+        postcode: "SO99 1AA"
+        classification: "residential"
+        easting: 442100
+        northing: 113200
+      council_tax:
+        source_id: "ct-12340-A"
+        uprn: "100099000340"
+        postcode: "SO99 1AA"
+        band: "A"
+
+  - id: prop-035
+    records:
+      royal_mail_paf:
+        source_id: "paf-100099000350"
+        uprn: "100099000350"
+        postcode: "PO99 1AA"
+        address_line_1: "Flat 6, 11 Marina Drive"
+        thoroughfare: "Marina Drive"
+        building_number: "11"
+        sub_building: "Flat 6"
+      council_tax:
+        source_id: "ct-12350-B"
+        uprn: "100099000350"
+        postcode: "PO99 1AA"
+        band: "B"
+
+  - id: prop-036
+    records:
+      royal_mail_paf:
+        source_id: "paf-100099000360"
+        uprn: "100099000360"
+        postcode: "BN99 1AA"
+        address_line_1: "44 Seafront Parade"
+        thoroughfare: "Seafront Parade"
+        building_number: "44"
+      os_addressbase:
+        source_id: "osab-100099000360"
+        uprn: "100099000360"
+        postcode: "BN99 1AA"
+        classification: "mixed"
+        easting: 531100
+        northing: 104700
+
+  - id: prop-037
+    records:
+      royal_mail_paf:
+        source_id: "paf-100099000370"
+        uprn: "100099000370"
+        postcode: "CT99 1AA"
+        address_line_1: "13 Coast Road"
+        thoroughfare: "Coast Road"
+        building_number: "13"
+      land_registry:
+        source_id: "lr-KEN100370"
+        uprn: "100099000370"
+        title_number: "KEN100370"
+        tenure: "leasehold"
+        registered_at: "2014-09-19"
+
+  - id: prop-038
+    records:
+      os_addressbase:
+        source_id: "osab-100099000380"
+        uprn: "100099000380"
+        postcode: "ME99 1AA"
+        classification: "residential"
+        easting: 580100
+        northing: 168200
+      council_tax:
+        source_id: "ct-12380-D"
+        uprn: "100099000380"
+        postcode: "ME99 1AA"
+        band: "D"
+
+  - id: prop-039
+    records:
+      royal_mail_paf:
+        source_id: "paf-100099000390"
+        uprn: "100099000390"
+        postcode: "TN99 1AA"
+        address_line_1: "9 Castle View"
+        thoroughfare: "Castle View"
+        building_number: "9"
+      council_tax:
+        source_id: "ct-12390-E"
+        uprn: "100099000390"
+        postcode: "TN99 1AA"
+        band: "E"
+
+  - id: prop-040
+    records:
+      royal_mail_paf:
+        source_id: "paf-100099000400"
+        uprn: "100099000400"
+        postcode: "RH99 1AA"
+        address_line_1: "31 Forest Way"
+        thoroughfare: "Forest Way"
+        building_number: "31"
+      os_addressbase:
+        source_id: "osab-100099000400"
+        uprn: "100099000400"
+        postcode: "RH99 1AA"
+        classification: "residential"
+        easting: 519100
+        northing: 145600
+
+  - id: prop-041
+    records:
+      land_registry:
+        source_id: "lr-SUR100410"
+        uprn: "100099000410"
+        title_number: "SUR100410"
+        tenure: "freehold"
+        registered_at: "2002-02-26"
+      council_tax:
+        source_id: "ct-12410-G"
+        uprn: "100099000410"
+        postcode: "GU99 1AA"
+        band: "G"
+
+  - id: prop-042
+    records:
+      royal_mail_paf:
+        source_id: "paf-100099000420"
+        uprn: "100099000420"
+        postcode: "RG99 2AA"
+        address_line_1: "22 The Green"
+        thoroughfare: "The Green"
+        building_number: "22"
+      os_addressbase:
+        source_id: "osab-100099000420"
+        uprn: "100099000420"
+        postcode: "RG99 2AA"
+        classification: "residential"
+        easting: 471400
+        northing: 174900
+
+  - id: prop-043
+    records:
+      royal_mail_paf:
+        source_id: "paf-100099000430"
+        uprn: "100099000430"
+        postcode: "SL99 1AA"
+        address_line_1: "Flat 3, 7 Riverside"
+        thoroughfare: "Riverside"
+        building_number: "7"
+        sub_building: "Flat 3"
+      land_registry:
+        source_id: "lr-BUC100430"
+        uprn: "100099000430"
+        title_number: "BUC100430"
+        tenure: "leasehold"
+        registered_at: "2018-12-03"
+
+  - id: prop-044
+    records:
+      os_addressbase:
+        source_id: "osab-100099000440"
+        uprn: "100099000440"
+        postcode: "HP99 1AA"
+        classification: "residential"
+        easting: 483100
+        northing: 209200
+      council_tax:
+        source_id: "ct-12440-D"
+        uprn: "100099000440"
+        postcode: "HP99 1AA"
+        band: "D"
+
+  - id: prop-045
+    records:
+      royal_mail_paf:
+        source_id: "paf-100099000450"
+        uprn: "100099000450"
+        postcode: "MK99 1AA"
+        address_line_1: "5 Roundabout Way"
+        thoroughfare: "Roundabout Way"
+        building_number: "5"
+      council_tax:
+        source_id: "ct-12450-C"
+        uprn: "100099000450"
+        postcode: "MK99 1AA"
+        band: "C"
+
+  - id: prop-046
+    records:
+      royal_mail_paf:
+        source_id: "paf-100099000460"
+        uprn: "100099000460"
+        postcode: "LU99 1AA"
+        address_line_1: "10 Bowling Green Lane"
+        thoroughfare: "Bowling Green Lane"
+        building_number: "10"
+      os_addressbase:
+        source_id: "osab-100099000460"
+        uprn: "100099000460"
+        postcode: "LU99 1AA"
+        classification: "residential"
+        easting: 509400
+        northing: 219800
+
+  - id: prop-047
+    records:
+      land_registry:
+        source_id: "lr-BED100470"
+        uprn: "100099000470"
+        title_number: "BED100470"
+        tenure: "freehold"
+        registered_at: "2006-06-14"
+      council_tax:
+        source_id: "ct-12470-B"
+        uprn: "100099000470"
+        postcode: "AL99 1AA"
+        band: "B"
+
+  - id: prop-048
+    records:
+      royal_mail_paf:
+        source_id: "paf-100099000480"
+        uprn: "100099000480"
+        postcode: "WD99 1AA"
+        address_line_1: "17 Vicarage Road"
+        thoroughfare: "Vicarage Road"
+        building_number: "17"
+      os_addressbase:
+        source_id: "osab-100099000480"
+        uprn: "100099000480"
+        postcode: "WD99 1AA"
+        classification: "residential"
+        easting: 511100
+        northing: 196200
+
+  - id: prop-049
+    records:
+      royal_mail_paf:
+        source_id: "paf-100099000490"
+        uprn: "100099000490"
+        postcode: "EN99 1AA"
+        address_line_1: "26 Town End"
+        thoroughfare: "Town End"
+        building_number: "26"
+      council_tax:
+        source_id: "ct-12490-D"
+        uprn: "100099000490"
+        postcode: "EN99 1AA"
+        band: "D"
+
+  - id: prop-050
+    records:
+      os_addressbase:
+        source_id: "osab-100099000500"
+        uprn: "100099000500"
+        postcode: "IG99 1AA"
+        classification: "residential"
+        easting: 542100
+        northing: 188900
+      land_registry:
+        source_id: "lr-ESX100500"
+        uprn: "100099000500"
+        title_number: "ESX100500"
+        tenure: "freehold"
+        registered_at: "2019-08-27"
+
+  # ─── Single-source bulk (prop-051..prop-100) ───────────────────────
+
+  # PAF-only — addresses recently registered, not yet in OS / LR /
+  # council_tax data extracts.
+  - id: prop-051
+    records:
+      royal_mail_paf:
+        source_id: "paf-100099000510"
+        uprn: "100099000510"
+        postcode: "RM99 1AA"
+        address_line_1: "33 Greenway"
+        thoroughfare: "Greenway"
+        building_number: "33"
+
+  - id: prop-052
+    records:
+      royal_mail_paf:
+        source_id: "paf-100099000520"
+        uprn: "100099000520"
+        postcode: "DA99 1AA"
+        address_line_1: "12 Lakeside"
+        thoroughfare: "Lakeside"
+        building_number: "12"
+
+  - id: prop-053
+    records:
+      royal_mail_paf:
+        source_id: "paf-100099000530"
+        uprn: "100099000530"
+        postcode: "BR99 1AA"
+        address_line_1: "5 Hillcrest"
+        thoroughfare: "Hillcrest"
+        building_number: "5"
+
+  - id: prop-054
+    records:
+      royal_mail_paf:
+        source_id: "paf-100099000540"
+        uprn: "100099000540"
+        postcode: "CR99 1AA"
+        address_line_1: "21 Park Lane"
+        thoroughfare: "Park Lane"
+        building_number: "21"
+
+  - id: prop-055
+    records:
+      royal_mail_paf:
+        source_id: "paf-100099000550"
+        uprn: "100099000550"
+        postcode: "SM99 1AA"
+        address_line_1: "8 Garden Close"
+        thoroughfare: "Garden Close"
+        building_number: "8"
+
+  - id: prop-056
+    records:
+      royal_mail_paf:
+        source_id: "paf-100099000560"
+        uprn: "100099000560"
+        postcode: "KT99 1AA"
+        address_line_1: "44 Orchard Way"
+        thoroughfare: "Orchard Way"
+        building_number: "44"
+
+  - id: prop-057
+    records:
+      royal_mail_paf:
+        source_id: "paf-100099000570"
+        uprn: "100099000570"
+        postcode: "TW99 1AA"
+        address_line_1: "Flat 9, 2 Riverbank Place"
+        thoroughfare: "Riverbank Place"
+        building_number: "2"
+        sub_building: "Flat 9"
+
+  - id: prop-058
+    records:
+      royal_mail_paf:
+        source_id: "paf-100099000580"
+        uprn: "100099000580"
+        postcode: "HA99 1AA"
+        address_line_1: "13 Vine Walk"
+        thoroughfare: "Vine Walk"
+        building_number: "13"
+
+  - id: prop-059
+    records:
+      royal_mail_paf:
+        source_id: "paf-100099000590"
+        uprn: "100099000590"
+        postcode: "UB99 1AA"
+        address_line_1: "25 Highfield Road"
+        thoroughfare: "Highfield Road"
+        building_number: "25"
+
+  - id: prop-060
+    records:
+      royal_mail_paf:
+        source_id: "paf-100099000600"
+        uprn: "100099000600"
+        postcode: "WD99 2AA"
+        address_line_1: "7 Mill Hill"
+        thoroughfare: "Mill Hill"
+        building_number: "7"
+
+  # OS-only — recent classification refresh without other source data.
+  - id: prop-061
+    records:
+      os_addressbase:
+        source_id: "osab-100099000610"
+        uprn: "100099000610"
+        postcode: "EH99 2AA"
+        classification: "commercial"
+        easting: 325900
+        northing: 673400
+
+  - id: prop-062
+    records:
+      os_addressbase:
+        source_id: "osab-100099000620"
+        uprn: "100099000620"
+        postcode: "EH99 3AA"
+        classification: "agricultural"
+        easting: 330800
+        northing: 672100
+
+  - id: prop-063
+    records:
+      os_addressbase:
+        source_id: "osab-100099000630"
+        uprn: "100099000630"
+        postcode: "G99 1AA"
+        classification: "residential"
+        easting: 259400
+        northing: 666800
+
+  - id: prop-064
+    records:
+      os_addressbase:
+        source_id: "osab-100099000640"
+        uprn: "100099000640"
+        postcode: "AB99 1AA"
+        classification: "residential"
+        easting: 393500
+        northing: 805100
+
+  - id: prop-065
+    records:
+      os_addressbase:
+        source_id: "osab-100099000650"
+        uprn: "100099000650"
+        postcode: "DD99 1AA"
+        classification: "mixed"
+        easting: 340100
+        northing: 730200
+
+  # Land Registry-only — old title with no recent council tax / PAF
+  # entries surfaced into the loaded extract.
+  - id: prop-066
+    records:
+      land_registry:
+        source_id: "lr-NGL100660"
+        uprn: "100099000660"
+        title_number: "NGL100660"
+        tenure: "freehold"
+        registered_at: "1996-04-08"
+
+  - id: prop-067
+    records:
+      land_registry:
+        source_id: "lr-NGL100670"
+        uprn: "100099000670"
+        title_number: "NGL100670"
+        tenure: "freehold"
+        registered_at: "1999-11-21"
+
+  - id: prop-068
+    records:
+      land_registry:
+        source_id: "lr-CYM100680"
+        uprn: "100099000680"
+        title_number: "CYM100680"
+        tenure: "leasehold"
+        registered_at: "2001-03-04"
+
+  - id: prop-069
+    records:
+      land_registry:
+        source_id: "lr-NTH100690"
+        uprn: "100099000690"
+        title_number: "NTH100690"
+        tenure: "freehold"
+        registered_at: "1998-07-12"
+
+  - id: prop-070
+    records:
+      land_registry:
+        source_id: "lr-SUS100700"
+        uprn: "100099000700"
+        title_number: "SUS100700"
+        tenure: "freehold"
+        registered_at: "2000-09-30"
+
+  # Council-tax-only — basic banding records without other sources yet.
+  - id: prop-071
+    records:
+      council_tax:
+        source_id: "ct-12710-B"
+        uprn: "100099000710"
+        postcode: "ST99 1AA"
+        band: "B"
+
+  - id: prop-072
+    records:
+      council_tax:
+        source_id: "ct-12720-A"
+        uprn: "100099000720"
+        postcode: "WV99 1AA"
+        band: "A"
+
+  - id: prop-073
+    records:
+      council_tax:
+        source_id: "ct-12730-C"
+        uprn: "100099000730"
+        postcode: "DY99 1AA"
+        band: "C"
+
+  - id: prop-074
+    records:
+      council_tax:
+        source_id: "ct-12740-D"
+        uprn: "100099000740"
+        postcode: "WS99 1AA"
+        band: "D"
+
+  - id: prop-075
+    records:
+      council_tax:
+        source_id: "ct-12750-A"
+        uprn: "100099000750"
+        postcode: "TF99 1AA"
+        band: "A"
+
+  # More PAF-only entries
+  - id: prop-076
+    records:
+      royal_mail_paf:
+        source_id: "paf-100099000760"
+        uprn: "100099000760"
+        postcode: "SY99 1AA"
+        address_line_1: "9 The Mount"
+        thoroughfare: "The Mount"
+        building_number: "9"
+
+  - id: prop-077
+    records:
+      royal_mail_paf:
+        source_id: "paf-100099000770"
+        uprn: "100099000770"
+        postcode: "HR99 1AA"
+        address_line_1: "14 Castle Gate"
+        thoroughfare: "Castle Gate"
+        building_number: "14"
+
+  - id: prop-078
+    records:
+      royal_mail_paf:
+        source_id: "paf-100099000780"
+        uprn: "100099000780"
+        postcode: "WR99 1AA"
+        address_line_1: "32 Albion Street"
+        thoroughfare: "Albion Street"
+        building_number: "32"
+
+  - id: prop-079
+    records:
+      royal_mail_paf:
+        source_id: "paf-100099000790"
+        uprn: "100099000790"
+        postcode: "GL99 1AA"
+        address_line_1: "5 Hollybush Road"
+        thoroughfare: "Hollybush Road"
+        building_number: "5"
+
+  - id: prop-080
+    records:
+      royal_mail_paf:
+        source_id: "paf-100099000800"
+        uprn: "100099000800"
+        postcode: "BS99 2AA"
+        address_line_1: "18 Stamford Street"
+        thoroughfare: "Stamford Street"
+        building_number: "18"
+
+  # More OS-only entries
+  - id: prop-081
+    records:
+      os_addressbase:
+        source_id: "osab-100099000810"
+        uprn: "100099000810"
+        postcode: "PH99 1AA"
+        classification: "agricultural"
+        easting: 290400
+        northing: 720100
+
+  - id: prop-082
+    records:
+      os_addressbase:
+        source_id: "osab-100099000820"
+        uprn: "100099000820"
+        postcode: "FK99 1AA"
+        classification: "residential"
+        easting: 280100
+        northing: 692800
+
+  - id: prop-083
+    records:
+      os_addressbase:
+        source_id: "osab-100099000830"
+        uprn: "100099000830"
+        postcode: "KY99 1AA"
+        classification: "commercial"
+        easting: 326400
+        northing: 691200
+
+  - id: prop-084
+    records:
+      os_addressbase:
+        source_id: "osab-100099000840"
+        uprn: "100099000840"
+        postcode: "PA99 1AA"
+        classification: "residential"
+        easting: 252100
+        northing: 666900
+
+  - id: prop-085
+    records:
+      os_addressbase:
+        source_id: "osab-100099000850"
+        uprn: "100099000850"
+        postcode: "TD99 1AA"
+        classification: "residential"
+        easting: 348100
+        northing: 633200
+
+  # More LR-only entries
+  - id: prop-086
+    records:
+      land_registry:
+        source_id: "lr-DUR100860"
+        uprn: "100099000860"
+        title_number: "DUR100860"
+        tenure: "freehold"
+        registered_at: "1997-05-19"
+
+  - id: prop-087
+    records:
+      land_registry:
+        source_id: "lr-YKS100870"
+        uprn: "100099000870"
+        title_number: "YKS100870"
+        tenure: "freehold"
+        registered_at: "2004-08-26"
+
+  - id: prop-088
+    records:
+      land_registry:
+        source_id: "lr-LIN100880"
+        uprn: "100099000880"
+        title_number: "LIN100880"
+        tenure: "leasehold"
+        registered_at: "2008-12-11"
+
+  - id: prop-089
+    records:
+      land_registry:
+        source_id: "lr-NTH100890"
+        uprn: "100099000890"
+        title_number: "NTH100890"
+        tenure: "freehold"
+        registered_at: "2011-01-09"
+
+  - id: prop-090
+    records:
+      land_registry:
+        source_id: "lr-CMW100900"
+        uprn: "100099000900"
+        title_number: "CMW100900"
+        tenure: "freehold"
+        registered_at: "1995-10-02"
+
+  # More council-tax-only entries
+  - id: prop-091
+    records:
+      council_tax:
+        source_id: "ct-12910-E"
+        uprn: "100099000910"
+        postcode: "NN99 1AA"
+        band: "E"
+
+  - id: prop-092
+    records:
+      council_tax:
+        source_id: "ct-12920-D"
+        uprn: "100099000920"
+        postcode: "LE99 1AA"
+        band: "D"
+
+  - id: prop-093
+    records:
+      council_tax:
+        source_id: "ct-12930-A"
+        uprn: "100099000930"
+        postcode: "DE99 1AA"
+        band: "A"
+
+  - id: prop-094
+    records:
+      council_tax:
+        source_id: "ct-12940-C"
+        uprn: "100099000940"
+        postcode: "NG99 2AA"
+        band: "C"
+
+  - id: prop-095
+    records:
+      council_tax:
+        source_id: "ct-12950-F"
+        uprn: "100099000950"
+        postcode: "SK99 1AA"
+        band: "F"
+
+  # Final five — mixed single-source coverage
+  - id: prop-096
+    records:
+      royal_mail_paf:
+        source_id: "paf-100099000960"
+        uprn: "100099000960"
+        postcode: "OL99 1AA"
+        address_line_1: "12 Cross Street"
+        thoroughfare: "Cross Street"
+        building_number: "12"
+
+  - id: prop-097
+    records:
+      os_addressbase:
+        source_id: "osab-100099000970"
+        uprn: "100099000970"
+        postcode: "BB99 1AA"
+        classification: "residential"
+        easting: 367400
+        northing: 432800
+
+  - id: prop-098
+    records:
+      land_registry:
+        source_id: "lr-LAN100980"
+        uprn: "100099000980"
+        title_number: "LAN100980"
+        tenure: "freehold"
+        registered_at: "2007-04-14"
+
+  - id: prop-099
+    records:
+      council_tax:
+        source_id: "ct-12990-B"
+        uprn: "100099000990"
+        postcode: "FY99 1AA"
+        band: "B"
+
+  - id: prop-100
+    records:
+      royal_mail_paf:
+        source_id: "paf-100099001000"
+        uprn: "100099001000"
+        postcode: "PR99 1AA"
+        address_line_1: "27 Beach Road"
+        thoroughfare: "Beach Road"
+        building_number: "27"

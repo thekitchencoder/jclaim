@@ -1,0 +1,49 @@
+# Re-asserted claims with mutated attributes — used to exercise the
+# conflict-event path. Each entry targets an alias already minted from
+# properties.yaml; the attributes here diverge from those originally
+# stored, so ingesting the update produces a Matched result AND an
+# EntityAttributesConflicted event.
+#
+# Format mirrors a single source-system record from properties.yaml.
+
+updates:
+
+  # prop-008 — postcode renumbering. Royal Mail reissued the postcode
+  # for a stretch of the street after a postal-district boundary change;
+  # the PAF record is re-asserted under the same source_id with the new
+  # postcode attribute.
+  - source: royal_mail_paf
+    source_id: "paf-100099000080"
+    notes: "Postcode renumbering: EC2A 4DP became EC2A 5DP after district boundary change."
+    attributes:
+      uprn: "100099000080"
+      postcode: "EC2A 5DP"
+      address_line_1: "42 Station Approach"
+      thoroughfare: "Station Approach"
+      building_number: "42"
+
+  # prop-009 — new build, UPRN finally assigned. The provisional record
+  # is re-asserted under the same source_id with the freshly-allocated
+  # UPRN attribute; the `provisional_address` marker is also dropped.
+  # This produces a conflict event because the stored attribute set
+  # diverges from the incoming one.
+  - source: royal_mail_paf
+    source_id: "paf-PROV-009"
+    notes: "GeoPlace assigned UPRN; PAF re-asserted with the new uprn attribute."
+    attributes:
+      uprn: "100099000099"
+      postcode: "XX1 1XX"
+      address_line_1: "9 Hanover Place"
+      thoroughfare: "Hanover Place"
+      building_number: "9"
+
+  # prop-001 — land registry record re-asserted with updated tenure
+  # (long leasehold extended into freehold after enfranchisement).
+  - source: land_registry
+    source_id: "lr-NGL100001"
+    notes: "Leasehold extended to freehold after collective enfranchisement."
+    attributes:
+      uprn: "100099000001"
+      title_number: "NGL100001"
+      tenure: "freehold"
+      registered_at: "2018-04-12"
