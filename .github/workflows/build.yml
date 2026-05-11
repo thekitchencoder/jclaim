@@ -28,9 +28,13 @@ jobs:
         run: mvn -B jacoco:report
 
       - name: Upload coverage to Codecov
+        # No token: the org has Codecov's Global Upload Token feature
+        # enabled for public repos. Passing an empty CODECOV_TOKEN env
+        # var causes the action to attempt token auth with "" and the
+        # server rejects with "Token required - not valid tokenless
+        # upload". Omitting the env var lets the action fall through
+        # to the tokenless path.
         uses: codecov/codecov-action@v6
-        env:
-          CODECOV_TOKEN: ${{ secrets.CODECOV_ORG_TOKEN }}
 
       - name: Upload test results
         if: always()
