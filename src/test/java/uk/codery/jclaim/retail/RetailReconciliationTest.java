@@ -3,8 +3,10 @@ package uk.codery.jclaim.retail;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import uk.codery.jclaim.event.AttributeDiff;
-import uk.codery.jclaim.event.ConflictEventSink;
 import uk.codery.jclaim.event.EntityAttributesConflicted;
+import uk.codery.jclaim.fixtures.DeterministicUuids;
+import uk.codery.jclaim.fixtures.GroundTruthIngester;
+import uk.codery.jclaim.fixtures.RecordingConflictSink;
 import uk.codery.jclaim.id.HumanIdGenerator;
 import uk.codery.jclaim.model.Alias;
 import uk.codery.jclaim.model.Claim;
@@ -22,15 +24,12 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import java.util.Set;
-import java.util.UUID;
-import java.util.function.Supplier;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -40,11 +39,11 @@ import static org.assertj.core.api.Assertions.assertThat;
  * <p>The resolver in this release matches only on the {@code (source,
  * sourceId)} alias, so an external "linking decision" is required to fold
  * a multi-source customer into one entity. The fixture loader supplies the
- * ground-truth grouping; the {@link #ingest(EntityResolver, List, Map)}
- * helper plays the role of that linking decision — for each customer's
- * first claim it calls {@code resolveOrMint}, for the rest it calls
- * {@code addAlias}. This is exactly the path a stronger matching policy
- * will exercise once JSpec composition lands.
+ * ground-truth grouping; {@link GroundTruthIngester} plays the role of
+ * that linking decision — for each customer's first claim it calls
+ * {@code resolveOrMint}, for the rest it calls {@code addAlias}. This is
+ * exactly the path a stronger matching policy will exercise once JSpec
+ * composition lands.
  */
 class RetailReconciliationTest {
 
@@ -60,7 +59,7 @@ class RetailReconciliationTest {
         conflictSink = new RecordingConflictSink();
         resolver = DefaultEntityResolver.builder(storage)
                 .namespace("codery")
-                .uuidSupplier(deterministicUuids())
+                .uuidSupplier(DeterministicUuids.supplier())
                 .humanIdGenerator(new HumanIdGenerator(new Random(42)))
                 .clock(Clock.fixed(Instant.parse("2026-05-11T10:00:00Z"), ZoneOffset.UTC))
                 .conflictSink(conflictSink)
@@ -90,7 +89,7 @@ class RetailReconciliationTest {
         assertThat(second).isInstanceOf(ResolutionResult.Matched.class);
         assertThat(second.entity()).isEqualTo(first.entity());
         assertThat(storage.size()).isEqualTo(1);
-        assertThat(conflictSink.events).isEmpty();
+        assertThat(conflictSink.events()).isEmpty();
     }
 
     @Test
@@ -130,8 +129,8 @@ class RetailReconciliationTest {
         assertThat(result.entity().attributes())
                 .containsExactlyElementsOf(baseline.attributes());
 
-        assertThat(conflictSink.events).hasSize(1);
-        EntityAttributesConflicted event = conflictSink.events.get(0);
+        assertThat(conflictSink.events()).hasSize(1);
+        EntityAttributesConflicted event = conflictSink.events().get(0);
         assertThat(event.stored()).isEqualTo(result.entity());
         assertThat(event.incoming()).isEqualTo(mutated);
         assertThat(event.differences()).contains(
@@ -141,7 +140,7 @@ class RetailReconciliationTest {
     @Test
     void fullDataset_naturalOrder_reconcilesToGroundTruth() {
         List<Claim> claims = new ArrayList<>(fixtures.allClaims());
-        ingest(resolver, claims, fixtures.claimsByCustomer());
+        GroundTruthIngester.ingest(resolver, claims, fixtures.claimsByCustomer());
         assertGraphMatchesGroundTruth();
     }
 
@@ -149,7 +148,7 @@ class RetailReconciliationTest {
     void fullDataset_reverseOrder_reconcilesToSameGroundTruth() {
         List<Claim> claims = new ArrayList<>(fixtures.allClaims());
         Collections.reverse(claims);
-        ingest(resolver, claims, fixtures.claimsByCustomer());
+        GroundTruthIngester.ingest(resolver, claims, fixtures.claimsByCustomer());
         assertGraphMatchesGroundTruth();
     }
 
@@ -158,17 +157,17 @@ class RetailReconciliationTest {
         List<Claim> claims = new ArrayList<>(fixtures.allClaims());
         // Deterministic shuffle — seed fixed so failures reproduce.
         Collections.shuffle(claims, new Random(2026_05_11L));
-        ingest(resolver, claims, fixtures.claimsByCustomer());
+        GroundTruthIngester.ingest(resolver, claims, fixtures.claimsByCustomer());
         assertGraphMatchesGroundTruth();
     }
 
     @Test
     void idempotency_loadingTheDatasetTwiceProducesAnIdenticalEntityGraph() {
-        ingest(resolver, fixtures.allClaims(), fixtures.claimsByCustomer());
+        GroundTruthIngester.ingest(resolver, fixtures.allClaims(), fixtures.claimsByCustomer());
         Map<String, EntityId> firstPass = snapshotCustomerToEntity();
         int firstPassSize = storage.size();
 
-        ingest(resolver, fixtures.allClaims(), fixtures.claimsByCustomer());
+        GroundTruthIngester.ingest(resolver, fixtures.allClaims(), fixtures.claimsByCustomer());
         Map<String, EntityId> secondPass = snapshotCustomerToEntity();
 
         assertThat(storage.size()).isEqualTo(firstPassSize);
@@ -177,7 +176,7 @@ class RetailReconciliationTest {
 
     @Test
     void twoCustomersWithSameDisplayName_remainDistinctEntities() {
-        ingest(resolver, fixtures.allClaims(), fixtures.claimsByCustomer());
+        GroundTruthIngester.ingest(resolver, fixtures.allClaims(), fixtures.claimsByCustomer());
 
         Entity smithA = resolver.findByAlias(SourceSystem.of("ecommerce"), "ec-10006").orElseThrow();
         Entity smithB = resolver.findByAlias(SourceSystem.of("crm"), "crm-30007").orElseThrow();
@@ -189,7 +188,7 @@ class RetailReconciliationTest {
 
     @Test
     void twoCustomersSharingAPhone_remainDistinctUnderExactAliasMatching() {
-        ingest(resolver, fixtures.allClaims(), fixtures.claimsByCustomer());
+        GroundTruthIngester.ingest(resolver, fixtures.allClaims(), fixtures.claimsByCustomer());
 
         Entity sophia = resolver.findByAlias(SourceSystem.of("ecommerce"), "ec-10008").orElseThrow();
         Entity mateo = resolver.findByAlias(SourceSystem.of("ecommerce"), "ec-10009").orElseThrow();
@@ -206,7 +205,7 @@ class RetailReconciliationTest {
         List<Claim> records = fixtures.claimsFor("cust-003");
         InMemoryEntityStorage isolated = new InMemoryEntityStorage();
         EntityResolver isolatedResolver = DefaultEntityResolver.builder(isolated)
-                .uuidSupplier(deterministicUuids())
+                .uuidSupplier(DeterministicUuids.supplier())
                 .humanIdGenerator(new HumanIdGenerator(new Random(99)))
                 .build();
         for (Claim claim : records) {
@@ -215,15 +214,15 @@ class RetailReconciliationTest {
         assertThat(isolated.size()).isEqualTo(records.size());
 
         // With the ground-truth-aware ingest, both records land on one entity.
-        ingest(resolver, records, Map.of("cust-003", records));
+        GroundTruthIngester.ingest(resolver, records, Map.of("cust-003", records));
         assertThat(storage.size()).isEqualTo(1);
     }
 
     @Test
     void updateClaimsBatch_emitsConflictEventsAgainstStoredAttributes() {
         // Stage 1 — full baseline ingestion, no conflicts expected.
-        ingest(resolver, fixtures.allClaims(), fixtures.claimsByCustomer());
-        assertThat(conflictSink.events)
+        GroundTruthIngester.ingest(resolver, fixtures.allClaims(), fixtures.claimsByCustomer());
+        assertThat(conflictSink.events())
                 .as("baseline ingest must not emit conflicts")
                 .isEmpty();
 
@@ -234,41 +233,11 @@ class RetailReconciliationTest {
             ResolutionResult result = resolver.resolveOrMint(update);
             assertThat(result).isInstanceOf(ResolutionResult.Matched.class);
         }
-        assertThat(conflictSink.events).hasSize(fixtures.updateClaims().size());
+        assertThat(conflictSink.events()).hasSize(fixtures.updateClaims().size());
         assertThat(snapshotAttributesByAlias()).isEqualTo(storedBefore);
     }
 
-    // ── Ingestion driver and assertion helpers ─────────────────────────
-
-    /**
-     * Plays the role of an external matching policy: for each claim, looks
-     * up which ground-truth customer it belongs to, mints a new entity the
-     * first time that customer is seen, and attaches subsequent claims as
-     * aliases on the already-minted entity.
-     */
-    private static void ingest(
-            EntityResolver resolver,
-            List<Claim> orderedClaims,
-            Map<String, List<Claim>> groundTruth) {
-        Map<Alias, String> aliasToCustomer = new HashMap<>();
-        for (Map.Entry<String, List<Claim>> e : groundTruth.entrySet()) {
-            for (Claim c : e.getValue()) {
-                aliasToCustomer.put(c.asAlias(), e.getKey());
-            }
-        }
-
-        Map<String, EntityId> customerToEntity = new HashMap<>();
-        for (Claim claim : orderedClaims) {
-            String customerId = aliasToCustomer.get(claim.asAlias());
-            EntityId existing = customerToEntity.get(customerId);
-            if (existing != null) {
-                resolver.addAlias(existing, claim.source(), claim.sourceId());
-            } else {
-                Entity minted = resolver.resolveOrMint(claim).entity();
-                customerToEntity.put(customerId, minted.id());
-            }
-        }
-    }
+    // ── Assertion helpers ───────────────────────────────────────────────
 
     private void assertGraphMatchesGroundTruth() {
         // One entity per ground-truth customer.
@@ -326,25 +295,5 @@ class RetailReconciliationTest {
                 .map(MatchingAttribute::value)
                 .findFirst()
                 .orElse(null);
-    }
-
-    /** Test-scope UUID v7-shaped supplier so URN regex passes deterministically. */
-    private static Supplier<UUID> deterministicUuids() {
-        long[] counter = {0L};
-        return () -> {
-            long ts = System.currentTimeMillis();
-            long msb = (ts << 16) | 0x7000L | (counter[0] & 0x0FFFL);
-            long lsb = 0x8000_0000_0000_0000L | (counter[0]++);
-            return new UUID(msb, lsb);
-        };
-    }
-
-    private static final class RecordingConflictSink implements ConflictEventSink {
-        final List<EntityAttributesConflicted> events = new ArrayList<>();
-
-        @Override
-        public void accept(EntityAttributesConflicted event) {
-            events.add(event);
-        }
     }
 }
