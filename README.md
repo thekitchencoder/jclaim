@@ -4,6 +4,7 @@
 [![Build and Test](https://github.com/thekitchencoder/jclaim/actions/workflows/build.yml/badge.svg)](https://github.com/thekitchencoder/jclaim/actions/workflows/build.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Java](https://img.shields.io/badge/Java-21+-blue.svg)](https://openjdk.org/projects/jdk/21/)
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fthekitchencoder%2Fjclaim.svg?type=shield)](https://app.fossa.com/projects/git%2Bgithub.com%2Fthekitchencoder%2Fjclaim?ref=badge_shield)
 
 JCLAIM is an embeddable, Spring-independent Java library for **entity identity reconciliation**. Given identity claims about an entity from multiple source systems, JCLAIM returns a single stable canonical identifier — matching to one if the entity is already known, minting one if not.
 
@@ -196,3 +197,6 @@ JCLAIM is one of a family of small Java libraries developed under the `uk.codery
 ## License
 
 MIT — see [`LICENSE`](LICENSE).
+
+
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fthekitchencoder%2Fjclaim.svg?type=large)](https://app.fossa.com/projects/git%2Bgithub.com%2Fthekitchencoder%2Fjclaim?ref=badge_large)
