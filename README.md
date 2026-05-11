@@ -143,6 +143,23 @@ The retail dataset itself covers around 100 synthetic customers across
 four source systems and is documented in
 [`src/test/resources/retail-fixtures/README.md`](src/test/resources/retail-fixtures/README.md).
 
+### Other corpora
+
+JClaim is entity-agnostic by design, so the test suite exercises the
+same library against three different domains:
+
+| Corpus      | Fixtures                                                                 | Example                                           |
+|-------------|--------------------------------------------------------------------------|---------------------------------------------------|
+| Customers   | [`retail-fixtures/`](src/test/resources/retail-fixtures/)                | [`RetailQuickStart`](examples/RetailQuickStart.java)   |
+| Products    | [`product-fixtures/`](src/test/resources/product-fixtures/)              | [`ProductQuickStart`](examples/ProductQuickStart.java) |
+| Properties  | [`property-fixtures/`](src/test/resources/property-fixtures/)            | [`PropertyQuickStart`](examples/PropertyQuickStart.java) |
+
+Each corpus is ~100 ground-truth entities across four source systems
+with the same scenario shape (single-source, multi-source, conflict
+events, similar-looking-but-distinct entities). The library and the
+test scaffolding are shared between them — only the YAML data and a
+thin domain-named loader wrapper differ.
+
 ## Design
 
 - **URN scheme** — `urn:<namespace>:entity:<UUID v7>`. The namespace is caller-configurable; the UUID is RFC 9562 v7 (time-ordered, B-tree-friendly) generated via [`uuid-creator`](https://github.com/f4b6a3/uuid-creator).
