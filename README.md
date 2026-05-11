@@ -87,6 +87,62 @@ var resolver = DefaultEntityResolver.builder(new InMemoryEntityStorage())
 
 The stored entity is **not** updated — silent overwrites are explicitly avoided. Stewardship logic decides whether to overwrite, merge, branch, or escalate.
 
+### Runnable example: retail customer reconciliation
+
+A complete, runnable demonstration lives in
+[`examples/RetailQuickStart.java`](examples/RetailQuickStart.java). It
+loads five curated customers from the retail synthetic dataset under
+[`src/test/resources/retail-fixtures/`](src/test/resources/retail-fixtures/),
+folds each customer's source-system records into the resolver one alias
+at a time, and prints the resulting entity graph:
+
+```
+JClaim -- Retail customer reconciliation
+========================================
+
+cust-001 -- 4 source record(s)
+  resolveOrMint ecommerce/ec-12345           -> Minted   urn:codery:entity:019e17f8-...
+  addAlias      pos/pos-78910                -> attached
+  addAlias      loyalty/L-22334              -> attached
+  addAlias      crm/crm-99887                -> attached
+
+cust-002 -- 3 source record(s)
+  resolveOrMint ecommerce/ec-10002           -> Minted   urn:codery:entity:019e17f8-...
+  addAlias      loyalty/L-22002              -> attached
+  addAlias      crm/crm-30002                -> attached
+
+...
+
+---- Final entity graph ----
+
+cust-001
+  urn      = urn:codery:entity:019e17f8-...
+  humanId  = BH1Q-90FQ-8
+  aliases  :
+      ecommerce/ec-12345
+      pos/pos-78910
+      loyalty/L-22334
+      crm/crm-99887
+  attributes (from first claim ingested):
+      email = jane.doe@example.com
+      first_name = Jane
+      last_name = Doe
+      phone = +44 7700 900123
+      registered_at = 2024-03-15
+```
+
+Run from the project root:
+
+```bash
+mvn -q test-compile exec:java \
+    -Dexec.mainClass=uk.codery.jclaim.examples.RetailQuickStart \
+    -Dexec.classpathScope=test
+```
+
+The retail dataset itself covers around 100 synthetic customers across
+four source systems and is documented in
+[`src/test/resources/retail-fixtures/README.md`](src/test/resources/retail-fixtures/README.md).
+
 ## Design
 
 - **URN scheme** — `urn:<namespace>:entity:<UUID v7>`. The namespace is caller-configurable; the UUID is RFC 9562 v7 (time-ordered, B-tree-friendly) generated via [`uuid-creator`](https://github.com/f4b6a3/uuid-creator).
