@@ -1,0 +1,50 @@
+#
+# Stub workflow for publishing to Maven Central.
+#
+# Inactive until the project is registered with Sonatype Central and the
+# following repository secrets are configured:
+#
+#   CENTRAL_TOKEN_USERNAME   — Sonatype Central token username
+#   CENTRAL_TOKEN_PASSWORD   — Sonatype Central token password
+#   GPG_PRIVATE_KEY          — armoured private key used to sign release
+#                              artefacts
+#   GPG_PASSPHRASE           — passphrase for the GPG private key above
+#
+# Activation: change the `on:` block to `on: { release: { types: [created] } }`
+# (the historical jspec trigger) once secrets are in place. Until then this
+# workflow runs only on manual dispatch so that the repository can carry the
+# template publicly without firing it.
+#
+name: Publish to Maven Central
+
+on:
+  workflow_dispatch:
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          server-id: central
+          server-username: MAVEN_USERNAME
+          server-password: MAVEN_PASSWORD
+          gpg-private-key: ${{ secrets.GPG_PRIVATE_KEY }}
+          gpg-passphrase: MAVEN_GPG_PASSPHRASE
+
+      - name: Build and Test
+        run: mvn --batch-mode clean verify
+
+      - name: Publish to Maven Central
+        run: mvn --batch-mode deploy -DskipTests -P release
+        env:
+          MAVEN_USERNAME: ${{ secrets.CENTRAL_TOKEN_USERNAME }}
+          MAVEN_PASSWORD: ${{ secrets.CENTRAL_TOKEN_PASSWORD }}
+          MAVEN_GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
