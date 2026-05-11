@@ -2,14 +2,23 @@
 
 ## Project Structure & Module Organization
 
-Core library code lives under `src/main/java/uk/codery/jclaim`, organised by
-concern: `model` (immutable records), `resolver` (the `EntityResolver`
-interface and its default implementation), `storage` (the `EntityStorage` port
-and its in-memory adapter under `storage.memory`), `event` (the conflict
-event surface), and `id` (Crockford Base32, Damm checksum, UUID v7 and
-human-friendly ID generation). Tests sit in `src/test/java/uk/codery/jclaim`
-mirroring the main package layout. Skim `README.md` and `CLAUDE.md` before
-altering behaviour.
+JClaim is a multi-module Maven project. The repository root holds the
+aggregator POM; `jclaim-core` is the current implementation module and
+sibling modules (`jclaim-storage-mongo`, `jclaim-storage-postgres`) are
+on the roadmap.
+
+Core library code lives under
+`jclaim-core/src/main/java/uk/codery/jclaim`, organised by concern:
+`model` (immutable records), `resolver` (the `EntityResolver` interface
+and its default implementation), `storage` (the `EntityStorage` port
+and its in-memory adapter under `storage.memory`), `event` (the
+conflict event surface), and `id` (Crockford Base32, Damm checksum,
+UUID v7 and human-friendly ID generation). Tests sit in
+`jclaim-core/src/test/java/uk/codery/jclaim` mirroring the main package
+layout. Runnable QuickStart examples live at the repository root
+under `/examples/` and are added to `jclaim-core`'s test classpath
+via `build-helper-maven-plugin`. Skim `README.md` and `CLAUDE.md`
+before altering behaviour.
 
 ## Terminology & Naming
 
@@ -25,15 +34,21 @@ altering behaviour.
 
 ## Build, Test, and Development Commands
 
-- `mvn clean verify` — full build plus unit suite plus coverage check; run
-  before pushing.
-- `mvn test` — quickest way to re-run JUnit/AssertJ tests while iterating.
-- `mvn test -Dtest=DefaultEntityResolverTest` — focused single-class run.
-- `mvn -DskipTests package` — produces a local JAR when you only touch docs or
-  metadata (avoid for functional work).
+Run from the repository root; commands walk the reactor unless `-pl`
+narrows the scope.
 
-Requires Java 21, Maven 3.6+, and Lombok annotation processing enabled in
-your IDE.
+- `mvn clean verify` — full reactor build plus unit suite plus coverage
+  check; run before pushing.
+- `mvn test` — quickest way to re-run JUnit/AssertJ tests across every
+  module while iterating.
+- `mvn -pl jclaim-core test -Dtest=DefaultEntityResolverTest` — focused
+  single-class run in one module.
+- `mvn -DskipTests package` — produces local JARs when you only touch
+  docs or metadata (avoid for functional work).
+
+Requires Java 21, Maven 3.6+, and Lombok annotation processing enabled
+in your IDE. After pulling a structural change, re-import the Maven
+project in your IDE so the new modules register.
 
 ## Coding Style & Naming Conventions
 
@@ -47,8 +62,9 @@ to signal their layer.
 
 ## Testing Guidelines
 
-Write focused JUnit Jupiter tests in `src/test/java/uk/codery/jclaim/...`
-mirroring the main package layout. Use AssertJ's fluent assertions. Cover the
+Write focused JUnit Jupiter tests in
+`jclaim-core/src/test/java/uk/codery/jclaim/...` mirroring the main
+package layout. Use AssertJ's fluent assertions. Cover the
 happy path **and** the relevant failure mode for each operation: alias-hit,
 alias-miss, conflict detection, human-ID collision retry, URN-shape validation.
 Keep test data deterministic where possible — inject `Clock` or
@@ -66,7 +82,8 @@ merge confidently. Keep commits small; include tests alongside code.
 
 ## Security & Configuration Tips
 
-Never commit live credentials; sample fixtures belong in `src/test/resources`.
+Never commit live credentials; sample fixtures belong in
+`jclaim-core/src/test/resources`.
 Keep SLF4J calls structured (no full document dumps); redact attribute values
 that may carry PII before adding diagnostics. The library is thread-safe by
 construction; preserve that property — storage adapters must enforce alias

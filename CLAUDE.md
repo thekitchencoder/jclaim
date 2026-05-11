@@ -1,5 +1,10 @@
 # CLAUDE.md — AI Assistant Context
 
+<!-- brain -->
+effort: Efforts/entity-reconciliation-library.md
+summary: Generic OSS library for cross-domain entity reconciliation; embeddable, Spring-independent, composes with jspec for matching policy.
+<!-- /brain -->
+
 This document provides context for AI assistants (like Claude) working with the
 JClaim codebase.
 
@@ -26,40 +31,65 @@ library rather than an enterprise platform. Sibling library to
 
 ## Codebase Structure
 
+JClaim is a multi-module Maven project. The repository root holds the
+aggregator POM (`packaging=pom`) and each capability lives in its own
+module. Today only `jclaim-core` exists; storage adapters land as
+sibling modules in subsequent sessions.
+
 ```
 jclaim/
-├── pom.xml
-├── src/main/java/uk/codery/jclaim/
-│   ├── id/                                         # Identifier generation
-│   │   ├── CrockfordBase32.java                    # 32-symbol alphabet, ambiguous chars dropped
-│   │   ├── Damm.java                               # Single-digit checksum, totally anti-symmetric quasigroup
-│   │   ├── HumanIdGenerator.java                   # K7M2-9X4P-N style human-friendly IDs
-│   │   └── UuidV7.java                             # RFC 9562 time-ordered UUID
-│   ├── model/                                      # Domain model (immutable records)
-│   │   ├── Alias.java                              # (source, sourceId) pair
-│   │   ├── Claim.java                              # Inbound identity claim
-│   │   ├── Entity.java                             # Reconciled canonical entity
-│   │   ├── EntityId.java                           # URN wrapper around UUID v7
-│   │   ├── MatchingAttribute.java                  # Typed attribute (name, value)
-│   │   ├── ResolutionResult.java                   # sealed: Matched | Minted
-│   │   └── SourceSystem.java                       # Named source-system reference
-│   ├── event/                                      # Conflict event surface
-│   │   ├── AttributeDiff.java                      # Per-attribute divergence record
-│   │   ├── ConflictEventSink.java                  # Pluggable consumer (default no-op)
-│   │   └── EntityAttributesConflicted.java         # Emitted when matched entity differs from claim
-│   ├── storage/                                    # Storage port + adapters
-│   │   ├── EntityStorage.java                      # Port interface
-│   │   ├── StorageOutcome.java                     # sealed: Existing | Created
-│   │   └── memory/
-│   │       └── InMemoryEntityStorage.java          # ConcurrentHashMap-backed adapter
-│   └── resolver/                                   # Application service
-│       ├── DefaultEntityResolver.java              # Concrete implementation
-│       └── EntityResolver.java                     # Public interface
-└── src/test/java/uk/codery/jclaim/
-    ├── id/                                         # Crockford, Damm, HumanId tests
-    ├── storage/memory/                             # In-memory adapter tests
-    └── resolver/                                   # Resolver happy-path + conflict tests
+├── pom.xml                                         # Aggregator: groupId+version, dependencyManagement, pluginManagement
+├── examples/                                       # Top-level runnable QuickStart classes
+│   ├── RetailQuickStart.java                       # registered on jclaim-core's test classpath
+│   ├── ProductQuickStart.java                      # via build-helper-maven-plugin
+│   └── PropertyQuickStart.java
+└── jclaim-core/
+    ├── pom.xml                                     # Inherits parent; declares own deps
+    └── src/
+        ├── main/java/uk/codery/jclaim/
+        │   ├── id/                                 # Identifier generation
+        │   │   ├── CrockfordBase32.java            # 32-symbol alphabet, ambiguous chars dropped
+        │   │   ├── Damm.java                       # Single-digit checksum, totally anti-symmetric quasigroup
+        │   │   ├── HumanIdGenerator.java           # K7M2-9X4P-N style human-friendly IDs
+        │   │   └── UuidV7.java                     # RFC 9562 time-ordered UUID
+        │   ├── model/                              # Domain model (immutable records)
+        │   │   ├── Alias.java                      # (source, sourceId) pair
+        │   │   ├── Claim.java                      # Inbound identity claim
+        │   │   ├── Entity.java                     # Reconciled canonical entity
+        │   │   ├── EntityId.java                   # URN wrapper around UUID v7
+        │   │   ├── MatchingAttribute.java          # Typed attribute (name, value)
+        │   │   ├── ResolutionResult.java           # sealed: Matched | Minted
+        │   │   └── SourceSystem.java               # Named source-system reference
+        │   ├── event/                              # Conflict event surface
+        │   │   ├── AttributeDiff.java              # Per-attribute divergence record
+        │   │   ├── ConflictEventSink.java          # Pluggable consumer (default no-op)
+        │   │   └── EntityAttributesConflicted.java # Emitted when matched entity differs from claim
+        │   ├── storage/                            # Storage port + in-memory adapter
+        │   │   ├── EntityStorage.java              # Port interface
+        │   │   ├── StorageOutcome.java             # sealed: Existing | Created
+        │   │   └── memory/
+        │   │       └── InMemoryEntityStorage.java  # ConcurrentHashMap-backed adapter
+        │   └── resolver/                           # Application service
+        │       ├── DefaultEntityResolver.java      # Concrete implementation
+        │       └── EntityResolver.java             # Public interface
+        └── test/java/uk/codery/jclaim/
+            ├── id/                                 # Crockford, Damm, HumanId tests
+            ├── storage/memory/                     # In-memory adapter tests
+            ├── resolver/                           # Resolver happy-path + conflict tests
+            └── examples/                           # Tests that pin the QuickStart classes to the API
 ```
+
+The aggregator centralises:
+
+- **Dependency versions** in `<dependencyManagement>` — modules declare
+  GAV without `<version>`.
+- **Plugin versions and shared configuration** in `<pluginManagement>` —
+  modules activate plugins by GA; the parent supplies version and
+  execution config (compiler release level, JaCoCo coverage rules,
+  Surefire defaults, source/javadoc jar generation, GPG signing under
+  the `release` profile).
+- **Modules list** — currently `jclaim-core`; storage adapter modules
+  drop in alongside it.
 
 ## Core Concepts
 
@@ -123,10 +153,13 @@ Kafka, etc.
   the alias index
 - `addAlias(EntityId, Alias) -> Entity` — atomic on the alias index
 
-`InMemoryEntityStorage` ships in this module. A `MongoEntityStorage` follows in
-a separate session. The port surface is deliberately small and Mongo-friendly:
-the atomic `resolveOrCreate` primitive maps to `findOneAndUpdate(..., upsert)`
-guarded by a unique compound index on `(source, sourceId)`.
+`InMemoryEntityStorage` ships in `jclaim-core` for testing and
+evaluation. The `MongoEntityStorage` and `PostgresEntityStorage`
+adapters follow as separate Maven modules (`jclaim-storage-mongo`,
+`jclaim-storage-postgres`) in subsequent sessions. The port surface is
+deliberately small and Mongo-friendly: the atomic `resolveOrCreate`
+primitive maps to `findOneAndUpdate(..., upsert)` guarded by a unique
+compound index on `(source, sourceId)`.
 
 ## Terminology & Naming
 
@@ -161,14 +194,25 @@ guarded by a unique compound index on `(source, sourceId)`.
 
 ### Adding a New Storage Adapter
 
-To add a new adapter (e.g. Postgres, DynamoDB):
+Storage adapters live as their own Maven modules so consumers can pull
+in only the storage technology they need. To add a new adapter (e.g.
+DynamoDB):
 
-1. Create a new package under `uk.codery.jclaim.storage.<adapter>`.
-2. Implement `EntityStorage`. The atomic contract on `resolveOrCreate` and
-   `addAlias` is the part adapter authors must focus on — naïve
+1. Create a new module directory at the repository root, e.g.
+   `jclaim-storage-dynamo/`, and register it in the aggregator POM's
+   `<modules>` list.
+2. The module's `pom.xml` inherits from the parent and adds a
+   compile-scope dependency on `jclaim-core` (so the port interface
+   and domain records are available).
+3. Place the implementation under
+   `uk.codery.jclaim.storage.<adapter>` to match the package
+   convention.
+4. Implement `EntityStorage`. The atomic contract on `resolveOrCreate`
+   and `addAlias` is the part adapter authors must focus on — naïve
    read-then-write implementations are wrong.
-3. Express alias uniqueness as a database-enforced constraint where possible.
-4. Mirror the test contract used by `InMemoryEntityStorageTest`.
+5. Express alias uniqueness as a database-enforced constraint where
+   possible.
+6. Mirror the test contract used by `InMemoryEntityStorageTest`.
 
 ### Logging Levels
 
@@ -179,38 +223,56 @@ To add a new adapter (e.g. Postgres, DynamoDB):
 
 ## Common Tasks
 
+All Maven commands run from the repository root and walk the reactor
+unless `-pl` selects a single module.
+
 ### Running Tests
 
 ```bash
-mvn test                                # Run all tests
-mvn test -Dtest=DefaultEntityResolverTest
+mvn test                                          # Every test across every module
+mvn -pl jclaim-core test                          # Single-module run
+mvn -pl jclaim-core test -Dtest=DefaultEntityResolverTest
 ```
 
 ### Building
 
 ```bash
-mvn clean install                       # Full build with tests
-mvn clean package -DskipTests           # Build without tests
+mvn clean install                                 # Full reactor build with tests
+mvn clean package -DskipTests                     # Build artefacts without tests
 ```
 
 ### Coverage
 
 ```bash
-mvn test jacoco:report                  # HTML report under target/site/jacoco
+mvn test jacoco:report                            # Per-module reports under <module>/target/site/jacoco
 ```
+
+### Running the QuickStart examples
+
+```bash
+mvn -q -pl jclaim-core test-compile exec:java \
+    -Dexec.mainClass=uk.codery.jclaim.examples.RetailQuickStart \
+    -Dexec.classpathScope=test
+```
+
+Substitute `ProductQuickStart` or `PropertyQuickStart` to demonstrate
+the other corpora. The examples live at `/examples/` and are pulled
+onto `jclaim-core`'s test classpath via
+`build-helper-maven-plugin`.
 
 ## Extension Points
 
-Designed for extension; not yet implemented in this module:
+Designed for extension; not yet implemented:
 
-- **MongoEntityStorage** — next session. Same port, document-shape mapping,
-  unique compound index on `(source, sourceId)`.
-- **Matching policy DSL** — separate session. JSpec specifications express the
-  matching policy; tri-state evaluation maps to `MATCHED` / `NOT_MATCHED` /
-  `UNDETERMINED`.
+- **`jclaim-storage-mongo`** — next session, lands as its own module.
+  Same port, document-shape mapping, unique compound index on
+  `(source, sourceId)`.
+- **`jclaim-storage-postgres`** — same session as Mongo, sibling module
+  using row-level uniqueness on the alias columns.
+- **Matching policy DSL** — separate session. JSpec specifications
+  express the matching policy; tri-state evaluation maps to `MATCHED`
+  / `NOT_MATCHED` / `UNDETERMINED`.
 - **Merge / split operations** — deferred per the design effort note.
-- **Retail synthetic dataset** — separate session, supplies integration test
-  corpus.
 
 ## Design References
 
@@ -231,9 +293,14 @@ When working with this codebase, consider:
 
 ## Project Status
 
-- **Version**: 0.1.0-SNAPSHOT
+- **Version**: 0.1.0-SNAPSHOT (held across the multi-module split
+  because no Maven Central artefact has been published yet)
 - **Java Version**: 21
-- **In scope this milestone**: domain model, resolver, in-memory storage, human ID
-  generation, conflict events, build + workflow scaffolding.
-- **Next session**: Mongo storage adapter.
+- **Layout**: Multi-module Maven; today the only published module is
+  `jclaim-core`.
+- **In scope this milestone**: domain model, resolver, in-memory storage,
+  human ID generation, conflict events, build + workflow scaffolding,
+  multi-module split, FOSSA + Codecov CI integrations.
+- **Next session**: Mongo + Postgres storage adapters as
+  `jclaim-storage-mongo` and `jclaim-storage-postgres` modules.
 - **After that**: matching policy DSL via JSpec composition.

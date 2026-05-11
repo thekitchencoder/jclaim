@@ -21,36 +21,46 @@ to one if the entity is already known, minting one if not.
     - `org.projectlombok:lombok` — boilerplate reduction (provided scope)
     - `org.slf4j:slf4j-api` — logging
 - **Architecture**:
+  - Multi-module Maven project. Aggregator POM at the repository root;
+    `jclaim-core` is the current implementation module. Storage
+    adapter modules (`jclaim-storage-mongo`, `jclaim-storage-postgres`)
+    follow as siblings.
   - Immutable Java records throughout the domain model
   - `EntityResolver` service orchestrates resolve-or-mint against an
     `EntityStorage` port
-  - In-memory storage adapter ships with the core module; a Mongo adapter
-    arrives in a later module
+  - In-memory storage adapter ships with `jclaim-core` for testing
+    and evaluation; database-backed adapters arrive in their own
+    modules
   - Conflict events delivered via a pluggable `ConflictEventSink`
 
 ## Building and Running
 
-Standard Maven commands:
+Run from the repository root; Maven walks the reactor unless `-pl`
+narrows the scope.
 
-- **Compile**:
+- **Compile every module**:
   ```bash
   mvn compile
   ```
-- **Run Tests**:
+- **Run tests across every module**:
   ```bash
   mvn test
   ```
-- **Build JAR**:
+- **Build JARs for every module**:
   ```bash
   mvn package
   ```
-- **Build and install locally**:
+- **Build and install everything locally**:
   ```bash
   mvn clean install
   ```
-- **Coverage report**:
+- **Coverage report (per module, under each `<module>/target/site/jacoco`)**:
   ```bash
   mvn test jacoco:report
+  ```
+- **Focus on a single module**:
+  ```bash
+  mvn -pl jclaim-core test
   ```
 
 ## Development Conventions
@@ -74,7 +84,7 @@ Standard Maven commands:
   emission).
 - **Logging**: SLF4J for all diagnostics; never `System.out` / `System.err`.
 
-## Key Modules
+## Key Packages (inside `jclaim-core`)
 
 - `uk.codery.jclaim.id` — Crockford Base32, Damm checksum, UUID v7
   generation, human-friendly ID minting.
@@ -89,9 +99,11 @@ Standard Maven commands:
 
 ## Roadmap
 
-- **This module**: domain model, resolver, in-memory storage, human ID
-  generation, conflict event sink.
-- **Next**: MongoDB storage adapter.
-- **After that**: matching policy DSL via JSpec composition; merge/split
-  operations; retail synthetic dataset and integration tests; Maven Central
-  publication.
+- **`jclaim-core` (current)**: domain model, resolver, in-memory
+  storage, human ID generation, conflict event sink, three synthetic
+  corpora and integration tests, multi-module scaffolding, FOSSA +
+  Codecov CI.
+- **Next**: `jclaim-storage-mongo` and `jclaim-storage-postgres` as
+  sibling modules.
+- **After that**: matching policy DSL via JSpec composition;
+  merge/split operations; Maven Central publication.
