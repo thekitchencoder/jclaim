@@ -1,0 +1,1450 @@
+# Synthetic product SKU dataset for JClaim integration tests.
+#
+# Each entry is one real-world product (identified by the synthetic
+# `id` field) with their source-system records nested under `records`.
+# This document IS the ground truth: every record under one entry must
+# end up linked to the same canonical entity after ingestion.
+#
+# Source systems:
+#   pim         — product information management; the merchandising master
+#                 record (gtin, manufacturer_part_number, brand, name,
+#                 category, dimensions_cm, weight_g)
+#   warehouse   — operational record (gtin, internal_sku, weight_g,
+#                 bin_location)
+#   marketplace — marketplace listing (gtin, listing_title, asin)
+#   supplier    — manufacturer's catalogue (manufacturer_part_number,
+#                 brand, product_family)
+#
+# Synthetic data conventions:
+#   - Brand names are clearly fictional (Acme, Globex, Initech, Hooli,
+#     Vandelay, Soylent, Tyrell, Cyberdyne, Aperture, Massive Dynamic,
+#     Stark Industries).
+#   - GTINs are 13-digit with correct check digits but the prefix 509990
+#     is not allocated, so the codes do not collide with any real product.
+#   - ASINs follow the synthetic shape `B0XXX####` — recognisably the
+#     ASIN format but visibly fake.
+#   - Manufacturer part numbers (MPN) follow `MPN-<BrandInitial>-####`.
+#   - Internal warehouse SKUs follow `WH-<BRAND>-<DESC>` or
+#     `WH-BULK-<DESC>` for SKU-only items.
+#
+# Scenario products (prod-001..prod-010) are explicitly engineered to
+# exercise particular reconciliation patterns; see
+# product-fixtures/README.md. Bulk products (prod-011..prod-100) provide
+# volume and a realistic distribution of source-coverage (~50%
+# single-source, ~25% two-source, ~11% three-source, ~4% all-four).
+
+products:
+
+  # ─── Scenario products ─────────────────────────────────────────────
+
+  # prod-001 — known to all four sources. The README quick-start hero.
+  - id: prod-001
+    notes: "Featured in all four sources — README quick-start example."
+    records:
+      pim:
+        source_id: "pim-00001"
+        gtin: "5099900000017"
+        manufacturer_part_number: "MPN-A-1234"
+        brand: "Acme"
+        name: "Acme Widget, Blue, Large"
+        category: "tools/hand-tools"
+        dimensions_cm: "12x8x4"
+        weight_g: 450
+      warehouse:
+        source_id: "wh-7788"
+        gtin: "5099900000017"
+        internal_sku: "WH-ACME-WIDGET-BL-L"
+        weight_g: 452
+        bin_location: "A-12-3"
+      marketplace:
+        source_id: "asin-B0XXX0001"
+        gtin: "5099900000017"
+        listing_title: "Acme Widget Large Blue - Heavy Duty"
+        asin: "B0XXX0001"
+      supplier:
+        source_id: "sup-acme-1234"
+        manufacturer_part_number: "MPN-A-1234"
+        brand: "Acme"
+        product_family: "Widgets"
+
+  # prod-002 — three sources (pim + warehouse + marketplace). Private
+  # label widget, so no supplier catalogue entry.
+  - id: prod-002
+    notes: "Private-label product — sold under retailer brand, no supplier entry."
+    records:
+      pim:
+        source_id: "pim-00002"
+        gtin: "5099900000024"
+        manufacturer_part_number: "MPN-G-2200"
+        brand: "Globex"
+        name: "Globex Generic Widget"
+        category: "tools/hand-tools"
+        weight_g: 410
+      warehouse:
+        source_id: "wh-7789"
+        gtin: "5099900000024"
+        internal_sku: "WH-GLOBEX-WIDGET"
+        weight_g: 410
+        bin_location: "A-12-4"
+      marketplace:
+        source_id: "asin-B0XXX0002"
+        gtin: "5099900000024"
+        listing_title: "Globex Generic Widget"
+        asin: "B0XXX0002"
+
+  # prod-003 — two sources (pim + supplier). Pre-launch product not yet
+  # stocked or listed, so no warehouse or marketplace records.
+  - id: prod-003
+    notes: "Pre-launch product: in PIM and supplier catalogue, not yet stocked or listed."
+    records:
+      pim:
+        source_id: "pim-00003"
+        manufacturer_part_number: "MPN-I-9001"
+        brand: "Initech"
+        name: "Initech NextGen Widget"
+        category: "tools/power-tools"
+      supplier:
+        source_id: "sup-initech-9001"
+        manufacturer_part_number: "MPN-I-9001"
+        brand: "Initech"
+        product_family: "NextGen"
+
+  # prod-004 — SKU-only product, warehouse-only, no GTIN. Bulk hardware
+  # ordered in tubs; no consumer barcode.
+  - id: prod-004
+    notes: "SKU-only product (bulk hardware) — warehouse-only, no GTIN."
+    records:
+      warehouse:
+        source_id: "wh-7790"
+        internal_sku: "WH-BULK-NAIL-50MM"
+        weight_g: 5000
+        bin_location: "C-04-9"
+
+  # prod-005 — size variant of prod-001. Under exact-alias matching this
+  # remains a distinct entity from prod-001 — same brand, same family,
+  # different GTIN and SKU.
+  - id: prod-005
+    notes: "Size variant of prod-001 (Small). Distinct entity under exact-alias matching."
+    records:
+      pim:
+        source_id: "pim-00005"
+        gtin: "5099900000055"
+        manufacturer_part_number: "MPN-A-1230"
+        brand: "Acme"
+        name: "Acme Widget, Blue, Small"
+        category: "tools/hand-tools"
+        dimensions_cm: "8x5x3"
+        weight_g: 280
+      warehouse:
+        source_id: "wh-7791"
+        gtin: "5099900000055"
+        internal_sku: "WH-ACME-WIDGET-BL-S"
+        weight_g: 278
+        bin_location: "A-12-2"
+      marketplace:
+        source_id: "asin-B0XXX0005"
+        gtin: "5099900000055"
+        listing_title: "Acme Widget Small Blue"
+        asin: "B0XXX0005"
+
+  # prod-006 — colour variant of prod-001. Distinct entity.
+  - id: prod-006
+    notes: "Colour variant of prod-001 (Red). Distinct entity under exact-alias matching."
+    records:
+      pim:
+        source_id: "pim-00006"
+        gtin: "5099900000062"
+        manufacturer_part_number: "MPN-A-1235"
+        brand: "Acme"
+        name: "Acme Widget, Red, Large"
+        category: "tools/hand-tools"
+        dimensions_cm: "12x8x4"
+        weight_g: 450
+      supplier:
+        source_id: "sup-acme-1235"
+        manufacturer_part_number: "MPN-A-1235"
+        brand: "Acme"
+        product_family: "Widgets"
+
+  # prod-007 — target for the same-GTIN-conflicting-brand scenario.
+  # updates.yaml re-asserts pim-00007 with a corrected brand attribute,
+  # triggering a conflict event.
+  - id: prod-007
+    notes: "updates.yaml re-asserts pim-00007 with corrected brand — conflict path."
+    records:
+      pim:
+        source_id: "pim-00007"
+        gtin: "5099900000079"
+        manufacturer_part_number: "MPN-G-5500"
+        brand: "Globex"
+        name: "Industrial Spanner 18in"
+        category: "tools/hand-tools"
+        weight_g: 1200
+      warehouse:
+        source_id: "wh-7792"
+        gtin: "5099900000079"
+        internal_sku: "WH-GLOBEX-SPANNER-18"
+        weight_g: 1205
+        bin_location: "B-07-1"
+      supplier:
+        source_id: "sup-globex-5500"
+        manufacturer_part_number: "MPN-G-5500"
+        brand: "Globex"
+        product_family: "Industrial Tools"
+
+  # prod-008 — target for the manufacturer-rebranding scenario.
+  # updates.yaml re-asserts the supplier alias with a rebranded brand
+  # attribute (acquisition), triggering a conflict event.
+  - id: prod-008
+    notes: "updates.yaml re-asserts sup-initech-7700 with rebranded brand — conflict path."
+    records:
+      pim:
+        source_id: "pim-00008"
+        gtin: "5099900000086"
+        manufacturer_part_number: "MPN-I-7700"
+        brand: "Initech"
+        name: "Initech Carpenter's Hammer 16oz"
+        category: "tools/hand-tools"
+        weight_g: 600
+      supplier:
+        source_id: "sup-initech-7700"
+        manufacturer_part_number: "MPN-I-7700"
+        brand: "Initech"
+        product_family: "Hammers"
+
+  # prod-009 — first "Pro Hammer". Distinct from prod-010 — different
+  # GTIN, MPN, brand, dimensions; only the display name is similar.
+  - id: prod-009
+    notes: "First of two similar-named hammers. MUST NOT merge with prod-010."
+    records:
+      pim:
+        source_id: "pim-00009"
+        gtin: "5099900000093"
+        manufacturer_part_number: "MPN-V-3001"
+        brand: "Vandelay"
+        name: "Vandelay Pro Hammer"
+        category: "tools/hand-tools"
+        weight_g: 550
+      warehouse:
+        source_id: "wh-7793"
+        gtin: "5099900000093"
+        internal_sku: "WH-VANDELAY-PROHAMMER"
+        weight_g: 552
+        bin_location: "B-07-2"
+
+  # prod-010 — second "Pro Hammer Plus". Different product, similar name.
+  - id: prod-010
+    notes: "Second similar-named hammer. Different brand, GTIN, MPN — distinct entity."
+    records:
+      pim:
+        source_id: "pim-00010"
+        gtin: "5099900000109"
+        manufacturer_part_number: "MPN-S-4001"
+        brand: "Soylent"
+        name: "Soylent Pro Hammer Plus"
+        category: "tools/hand-tools"
+        weight_g: 620
+      warehouse:
+        source_id: "wh-7794"
+        gtin: "5099900000109"
+        internal_sku: "WH-SOYLENT-PROHAMMER-PLUS"
+        weight_g: 618
+        bin_location: "B-07-3"
+
+  # ─── Bulk products (prod-011..prod-100) ────────────────────────────
+  #
+  # Distribution from here on:
+  #   prod-011..prod-014  all four sources (4 products)
+  #   prod-015..prod-025  three-source    (11 products)
+  #   prod-026..prod-050  two-source      (25 products)
+  #   prod-051..prod-100  single-source   (50 products)
+
+  # ─── Four-source bulk (prod-011..prod-014) ─────────────────────────
+
+  - id: prod-011
+    records:
+      pim:
+        source_id: "pim-00011"
+        gtin: "5099900000116"
+        manufacturer_part_number: "MPN-A-2010"
+        brand: "Acme"
+        name: "Acme 2-Slice Toaster"
+        category: "kitchen/small-appliances"
+        weight_g: 1900
+      warehouse:
+        source_id: "wh-7795"
+        gtin: "5099900000116"
+        internal_sku: "WH-ACME-TOASTER-2"
+        weight_g: 1905
+        bin_location: "D-01-1"
+      marketplace:
+        source_id: "asin-B0XXX0011"
+        gtin: "5099900000116"
+        listing_title: "Acme 2-Slice Toaster (Compact)"
+        asin: "B0XXX0011"
+      supplier:
+        source_id: "sup-acme-2010"
+        manufacturer_part_number: "MPN-A-2010"
+        brand: "Acme"
+        product_family: "Toasters"
+
+  - id: prod-012
+    records:
+      pim:
+        source_id: "pim-00012"
+        gtin: "5099900000123"
+        manufacturer_part_number: "MPN-G-3320"
+        brand: "Globex"
+        name: "Globex 1.7L Kettle"
+        category: "kitchen/small-appliances"
+        weight_g: 1200
+      warehouse:
+        source_id: "wh-7796"
+        gtin: "5099900000123"
+        internal_sku: "WH-GLOBEX-KETTLE-17"
+        weight_g: 1202
+        bin_location: "D-01-2"
+      marketplace:
+        source_id: "asin-B0XXX0012"
+        gtin: "5099900000123"
+        listing_title: "Globex Cordless 1.7L Kettle"
+        asin: "B0XXX0012"
+      supplier:
+        source_id: "sup-globex-3320"
+        manufacturer_part_number: "MPN-G-3320"
+        brand: "Globex"
+        product_family: "Kettles"
+
+  - id: prod-013
+    records:
+      pim:
+        source_id: "pim-00013"
+        gtin: "5099900000130"
+        manufacturer_part_number: "MPN-H-4040"
+        brand: "Hooli"
+        name: "Hooli Stand Blender"
+        category: "kitchen/small-appliances"
+        weight_g: 3100
+      warehouse:
+        source_id: "wh-7797"
+        gtin: "5099900000130"
+        internal_sku: "WH-HOOLI-BLENDER"
+        weight_g: 3104
+        bin_location: "D-01-3"
+      marketplace:
+        source_id: "asin-B0XXX0013"
+        gtin: "5099900000130"
+        listing_title: "Hooli 1000W Stand Blender"
+        asin: "B0XXX0013"
+      supplier:
+        source_id: "sup-hooli-4040"
+        manufacturer_part_number: "MPN-H-4040"
+        brand: "Hooli"
+        product_family: "Blenders"
+
+  - id: prod-014
+    records:
+      pim:
+        source_id: "pim-00014"
+        gtin: "5099900000147"
+        manufacturer_part_number: "MPN-V-5151"
+        brand: "Vandelay"
+        name: "Vandelay Hand Mixer"
+        category: "kitchen/small-appliances"
+        weight_g: 1500
+      warehouse:
+        source_id: "wh-7798"
+        gtin: "5099900000147"
+        internal_sku: "WH-VANDELAY-MIXER"
+        weight_g: 1503
+        bin_location: "D-01-4"
+      marketplace:
+        source_id: "asin-B0XXX0014"
+        gtin: "5099900000147"
+        listing_title: "Vandelay 5-Speed Hand Mixer"
+        asin: "B0XXX0014"
+      supplier:
+        source_id: "sup-vandelay-5151"
+        manufacturer_part_number: "MPN-V-5151"
+        brand: "Vandelay"
+        product_family: "Mixers"
+
+  # ─── Three-source bulk (prod-015..prod-025) ────────────────────────
+
+  - id: prod-015
+    records:
+      pim:
+        source_id: "pim-00015"
+        gtin: "5099900000154"
+        manufacturer_part_number: "MPN-M-6060"
+        brand: "Massive Dynamic"
+        name: "Massive Dynamic Desk Lamp"
+        category: "lighting/desk"
+        weight_g: 900
+      warehouse:
+        source_id: "wh-7799"
+        gtin: "5099900000154"
+        internal_sku: "WH-MD-DESKLAMP"
+        weight_g: 902
+        bin_location: "E-02-1"
+      marketplace:
+        source_id: "asin-B0XXX0015"
+        gtin: "5099900000154"
+        listing_title: "Massive Dynamic LED Desk Lamp"
+        asin: "B0XXX0015"
+
+  - id: prod-016
+    records:
+      pim:
+        source_id: "pim-00016"
+        gtin: "5099900000161"
+        manufacturer_part_number: "MPN-T-7070"
+        brand: "Tyrell"
+        name: "Tyrell Memory Pillow"
+        category: "household/bedding"
+        weight_g: 1200
+      warehouse:
+        source_id: "wh-7800"
+        gtin: "5099900000161"
+        internal_sku: "WH-TYRELL-PILLOW"
+        weight_g: 1198
+        bin_location: "F-03-1"
+      supplier:
+        source_id: "sup-tyrell-7070"
+        manufacturer_part_number: "MPN-T-7070"
+        brand: "Tyrell"
+        product_family: "Bedding"
+
+  - id: prod-017
+    records:
+      pim:
+        source_id: "pim-00017"
+        gtin: "5099900000178"
+        manufacturer_part_number: "MPN-C-8181"
+        brand: "Cyberdyne"
+        name: "Cyberdyne 2m HDMI Cable"
+        category: "electronics/cables"
+        weight_g: 120
+      marketplace:
+        source_id: "asin-B0XXX0017"
+        gtin: "5099900000178"
+        listing_title: "Cyberdyne 2m High-Speed HDMI Cable"
+        asin: "B0XXX0017"
+      supplier:
+        source_id: "sup-cyberdyne-8181"
+        manufacturer_part_number: "MPN-C-8181"
+        brand: "Cyberdyne"
+        product_family: "Cables"
+
+  - id: prod-018
+    records:
+      pim:
+        source_id: "pim-00018"
+        gtin: "5099900000185"
+        manufacturer_part_number: "MPN-AP-9090"
+        brand: "Aperture"
+        name: "Aperture Travel Tripod"
+        category: "electronics/photo"
+        weight_g: 1200
+      warehouse:
+        source_id: "wh-7801"
+        gtin: "5099900000185"
+        internal_sku: "WH-APERTURE-TRIPOD"
+        weight_g: 1198
+        bin_location: "G-04-1"
+      marketplace:
+        source_id: "asin-B0XXX0018"
+        gtin: "5099900000185"
+        listing_title: "Aperture Lightweight Travel Tripod"
+        asin: "B0XXX0018"
+
+  - id: prod-019
+    records:
+      pim:
+        source_id: "pim-00019"
+        gtin: "5099900000192"
+        manufacturer_part_number: "MPN-S-1010"
+        brand: "Soylent"
+        name: "Soylent Insulated Mug 350ml"
+        category: "kitchen/drinkware"
+        weight_g: 320
+      warehouse:
+        source_id: "wh-7802"
+        gtin: "5099900000192"
+        internal_sku: "WH-SOYLENT-MUG-350"
+        weight_g: 318
+        bin_location: "F-03-2"
+      supplier:
+        source_id: "sup-soylent-1010"
+        manufacturer_part_number: "MPN-S-1010"
+        brand: "Soylent"
+        product_family: "Drinkware"
+
+  - id: prod-020
+    records:
+      pim:
+        source_id: "pim-00020"
+        gtin: "5099900000208"
+        manufacturer_part_number: "MPN-SI-2020"
+        brand: "Stark Industries"
+        name: "Stark Industries USB-C Charger 65W"
+        category: "electronics/chargers"
+        weight_g: 180
+      marketplace:
+        source_id: "asin-B0XXX0020"
+        gtin: "5099900000208"
+        listing_title: "Stark Industries 65W USB-C Wall Charger"
+        asin: "B0XXX0020"
+      supplier:
+        source_id: "sup-starkind-2020"
+        manufacturer_part_number: "MPN-SI-2020"
+        brand: "Stark Industries"
+        product_family: "Chargers"
+
+  - id: prod-021
+    records:
+      pim:
+        source_id: "pim-00021"
+        gtin: "5099900000215"
+        manufacturer_part_number: "MPN-A-3030"
+        brand: "Acme"
+        name: "Acme Drill Bit Set 12pc"
+        category: "tools/power-tool-accessories"
+        weight_g: 800
+      warehouse:
+        source_id: "wh-7803"
+        gtin: "5099900000215"
+        internal_sku: "WH-ACME-DRILLBITS-12"
+        weight_g: 802
+        bin_location: "B-08-1"
+      marketplace:
+        source_id: "asin-B0XXX0021"
+        gtin: "5099900000215"
+        listing_title: "Acme Pro 12-Piece Drill Bit Set"
+        asin: "B0XXX0021"
+
+  - id: prod-022
+    records:
+      pim:
+        source_id: "pim-00022"
+        gtin: "5099900000222"
+        manufacturer_part_number: "MPN-G-4040"
+        brand: "Globex"
+        name: "Globex Scissors 8in"
+        category: "office/stationery"
+        weight_g: 95
+      warehouse:
+        source_id: "wh-7804"
+        gtin: "5099900000222"
+        internal_sku: "WH-GLOBEX-SCISSORS-8"
+        weight_g: 96
+        bin_location: "H-05-1"
+      supplier:
+        source_id: "sup-globex-4040"
+        manufacturer_part_number: "MPN-G-4040"
+        brand: "Globex"
+        product_family: "Office"
+
+  - id: prod-023
+    records:
+      pim:
+        source_id: "pim-00023"
+        gtin: "5099900000239"
+        manufacturer_part_number: "MPN-H-5050"
+        brand: "Hooli"
+        name: "Hooli Wireless Headphones"
+        category: "electronics/audio"
+        weight_g: 280
+      marketplace:
+        source_id: "asin-B0XXX0023"
+        gtin: "5099900000239"
+        listing_title: "Hooli Over-Ear Wireless Headphones"
+        asin: "B0XXX0023"
+      supplier:
+        source_id: "sup-hooli-5050"
+        manufacturer_part_number: "MPN-H-5050"
+        brand: "Hooli"
+        product_family: "Audio"
+
+  - id: prod-024
+    records:
+      pim:
+        source_id: "pim-00024"
+        gtin: "5099900000246"
+        manufacturer_part_number: "MPN-I-6060"
+        brand: "Initech"
+        name: "Initech A5 Notebook"
+        category: "office/stationery"
+        weight_g: 220
+      warehouse:
+        source_id: "wh-7805"
+        gtin: "5099900000246"
+        internal_sku: "WH-INITECH-NOTEBOOK-A5"
+        weight_g: 222
+        bin_location: "H-05-2"
+      marketplace:
+        source_id: "asin-B0XXX0024"
+        gtin: "5099900000246"
+        listing_title: "Initech A5 Ruled Notebook"
+        asin: "B0XXX0024"
+
+  - id: prod-025
+    records:
+      pim:
+        source_id: "pim-00025"
+        gtin: "5099900000253"
+        manufacturer_part_number: "MPN-V-7070"
+        brand: "Vandelay"
+        name: "Vandelay Ballpoint Pen Refills 10pk"
+        category: "office/stationery"
+        weight_g: 90
+      warehouse:
+        source_id: "wh-7806"
+        gtin: "5099900000253"
+        internal_sku: "WH-VANDELAY-REFILL-10"
+        weight_g: 90
+        bin_location: "H-05-3"
+      supplier:
+        source_id: "sup-vandelay-7070"
+        manufacturer_part_number: "MPN-V-7070"
+        brand: "Vandelay"
+        product_family: "Stationery"
+
+  # ─── Two-source bulk (prod-026..prod-050) ──────────────────────────
+
+  - id: prod-026
+    records:
+      pim:
+        source_id: "pim-00026"
+        gtin: "5099900000260"
+        manufacturer_part_number: "MPN-A-8181"
+        brand: "Acme"
+        name: "Acme Phillips Screwdriver #2"
+        category: "tools/hand-tools"
+        weight_g: 110
+      warehouse:
+        source_id: "wh-7807"
+        gtin: "5099900000260"
+        internal_sku: "WH-ACME-SCREWDRIVER-P2"
+        weight_g: 110
+        bin_location: "B-07-4"
+
+  - id: prod-027
+    records:
+      pim:
+        source_id: "pim-00027"
+        gtin: "5099900000277"
+        manufacturer_part_number: "MPN-G-9292"
+        brand: "Globex"
+        name: "Globex Combination Pliers 200mm"
+        category: "tools/hand-tools"
+        weight_g: 320
+      supplier:
+        source_id: "sup-globex-9292"
+        manufacturer_part_number: "MPN-G-9292"
+        brand: "Globex"
+        product_family: "Pliers"
+
+  - id: prod-028
+    records:
+      warehouse:
+        source_id: "wh-7808"
+        gtin: "5099900000284"
+        internal_sku: "WH-HOOLI-WRENCH-12"
+        weight_g: 410
+        bin_location: "B-08-2"
+      marketplace:
+        source_id: "asin-B0XXX0028"
+        gtin: "5099900000284"
+        listing_title: "Hooli 12mm Combination Wrench"
+        asin: "B0XXX0028"
+
+  - id: prod-029
+    records:
+      pim:
+        source_id: "pim-00029"
+        gtin: "5099900000291"
+        manufacturer_part_number: "MPN-I-1313"
+        brand: "Initech"
+        name: "Initech Compact Hand Saw"
+        category: "tools/hand-tools"
+        weight_g: 480
+      marketplace:
+        source_id: "asin-B0XXX0029"
+        gtin: "5099900000291"
+        listing_title: "Initech Compact Folding Hand Saw"
+        asin: "B0XXX0029"
+
+  - id: prod-030
+    records:
+      warehouse:
+        source_id: "wh-7809"
+        gtin: "5099900000307"
+        internal_sku: "WH-VANDELAY-CHISEL-25"
+        weight_g: 220
+        bin_location: "B-08-3"
+      supplier:
+        source_id: "sup-vandelay-1414"
+        manufacturer_part_number: "MPN-V-1414"
+        brand: "Vandelay"
+        product_family: "Chisels"
+
+  - id: prod-031
+    records:
+      pim:
+        source_id: "pim-00031"
+        gtin: "5099900000314"
+        manufacturer_part_number: "MPN-S-1515"
+        brand: "Soylent"
+        name: "Soylent Coffee Grinder"
+        category: "kitchen/small-appliances"
+        weight_g: 780
+      warehouse:
+        source_id: "wh-7810"
+        gtin: "5099900000314"
+        internal_sku: "WH-SOYLENT-GRINDER"
+        weight_g: 782
+        bin_location: "D-02-1"
+
+  - id: prod-032
+    records:
+      marketplace:
+        source_id: "asin-B0XXX0032"
+        gtin: "5099900000321"
+        listing_title: "Tyrell Replacement Kettle Cord 1.5m"
+        asin: "B0XXX0032"
+      supplier:
+        source_id: "sup-tyrell-1616"
+        manufacturer_part_number: "MPN-T-1616"
+        brand: "Tyrell"
+        product_family: "Spares"
+
+  - id: prod-033
+    records:
+      pim:
+        source_id: "pim-00033"
+        gtin: "5099900000338"
+        manufacturer_part_number: "MPN-C-1717"
+        brand: "Cyberdyne"
+        name: "Cyberdyne USB-A to USB-C Adapter"
+        category: "electronics/adapters"
+        weight_g: 15
+      marketplace:
+        source_id: "asin-B0XXX0033"
+        gtin: "5099900000338"
+        listing_title: "Cyberdyne USB-A to USB-C Adapter (Pack of 2)"
+        asin: "B0XXX0033"
+
+  - id: prod-034
+    records:
+      pim:
+        source_id: "pim-00034"
+        gtin: "5099900000345"
+        manufacturer_part_number: "MPN-AP-1818"
+        brand: "Aperture"
+        name: "Aperture 58mm Lens Cap"
+        category: "electronics/photo"
+        weight_g: 8
+      supplier:
+        source_id: "sup-aperture-1818"
+        manufacturer_part_number: "MPN-AP-1818"
+        brand: "Aperture"
+        product_family: "Accessories"
+
+  - id: prod-035
+    records:
+      warehouse:
+        source_id: "wh-7811"
+        gtin: "5099900000352"
+        internal_sku: "WH-MD-STAND"
+        weight_g: 1500
+        bin_location: "E-02-2"
+      marketplace:
+        source_id: "asin-B0XXX0035"
+        gtin: "5099900000352"
+        listing_title: "Massive Dynamic Adjustable Monitor Stand"
+        asin: "B0XXX0035"
+
+  - id: prod-036
+    records:
+      pim:
+        source_id: "pim-00036"
+        gtin: "5099900000369"
+        manufacturer_part_number: "MPN-SI-1919"
+        brand: "Stark Industries"
+        name: "Stark Industries 100W Charger Pro"
+        category: "electronics/chargers"
+        weight_g: 240
+      warehouse:
+        source_id: "wh-7812"
+        gtin: "5099900000369"
+        internal_sku: "WH-STARK-CHARGER-100"
+        weight_g: 242
+        bin_location: "G-04-2"
+
+  - id: prod-037
+    records:
+      pim:
+        source_id: "pim-00037"
+        gtin: "5099900000376"
+        manufacturer_part_number: "MPN-A-2020"
+        brand: "Acme"
+        name: "Acme Claw Hammer 16oz"
+        category: "tools/hand-tools"
+        weight_g: 600
+      marketplace:
+        source_id: "asin-B0XXX0037"
+        gtin: "5099900000376"
+        listing_title: "Acme 16oz Claw Hammer"
+        asin: "B0XXX0037"
+
+  - id: prod-038
+    records:
+      warehouse:
+        source_id: "wh-7813"
+        gtin: "5099900000383"
+        internal_sku: "WH-GLOBEX-SAWBLADE-7"
+        weight_g: 180
+        bin_location: "B-09-1"
+      supplier:
+        source_id: "sup-globex-2121"
+        manufacturer_part_number: "MPN-G-2121"
+        brand: "Globex"
+        product_family: "Power Tool Accessories"
+
+  - id: prod-039
+    records:
+      pim:
+        source_id: "pim-00039"
+        gtin: "5099900000390"
+        manufacturer_part_number: "MPN-H-2222"
+        brand: "Hooli"
+        name: "Hooli Wall Mount Bracket TV 32-65in"
+        category: "household/installation"
+        weight_g: 2200
+      supplier:
+        source_id: "sup-hooli-2222"
+        manufacturer_part_number: "MPN-H-2222"
+        brand: "Hooli"
+        product_family: "Mounts"
+
+  - id: prod-040
+    records:
+      pim:
+        source_id: "pim-00040"
+        gtin: "5099900000406"
+        manufacturer_part_number: "MPN-I-2323"
+        brand: "Initech"
+        name: "Initech Bolt Kit M6"
+        category: "hardware/fasteners"
+        weight_g: 250
+      warehouse:
+        source_id: "wh-7814"
+        gtin: "5099900000406"
+        internal_sku: "WH-INITECH-BOLTKIT-M6"
+        weight_g: 250
+        bin_location: "C-05-1"
+
+  - id: prod-041
+    records:
+      warehouse:
+        source_id: "wh-7815"
+        gtin: "5099900000413"
+        internal_sku: "WH-VANDELAY-SCREWKIT"
+        weight_g: 320
+        bin_location: "C-05-2"
+      marketplace:
+        source_id: "asin-B0XXX0041"
+        gtin: "5099900000413"
+        listing_title: "Vandelay Mixed Screw Assortment (200pc)"
+        asin: "B0XXX0041"
+
+  - id: prod-042
+    records:
+      pim:
+        source_id: "pim-00042"
+        gtin: "5099900000420"
+        manufacturer_part_number: "MPN-S-2424"
+        brand: "Soylent"
+        name: "Soylent Magnetic Spice Rack"
+        category: "kitchen/storage"
+        weight_g: 850
+      marketplace:
+        source_id: "asin-B0XXX0042"
+        gtin: "5099900000420"
+        listing_title: "Soylent Magnetic Spice Rack (Wall Mount)"
+        asin: "B0XXX0042"
+
+  - id: prod-043
+    records:
+      pim:
+        source_id: "pim-00043"
+        gtin: "5099900000437"
+        manufacturer_part_number: "MPN-T-2525"
+        brand: "Tyrell"
+        name: "Tyrell Velvet Cushion 45cm"
+        category: "household/decor"
+        weight_g: 500
+      supplier:
+        source_id: "sup-tyrell-2525"
+        manufacturer_part_number: "MPN-T-2525"
+        brand: "Tyrell"
+        product_family: "Decor"
+
+  - id: prod-044
+    records:
+      warehouse:
+        source_id: "wh-7816"
+        gtin: "5099900000444"
+        internal_sku: "WH-CYBERDYNE-BRACKET"
+        weight_g: 400
+        bin_location: "C-05-3"
+      supplier:
+        source_id: "sup-cyberdyne-2626"
+        manufacturer_part_number: "MPN-C-2626"
+        brand: "Cyberdyne"
+        product_family: "Mounts"
+
+  - id: prod-045
+    records:
+      pim:
+        source_id: "pim-00045"
+        gtin: "5099900000451"
+        manufacturer_part_number: "MPN-AP-2727"
+        brand: "Aperture"
+        name: "Aperture Camera Strap (Padded)"
+        category: "electronics/photo"
+        weight_g: 120
+      warehouse:
+        source_id: "wh-7817"
+        gtin: "5099900000451"
+        internal_sku: "WH-APERTURE-STRAP"
+        weight_g: 122
+        bin_location: "G-04-3"
+
+  - id: prod-046
+    records:
+      pim:
+        source_id: "pim-00046"
+        gtin: "5099900000468"
+        manufacturer_part_number: "MPN-M-2828"
+        brand: "Massive Dynamic"
+        name: "Massive Dynamic 4-Port USB-C Hub"
+        category: "electronics/hubs"
+        weight_g: 65
+      marketplace:
+        source_id: "asin-B0XXX0046"
+        gtin: "5099900000468"
+        listing_title: "Massive Dynamic 4-Port USB-C Hub"
+        asin: "B0XXX0046"
+
+  - id: prod-047
+    records:
+      marketplace:
+        source_id: "asin-B0XXX0047"
+        gtin: "5099900000475"
+        listing_title: "Stark Industries Braided Lightning Cable 1m"
+        asin: "B0XXX0047"
+      supplier:
+        source_id: "sup-starkind-2929"
+        manufacturer_part_number: "MPN-SI-2929"
+        brand: "Stark Industries"
+        product_family: "Cables"
+
+  - id: prod-048
+    records:
+      pim:
+        source_id: "pim-00048"
+        gtin: "5099900000482"
+        manufacturer_part_number: "MPN-A-3131"
+        brand: "Acme"
+        name: "Acme HB Pencil Set 12pc"
+        category: "office/stationery"
+        weight_g: 80
+      warehouse:
+        source_id: "wh-7818"
+        gtin: "5099900000482"
+        internal_sku: "WH-ACME-PENCIL-HB-12"
+        weight_g: 80
+        bin_location: "H-06-1"
+
+  - id: prod-049
+    records:
+      pim:
+        source_id: "pim-00049"
+        gtin: "5099900000499"
+        manufacturer_part_number: "MPN-G-3232"
+        brand: "Globex"
+        name: "Globex Vinyl Eraser"
+        category: "office/stationery"
+        weight_g: 12
+      marketplace:
+        source_id: "asin-B0XXX0049"
+        gtin: "5099900000499"
+        listing_title: "Globex Soft Vinyl Eraser (Pack of 3)"
+        asin: "B0XXX0049"
+
+  - id: prod-050
+    records:
+      warehouse:
+        source_id: "wh-7819"
+        gtin: "5099900000505"
+        internal_sku: "WH-HOOLI-HIGHLIGHTER-6"
+        weight_g: 90
+        bin_location: "H-06-2"
+      supplier:
+        source_id: "sup-hooli-3333"
+        manufacturer_part_number: "MPN-H-3333"
+        brand: "Hooli"
+        product_family: "Markers"
+
+  # ─── Single-source bulk (prod-051..prod-100) ───────────────────────
+
+  # pim-only — products in the master record but not yet sourced/stocked/listed.
+  - id: prod-051
+    records:
+      pim:
+        source_id: "pim-00051"
+        gtin: "5099900000512"
+        manufacturer_part_number: "MPN-A-4040"
+        brand: "Acme"
+        name: "Acme A4 Spiral Notebook"
+        category: "office/stationery"
+
+  - id: prod-052
+    records:
+      pim:
+        source_id: "pim-00052"
+        gtin: "5099900000529"
+        manufacturer_part_number: "MPN-G-4141"
+        brand: "Globex"
+        name: "Globex Battery-Powered Pencil Sharpener"
+        category: "office/stationery"
+
+  - id: prod-053
+    records:
+      pim:
+        source_id: "pim-00053"
+        gtin: "5099900000536"
+        manufacturer_part_number: "MPN-H-4242"
+        brand: "Hooli"
+        name: "Hooli Bluetooth Speaker Mini"
+        category: "electronics/audio"
+
+  - id: prod-054
+    records:
+      pim:
+        source_id: "pim-00054"
+        gtin: "5099900000543"
+        manufacturer_part_number: "MPN-I-4343"
+        brand: "Initech"
+        name: "Initech 4-Slice Toaster"
+        category: "kitchen/small-appliances"
+
+  # warehouse-only — items received but with no master record yet.
+  - id: prod-055
+    records:
+      warehouse:
+        source_id: "wh-7820"
+        internal_sku: "WH-BULK-ZIPTIE-100"
+        weight_g: 200
+        bin_location: "C-09-1"
+
+  - id: prod-056
+    records:
+      warehouse:
+        source_id: "wh-7821"
+        internal_sku: "WH-BULK-WASHER-12MM"
+        weight_g: 800
+        bin_location: "C-09-2"
+
+  - id: prod-057
+    records:
+      warehouse:
+        source_id: "wh-7822"
+        internal_sku: "WH-BULK-CABLETIE-200"
+        weight_g: 360
+        bin_location: "C-09-3"
+
+  - id: prod-058
+    records:
+      warehouse:
+        source_id: "wh-7823"
+        internal_sku: "WH-BULK-NUT-M8"
+        weight_g: 450
+        bin_location: "C-09-4"
+
+  # marketplace-only — dropship listings with no internal record.
+  - id: prod-059
+    records:
+      marketplace:
+        source_id: "asin-B0XXX0059"
+        gtin: "5099900000598"
+        listing_title: "Vandelay USB-C Hub Mini"
+        asin: "B0XXX0059"
+
+  - id: prod-060
+    records:
+      marketplace:
+        source_id: "asin-B0XXX0060"
+        gtin: "5099900000604"
+        listing_title: "Hooli Bluetooth Earbuds Lite"
+        asin: "B0XXX0060"
+
+  - id: prod-061
+    records:
+      marketplace:
+        source_id: "asin-B0XXX0061"
+        gtin: "5099900000611"
+        listing_title: "Soylent Travel Mug 500ml"
+        asin: "B0XXX0061"
+
+  - id: prod-062
+    records:
+      marketplace:
+        source_id: "asin-B0XXX0062"
+        gtin: "5099900000628"
+        listing_title: "Aperture Lens Cleaning Cloth Pack"
+        asin: "B0XXX0062"
+
+  # supplier-only — catalogue entries never picked up.
+  - id: prod-063
+    records:
+      supplier:
+        source_id: "sup-initech-4444"
+        manufacturer_part_number: "MPN-I-4444"
+        brand: "Initech"
+        product_family: "Adhesives"
+
+  - id: prod-064
+    records:
+      supplier:
+        source_id: "sup-soylent-4545"
+        manufacturer_part_number: "MPN-S-4545"
+        brand: "Soylent"
+        product_family: "Spice Containers"
+
+  - id: prod-065
+    records:
+      supplier:
+        source_id: "sup-tyrell-4646"
+        manufacturer_part_number: "MPN-T-4646"
+        brand: "Tyrell"
+        product_family: "Throws"
+
+  - id: prod-066
+    records:
+      supplier:
+        source_id: "sup-cyberdyne-4747"
+        manufacturer_part_number: "MPN-C-4747"
+        brand: "Cyberdyne"
+        product_family: "Power Banks"
+
+  # pim-only continued
+  - id: prod-067
+    records:
+      pim:
+        source_id: "pim-00067"
+        gtin: "5099900000673"
+        manufacturer_part_number: "MPN-V-4848"
+        brand: "Vandelay"
+        name: "Vandelay Stainless Steel Spatula"
+        category: "kitchen/utensils"
+
+  - id: prod-068
+    records:
+      pim:
+        source_id: "pim-00068"
+        gtin: "5099900000680"
+        manufacturer_part_number: "MPN-S-4949"
+        brand: "Soylent"
+        name: "Soylent Wooden Spoon Set"
+        category: "kitchen/utensils"
+
+  - id: prod-069
+    records:
+      pim:
+        source_id: "pim-00069"
+        gtin: "5099900000697"
+        manufacturer_part_number: "MPN-A-5050"
+        brand: "Acme"
+        name: "Acme Stainless Whisk"
+        category: "kitchen/utensils"
+
+  - id: prod-070
+    records:
+      pim:
+        source_id: "pim-00070"
+        gtin: "5099900000703"
+        manufacturer_part_number: "MPN-G-5151"
+        brand: "Globex"
+        name: "Globex Rolling Pin"
+        category: "kitchen/utensils"
+
+  # warehouse-only continued
+  - id: prod-071
+    records:
+      warehouse:
+        source_id: "wh-7824"
+        internal_sku: "WH-BULK-SCREW-M6"
+        weight_g: 700
+        bin_location: "C-09-5"
+
+  - id: prod-072
+    records:
+      warehouse:
+        source_id: "wh-7825"
+        internal_sku: "WH-BULK-RIVET-4MM"
+        weight_g: 280
+        bin_location: "C-09-6"
+
+  - id: prod-073
+    records:
+      warehouse:
+        source_id: "wh-7826"
+        internal_sku: "WH-BULK-WASHER-10MM"
+        weight_g: 600
+        bin_location: "C-10-1"
+
+  # marketplace-only continued
+  - id: prod-074
+    records:
+      marketplace:
+        source_id: "asin-B0XXX0074"
+        gtin: "5099900000741"
+        listing_title: "Tyrell Faux Fur Throw"
+        asin: "B0XXX0074"
+
+  - id: prod-075
+    records:
+      marketplace:
+        source_id: "asin-B0XXX0075"
+        gtin: "5099900000758"
+        listing_title: "Massive Dynamic Stand Fan 16in"
+        asin: "B0XXX0075"
+
+  - id: prod-076
+    records:
+      marketplace:
+        source_id: "asin-B0XXX0076"
+        gtin: "5099900000765"
+        listing_title: "Stark Industries Wireless Charging Pad"
+        asin: "B0XXX0076"
+
+  # supplier-only continued
+  - id: prod-077
+    records:
+      supplier:
+        source_id: "sup-acme-5252"
+        manufacturer_part_number: "MPN-A-5252"
+        brand: "Acme"
+        product_family: "Storage Containers"
+
+  - id: prod-078
+    records:
+      supplier:
+        source_id: "sup-globex-5353"
+        manufacturer_part_number: "MPN-G-5353"
+        brand: "Globex"
+        product_family: "Cleaning Supplies"
+
+  - id: prod-079
+    records:
+      supplier:
+        source_id: "sup-hooli-5454"
+        manufacturer_part_number: "MPN-H-5454"
+        brand: "Hooli"
+        product_family: "Networking"
+
+  - id: prod-080
+    records:
+      supplier:
+        source_id: "sup-vandelay-5555"
+        manufacturer_part_number: "MPN-V-5555"
+        brand: "Vandelay"
+        product_family: "Cookware"
+
+  # pim-only continued
+  - id: prod-081
+    records:
+      pim:
+        source_id: "pim-00081"
+        gtin: "5099900000819"
+        manufacturer_part_number: "MPN-AP-5656"
+        brand: "Aperture"
+        name: "Aperture Microfibre Cleaning Cloth Pack"
+        category: "electronics/photo"
+
+  - id: prod-082
+    records:
+      pim:
+        source_id: "pim-00082"
+        gtin: "5099900000826"
+        manufacturer_part_number: "MPN-T-5757"
+        brand: "Tyrell"
+        name: "Tyrell Aroma Diffuser"
+        category: "household/decor"
+
+  - id: prod-083
+    records:
+      pim:
+        source_id: "pim-00083"
+        gtin: "5099900000833"
+        manufacturer_part_number: "MPN-C-5858"
+        brand: "Cyberdyne"
+        name: "Cyberdyne 3m Ethernet Cable Cat6"
+        category: "electronics/cables"
+
+  - id: prod-084
+    records:
+      pim:
+        source_id: "pim-00084"
+        gtin: "5099900000840"
+        manufacturer_part_number: "MPN-I-5959"
+        brand: "Initech"
+        name: "Initech Ergonomic Office Chair"
+        category: "office/furniture"
+
+  # warehouse-only continued
+  - id: prod-085
+    records:
+      warehouse:
+        source_id: "wh-7827"
+        internal_sku: "WH-BULK-DOWEL-8MM"
+        weight_g: 450
+        bin_location: "C-10-2"
+
+  - id: prod-086
+    records:
+      warehouse:
+        source_id: "wh-7828"
+        internal_sku: "WH-BULK-HINGE-50MM"
+        weight_g: 320
+        bin_location: "C-10-3"
+
+  # marketplace-only continued
+  - id: prod-087
+    records:
+      marketplace:
+        source_id: "asin-B0XXX0087"
+        gtin: "5099900000871"
+        listing_title: "Aperture Camera Bag (Compact)"
+        asin: "B0XXX0087"
+
+  - id: prod-088
+    records:
+      marketplace:
+        source_id: "asin-B0XXX0088"
+        gtin: "5099900000888"
+        listing_title: "Hooli Wireless Mouse Compact"
+        asin: "B0XXX0088"
+
+  # supplier-only continued
+  - id: prod-089
+    records:
+      supplier:
+        source_id: "sup-massivedyn-6060"
+        manufacturer_part_number: "MPN-M-6060"
+        brand: "Massive Dynamic"
+        product_family: "Lighting"
+
+  - id: prod-090
+    records:
+      supplier:
+        source_id: "sup-starkind-6161"
+        manufacturer_part_number: "MPN-SI-6161"
+        brand: "Stark Industries"
+        product_family: "Smart Home"
+
+  # pim-only continued
+  - id: prod-091
+    records:
+      pim:
+        source_id: "pim-00091"
+        gtin: "5099900000918"
+        manufacturer_part_number: "MPN-S-6262"
+        brand: "Soylent"
+        name: "Soylent French Press 1L"
+        category: "kitchen/drinkware"
+
+  - id: prod-092
+    records:
+      pim:
+        source_id: "pim-00092"
+        gtin: "5099900000925"
+        manufacturer_part_number: "MPN-A-6363"
+        brand: "Acme"
+        name: "Acme Mechanical Pencil 0.7mm"
+        category: "office/stationery"
+
+  # warehouse-only continued
+  - id: prod-093
+    records:
+      warehouse:
+        source_id: "wh-7829"
+        internal_sku: "WH-BULK-SANDPAPER-120"
+        weight_g: 500
+        bin_location: "C-10-4"
+
+  - id: prod-094
+    records:
+      warehouse:
+        source_id: "wh-7830"
+        internal_sku: "WH-BULK-VELCRO-50MM"
+        weight_g: 280
+        bin_location: "C-10-5"
+
+  # marketplace-only continued
+  - id: prod-095
+    records:
+      marketplace:
+        source_id: "asin-B0XXX0095"
+        gtin: "5099900000956"
+        listing_title: "Cyberdyne Smart Plug (Pack of 2)"
+        asin: "B0XXX0095"
+
+  - id: prod-096
+    records:
+      marketplace:
+        source_id: "asin-B0XXX0096"
+        gtin: "5099900000963"
+        listing_title: "Initech Standing Desk Converter"
+        asin: "B0XXX0096"
+
+  # supplier-only continued
+  - id: prod-097
+    records:
+      supplier:
+        source_id: "sup-tyrell-6464"
+        manufacturer_part_number: "MPN-T-6464"
+        brand: "Tyrell"
+        product_family: "Cushions"
+
+  - id: prod-098
+    records:
+      supplier:
+        source_id: "sup-vandelay-6565"
+        manufacturer_part_number: "MPN-V-6565"
+        brand: "Vandelay"
+        product_family: "Stationery"
+
+  # pim-only continued (final two)
+  - id: prod-099
+    records:
+      pim:
+        source_id: "pim-00099"
+        gtin: "5099900000994"
+        manufacturer_part_number: "MPN-G-6666"
+        brand: "Globex"
+        name: "Globex Reusable Water Bottle 750ml"
+        category: "kitchen/drinkware"
+
+  - id: prod-100
+    records:
+      pim:
+        source_id: "pim-00100"
+        gtin: "5099900001007"
+        manufacturer_part_number: "MPN-H-6767"
+        brand: "Hooli"
+        name: "Hooli Compact Backpack 18L"
+        category: "sports/outdoors"

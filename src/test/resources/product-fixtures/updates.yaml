@@ -1,0 +1,45 @@
+# Re-asserted claims with mutated attributes — used to exercise the
+# conflict-event path. Each entry targets an alias already minted from
+# products.yaml; the attributes here diverge from those originally
+# stored, so ingesting the update produces a Matched result AND an
+# EntityAttributesConflicted event.
+#
+# Format mirrors a single source-system record from products.yaml.
+
+updates:
+
+  # prod-007 — data quality fix: PIM operator corrected the brand
+  # attribute on an existing master record. Same GTIN, same MPN, same
+  # source_id — only the brand attribute differs from what is stored.
+  - source: pim
+    source_id: "pim-00007"
+    notes: "PIM operator corrected brand from 'Globex' to 'Globex Industries'."
+    attributes:
+      gtin: "5099900000079"
+      manufacturer_part_number: "MPN-G-5500"
+      brand: "Globex Industries"
+      name: "Industrial Spanner 18in"
+      category: "tools/hand-tools"
+      weight_g: 1200
+
+  # prod-008 — manufacturer rebranding: Initech was acquired by Hooli,
+  # so the supplier catalogue now lists the same MPN under the new
+  # brand. Same supplier source_id, brand attribute diverges.
+  - source: supplier
+    source_id: "sup-initech-7700"
+    notes: "Initech acquired by Hooli — supplier catalogue rebranded same MPN."
+    attributes:
+      manufacturer_part_number: "MPN-I-7700"
+      brand: "Hooli"
+      product_family: "Hammers"
+
+  # prod-001 — warehouse re-audited and the recorded weight shifted.
+  # Same warehouse source_id, weight_g attribute diverges.
+  - source: warehouse
+    source_id: "wh-7788"
+    notes: "Annual stock-take re-weighed the item; weight_g attribute updated."
+    attributes:
+      gtin: "5099900000017"
+      internal_sku: "WH-ACME-WIDGET-BL-L"
+      weight_g: 455
+      bin_location: "A-12-3"
