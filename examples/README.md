@@ -15,10 +15,11 @@ mvn -q test-compile exec:java \
     -Dexec.classpathScope=test
 ```
 
-Substitute `RetailQuickStart` for `ProductQuickStart` to run the other
-demo. Each one also has a companion test under
-`src/test/java/uk/codery/jclaim/examples/` so any quoted snippet in the
-project [`README.md`](../README.md) cannot drift out of date silently.
+Substitute `RetailQuickStart` for `ProductQuickStart` or
+`PropertyQuickStart` to run the other demos. Each one also has a
+companion test under `src/test/java/uk/codery/jclaim/examples/` so any
+quoted snippet in the project [`README.md`](../README.md) cannot drift
+out of date silently.
 
 ## `RetailQuickStart.java`
 
@@ -50,4 +51,20 @@ Loads five curated products from
 | `prod-005`  | size variant of `prod-001` — distinct entity             |
 
 See [`product-fixtures/README.md`](../src/test/resources/product-fixtures/README.md)
+for the dataset shape and scenario coverage.
+
+## `PropertyQuickStart.java`
+
+Loads five curated UK properties from
+[`src/test/resources/property-fixtures/`](../src/test/resources/property-fixtures/).
+
+| Property    | Source coverage                                          |
+|-------------|----------------------------------------------------------|
+| `prop-001`  | all four sources (shared UPRN)                           |
+| `prop-002`  | three sources (no Land Registry entry)                   |
+| `prop-003`  | two sources (basic dwelling)                             |
+| `prop-004`  | flat 1 of three in one converted Victorian house         |
+| `prop-005`  | flat 2 of three — distinct entity from flat 1            |
+
+See [`property-fixtures/README.md`](../src/test/resources/property-fixtures/README.md)
 for the dataset shape and scenario coverage.
