@@ -2,6 +2,7 @@
 
 [![Maven Central](https://img.shields.io/maven-central/v/uk.codery/jclaim.svg?label=Maven%20Central)](https://search.maven.org/search?q=g:%22uk.codery%22%20AND%20a:%22jclaim%22)
 [![Build and Test](https://github.com/thekitchencoder/jclaim/actions/workflows/build.yml/badge.svg)](https://github.com/thekitchencoder/jclaim/actions/workflows/build.yml)
+[![codecov](https://codecov.io/gh/thekitchencoder/jclaim/branch/main/graph/badge.svg)](https://codecov.io/gh/thekitchencoder/jclaim)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fthekitchencoder%2Fjclaim.svg?type=shield)](https://app.fossa.com/projects/git%2Bgithub.com%2Fthekitchencoder%2Fjclaim?ref=badge_shield)
 [![Java](https://img.shields.io/badge/Java-21+-blue.svg)](https://openjdk.org/projects/jdk/21/)
