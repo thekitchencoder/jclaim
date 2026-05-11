@@ -1,0 +1,50 @@
+# FOSSA licence scanning.
+#
+# Runs `fossa analyze` and `fossa test` against the multi-module Maven
+# build so transitive dependency licences across every produced artefact
+# are tracked. Mirrors the jspec sibling project's licence-compliance
+# posture.
+#
+# Manual setup required AFTER this workflow lands on main:
+#
+#   1. Create the FOSSA project at https://app.fossa.com against the
+#      thekitchencoder/jclaim repository.
+#   2. Generate a project API key.
+#   3. Add the key to the GitHub repository's Actions secrets as
+#      FOSSA_API_KEY.
+#
+# Until the secret is configured the workflow will fail on push -- merge
+# the workflow first, then set the secret.
+name: FOSSA Licence Scan
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  fossa:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v5
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: 'maven'
+
+      - name: FOSSA Analyze
+        uses: fossas/fossa-action@main
+        with:
+          api-key: ${{ secrets.FOSSA_API_KEY }}
+
+      - name: FOSSA Test
+        uses: fossas/fossa-action@main
+        with:
+          api-key: ${{ secrets.FOSSA_API_KEY }}
+          run-tests: true
