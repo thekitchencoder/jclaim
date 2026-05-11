@@ -1,6 +1,6 @@
 # JCLAIM
 
-[![Maven Central](https://img.shields.io/maven-central/v/uk.codery/jclaim.svg?label=Maven%20Central)](https://search.maven.org/search?q=g:%22uk.codery%22%20AND%20a:%22jclaim%22)
+[![Maven Central](https://img.shields.io/maven-central/v/uk.codery/jclaim-core.svg?label=Maven%20Central)](https://search.maven.org/search?q=g:%22uk.codery%22%20AND%20a:%22jclaim-core%22)
 [![Build and Test](https://github.com/thekitchencoder/jclaim/actions/workflows/build.yml/badge.svg)](https://github.com/thekitchencoder/jclaim/actions/workflows/build.yml)
 [![codecov](https://codecov.io/gh/thekitchencoder/jclaim/branch/main/graph/badge.svg)](https://codecov.io/gh/thekitchencoder/jclaim)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -19,7 +19,7 @@ The MDM (Master Data Management) entity-matching pattern, packaged as a library 
 - **Matching policy as data** *(roadmap)* — Express your matching logic as a JSPEC specification. Tri-state evaluation surfaces `MATCHED`, `NOT_MATCHED`, and `UNDETERMINED` claims naturally.
 - **Alias graph from day one** — Records the mapping from canonical identity to source IDs, with the data shape ready for merge, split, and federation correlation.
 - **Conflict-aware** — When a match succeeds but stored attributes differ from the new claim, JCLAIM emits an event rather than silently updating. Evidence is preserved for stewardship.
-- **Storage adapters** — In-memory in this release; MongoDB adapter follows. Alternative storage via a small port interface.
+- **Storage adapters** — In-memory in `jclaim-core` for testing and evaluation; MongoDB and PostgreSQL adapters follow as separate modules. Alternative storage via a small port interface.
 - **Spring-independent** — Works in plain Java applications; integrates with Spring Boot without depending on it.
 - **Java 21 foundation** — Records, sealed interfaces, switch expressions, immutable collections throughout.
 
@@ -28,10 +28,12 @@ The MDM (Master Data Management) entity-matching pattern, packaged as a library 
 ```xml
 <dependency>
     <groupId>uk.codery</groupId>
-    <artifactId>jclaim</artifactId>
+    <artifactId>jclaim-core</artifactId>
     <version>0.1.0-SNAPSHOT</version>
 </dependency>
 ```
+
+`jclaim-core` ships the domain model, the resolver service, the in-memory storage adapter, and the conflict event surface — everything needed to exercise the library end-to-end. Storage adapters for Mongo and Postgres land in separate modules (`jclaim-storage-mongo`, `jclaim-storage-postgres`) in subsequent releases.
 
 > JCLAIM is in pre-1.0 development; Maven Central publication will follow with the first tagged release.
 
@@ -94,7 +96,7 @@ The stored entity is **not** updated — silent overwrites are explicitly avoide
 A complete, runnable demonstration lives in
 [`examples/RetailQuickStart.java`](examples/RetailQuickStart.java). It
 loads five curated customers from the retail synthetic dataset under
-[`src/test/resources/retail-fixtures/`](src/test/resources/retail-fixtures/),
+[`jclaim-core/src/test/resources/retail-fixtures/`](jclaim-core/src/test/resources/retail-fixtures/),
 folds each customer's source-system records into the resolver one alias
 at a time, and prints the resulting entity graph:
 
@@ -136,14 +138,14 @@ cust-001
 Run from the project root:
 
 ```bash
-mvn -q test-compile exec:java \
+mvn -q -pl jclaim-core test-compile exec:java \
     -Dexec.mainClass=uk.codery.jclaim.examples.RetailQuickStart \
     -Dexec.classpathScope=test
 ```
 
 The retail dataset itself covers around 100 synthetic customers across
 four source systems and is documented in
-[`src/test/resources/retail-fixtures/README.md`](src/test/resources/retail-fixtures/README.md).
+[`jclaim-core/src/test/resources/retail-fixtures/README.md`](jclaim-core/src/test/resources/retail-fixtures/README.md).
 
 ### Other corpora
 
@@ -152,9 +154,9 @@ same library against three different domains:
 
 | Corpus      | Fixtures                                                                 | Example                                           |
 |-------------|--------------------------------------------------------------------------|---------------------------------------------------|
-| Customers   | [`retail-fixtures/`](src/test/resources/retail-fixtures/)                | [`RetailQuickStart`](examples/RetailQuickStart.java)   |
-| Products    | [`product-fixtures/`](src/test/resources/product-fixtures/)              | [`ProductQuickStart`](examples/ProductQuickStart.java) |
-| Properties  | [`property-fixtures/`](src/test/resources/property-fixtures/)            | [`PropertyQuickStart`](examples/PropertyQuickStart.java) |
+| Customers   | [`retail-fixtures/`](jclaim-core/src/test/resources/retail-fixtures/)                | [`RetailQuickStart`](examples/RetailQuickStart.java)   |
+| Products    | [`product-fixtures/`](jclaim-core/src/test/resources/product-fixtures/)              | [`ProductQuickStart`](examples/ProductQuickStart.java) |
+| Properties  | [`property-fixtures/`](jclaim-core/src/test/resources/property-fixtures/)            | [`PropertyQuickStart`](examples/PropertyQuickStart.java) |
 
 Each corpus is ~100 ground-truth entities across four source systems
 with the same scenario shape (single-source, multi-source, conflict
@@ -187,6 +189,18 @@ mvn test -Dtest=ClassName   # focused single-class run
 ```
 
 Requires Java 21 and Maven 3.6+. Lombok annotation processing must be enabled in the IDE.
+
+## Modules
+
+JCLAIM is a multi-module Maven project. The repository root holds the aggregator POM; each capability is a separate Maven module under it.
+
+| Module                        | Purpose                                                                          | Status      |
+|-------------------------------|----------------------------------------------------------------------------------|-------------|
+| `jclaim-core`                 | Domain model, resolver service, in-memory storage adapter, conflict events       | available   |
+| `jclaim-storage-mongo`        | MongoDB storage adapter for the `EntityStorage` port                             | planned     |
+| `jclaim-storage-postgres`     | PostgreSQL storage adapter for the `EntityStorage` port                          | planned     |
+
+Consumers depend only on the modules they need. The in-memory adapter is shipped in `jclaim-core` for testing and evaluation; production deployments should pair `jclaim-core` with one of the dedicated storage adapter modules once they are released.
 
 ## Suite
 
