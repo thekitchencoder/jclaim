@@ -1,0 +1,40 @@
+# Re-asserted claims with mutated attributes — used to exercise the
+# conflict-event path. Each entry targets an alias already minted from
+# customers.yaml; the attributes here diverge from those originally
+# stored, so ingesting the update produces a Matched result AND an
+# EntityAttributesConflicted event.
+#
+# Format mirrors a single source-system record from customers.yaml.
+
+updates:
+
+  # cust-010 — same ecommerce alias, customer changed their phone.
+  - source: ecommerce
+    source_id: "ec-10010"
+    notes: "Customer changed phone after registration."
+    attributes:
+      email: "ava.wilson@example.com"
+      first_name: "Ava"
+      last_name: "Wilson"
+      phone: "+44 7700 900911"
+      registered_at: "2024-03-01"
+
+  # cust-001 — same loyalty alias, programme corrected the DOB.
+  - source: loyalty
+    source_id: "L-22334"
+    notes: "Loyalty programme corrected the date_of_birth after KYC review."
+    attributes:
+      email: "jane.doe@example.com"
+      first_name: "Jane"
+      last_name: "Doe"
+      date_of_birth: "1985-07-21"
+      postcode: "SW1A 1AA"
+
+  # cust-002 — same crm alias, case_count grew between snapshots.
+  - source: crm
+    source_id: "crm-30002"
+    notes: "Support cases accumulated between snapshots."
+    attributes:
+      email: "liam.brown@example.com"
+      preferred_contact: "phone"
+      case_count: 4
