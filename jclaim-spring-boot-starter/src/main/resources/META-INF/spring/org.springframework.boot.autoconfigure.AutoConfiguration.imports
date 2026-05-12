@@ -1,1 +1,2 @@
 uk.codery.jclaim.spring.JclaimAutoConfiguration
+uk.codery.jclaim.spring.health.JclaimHealthAutoConfiguration
