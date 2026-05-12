@@ -108,8 +108,8 @@ public class MongoStorageConfiguration {
                         "jclaim.storage.type=mongo requires a MongoClient bean. "
                                 + "Add spring-boot-starter-data-mongodb (or define one).");
             }
-            throw new IllegalStateException(
-                    "Unreachable: MongoStorageConfiguration.ExplicitWiring should have provided the bean");
+            throw new AssertionError(
+                    "Unreachable: ExplicitWiring should have provided the EntityStorage bean when MongoClient is present");
         }
     }
 }
