@@ -75,7 +75,6 @@
 
         <!-- Spring Boot starter dependency versions (consumed by jclaim-spring-boot-starter) -->
         <spring-boot.version>3.5.5</spring-boot.version>
-        <micrometer.version>1.13.6</micrometer.version>
     </properties>
 
     <dependencyManagement>
@@ -153,22 +152,12 @@
 
             <!-- Spring Boot BOM — consumed by jclaim-spring-boot-starter. Imported here so
                  every module sees consistent versions for transitive Spring artefacts,
-                 even though only the starter compiles against them. -->
+                 even though only the starter compiles against them. Micrometer pins are
+                 inherited transitively from this BOM. -->
             <dependency>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-dependencies</artifactId>
                 <version>${spring-boot.version}</version>
-                <type>pom</type>
-                <scope>import</scope>
-            </dependency>
-
-            <!-- Micrometer BOM — Spring Boot pins a Micrometer line transitively, but the
-                 starter exposes Micrometer-typed beans as optional dependencies; pinning
-                 the BOM explicitly avoids drift if Boot's pin lags upstream. -->
-            <dependency>
-                <groupId>io.micrometer</groupId>
-                <artifactId>micrometer-bom</artifactId>
-                <version>${micrometer.version}</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
