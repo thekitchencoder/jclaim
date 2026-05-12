@@ -79,6 +79,30 @@ class JclaimAutoConfigurationTest {
             });
     }
 
+    @Test
+    void postgresStorageWiresWhenDataSourcePresent() {
+        runner
+            .withUserConfiguration(DataSourceConfig.class)
+            .withPropertyValues("jclaim.storage.postgres.apply-schema=false")
+            .run(ctx -> {
+                assertThat(ctx).hasSingleBean(EntityStorage.class);
+                assertThat(ctx.getBean(EntityStorage.class))
+                        .isInstanceOf(uk.codery.jclaim.storage.postgres.PostgresEntityStorage.class);
+            });
+    }
+
+    @Test
+    void postgresTypeMissingDataSourceFailsStartup() {
+        runner
+            .withPropertyValues("jclaim.storage.type=postgres")
+            .run(ctx -> {
+                assertThat(ctx).hasFailed();
+                assertThat(ctx.getStartupFailure())
+                        .rootCause()
+                        .hasMessageContaining("DataSource");
+            });
+    }
+
     @Configuration(proxyBeanMethods = false)
     static class UserResolverConfig {
         static final EntityResolver MARKER = new StubResolver();
@@ -92,6 +116,18 @@ class JclaimAutoConfigurationTest {
             // Offline test — adapter is configured with create-indexes=false so
             // no I/O happens. The URL just needs to be syntactically valid.
             return com.mongodb.client.MongoClients.create("mongodb://localhost:1");
+        }
+    }
+
+    @Configuration(proxyBeanMethods = false)
+    static class DataSourceConfig {
+        @Bean
+        javax.sql.DataSource dataSource() {
+            // Lightweight non-connecting DataSource. PostgresEntityStorage with
+            // applySchema=false doesn't open a connection at build time.
+            org.postgresql.ds.PGSimpleDataSource ds = new org.postgresql.ds.PGSimpleDataSource();
+            ds.setUrl("jdbc:postgresql://localhost:5432/jclaim_test_unused");
+            return ds;
         }
     }
 
