@@ -49,4 +49,32 @@ class JclaimMetricsTest {
                     .isNotInstanceOf(MeteredEntityResolver.class);
         });
     }
+
+    @Test
+    void userProvidedResolverWithMetricsEnabledStartsCleanly() {
+        runner
+            .withUserConfiguration(UserResolverConfig.class)
+            .run(ctx -> {
+                assertThat(ctx).hasNotFailed();
+                // The user's resolver wins; the metered decorator backs off.
+                assertThat(ctx.getBean(EntityResolver.class))
+                        .isSameAs(UserResolverConfig.MARKER)
+                        .isNotInstanceOf(MeteredEntityResolver.class);
+            });
+    }
+
+    @org.springframework.context.annotation.Configuration(proxyBeanMethods = false)
+    static class UserResolverConfig {
+        static final EntityResolver MARKER = new StubResolver();
+        @org.springframework.context.annotation.Bean EntityResolver userResolver() { return MARKER; }
+    }
+
+    private static final class StubResolver implements EntityResolver {
+        @Override public uk.codery.jclaim.model.ResolutionResult resolveOrMint(uk.codery.jclaim.model.Claim c) { throw new UnsupportedOperationException(); }
+        @Override public uk.codery.jclaim.model.Entity getByUrn(uk.codery.jclaim.model.EntityId u) { throw new UnsupportedOperationException(); }
+        @Override public java.util.Optional<uk.codery.jclaim.model.Entity> findByHumanId(String s) { throw new UnsupportedOperationException(); }
+        @Override public java.util.Optional<uk.codery.jclaim.model.Entity> findByAlias(uk.codery.jclaim.model.SourceSystem s, String i) { throw new UnsupportedOperationException(); }
+        @Override public uk.codery.jclaim.model.Entity addAlias(uk.codery.jclaim.model.EntityId u, uk.codery.jclaim.model.SourceSystem s, String i) { throw new UnsupportedOperationException(); }
+        @Override public java.util.Set<uk.codery.jclaim.model.Entity> findCandidates(uk.codery.jclaim.model.Claim c) { throw new UnsupportedOperationException(); }
+    }
 }

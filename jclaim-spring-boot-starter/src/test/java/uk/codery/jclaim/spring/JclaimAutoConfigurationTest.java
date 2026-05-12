@@ -104,6 +104,34 @@ class JclaimAutoConfigurationTest {
     }
 
     @Test
+    void mongoStorageWiresUnderExplicitType() {
+        runner
+            .withUserConfiguration(MongoClientConfig.class)
+            .withPropertyValues(
+                    "jclaim.storage.type=mongo",
+                    "jclaim.storage.mongo.create-indexes=false")
+            .run(ctx -> {
+                assertThat(ctx).hasSingleBean(EntityStorage.class);
+                assertThat(ctx.getBean(EntityStorage.class))
+                        .isInstanceOf(uk.codery.jclaim.storage.mongo.MongoEntityStorage.class);
+            });
+    }
+
+    @Test
+    void postgresStorageWiresUnderExplicitType() {
+        runner
+            .withUserConfiguration(DataSourceConfig.class)
+            .withPropertyValues(
+                    "jclaim.storage.type=postgres",
+                    "jclaim.storage.postgres.apply-schema=false")
+            .run(ctx -> {
+                assertThat(ctx).hasSingleBean(EntityStorage.class);
+                assertThat(ctx.getBean(EntityStorage.class))
+                        .isInstanceOf(uk.codery.jclaim.storage.postgres.PostgresEntityStorage.class);
+            });
+    }
+
+    @Test
     void loggingConflictSinkSwapsInOnProperty() {
         runner.withPropertyValues("jclaim.conflict-sink.type=log").run(ctx -> {
             assertThat(ctx.getBean(uk.codery.jclaim.event.ConflictEventSink.class))

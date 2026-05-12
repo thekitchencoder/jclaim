@@ -90,26 +90,22 @@ public class MongoStorageConfiguration {
 
     /**
      * Fail-fast path: {@code jclaim.storage.type=mongo} is set explicitly but no
-     * {@link MongoClient} bean is available. {@link ExplicitWiring} above already
-     * registered an {@link EntityStorage} when a client exists, so by the time
-     * this configuration's bean is invoked we know the client is missing. The
-     * bean factory throws so the failure surfaces at context start.
+     * {@link MongoClient} bean is available. Gated on {@code @ConditionalOnMissingBean(MongoClient.class)}
+     * so this branch is mutually exclusive with {@link ExplicitWiring}; otherwise
+     * Spring would consider both sibling configs eligible and could instantiate this
+     * fail-fast bean even when a MongoClient is in fact present.
      */
     @Configuration(proxyBeanMethods = false)
-    @ConditionalOnMissingBean(EntityStorage.class)
+    @ConditionalOnMissingBean({EntityStorage.class, MongoClient.class})
     @ConditionalOnProperty(prefix = "jclaim.storage", name = "type", havingValue = "mongo")
     static class RequiredFailFast {
 
         @Bean
         EntityStorage jclaimMongoStorageMissingClient(
                 ObjectProvider<MongoClient> clients) {
-            if (clients.getIfAvailable() == null) {
-                throw new IllegalStateException(
-                        "jclaim.storage.type=mongo requires a MongoClient bean. "
-                                + "Add spring-boot-starter-data-mongodb (or define one).");
-            }
-            throw new AssertionError(
-                    "Unreachable: ExplicitWiring should have provided the EntityStorage bean when MongoClient is present");
+            throw new IllegalStateException(
+                    "jclaim.storage.type=mongo requires a MongoClient bean. "
+                            + "Add spring-boot-starter-data-mongodb (or define one).");
         }
     }
 }

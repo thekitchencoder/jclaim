@@ -66,26 +66,22 @@ public class PostgresStorageConfiguration {
 
     /**
      * Fail-fast path: {@code jclaim.storage.type=postgres} is set explicitly but no
-     * {@link DataSource} bean is available. {@link ExplicitWiring} above already
-     * registered an {@link EntityStorage} when a DataSource exists, so by the time
-     * this configuration's bean is invoked we know the DataSource is missing. The
-     * bean factory throws so the failure surfaces at context start.
+     * {@link DataSource} bean is available. Gated on {@code @ConditionalOnMissingBean(DataSource.class)}
+     * so this branch is mutually exclusive with {@link ExplicitWiring}; otherwise
+     * Spring would consider both sibling configs eligible and could instantiate this
+     * fail-fast bean even when a DataSource is in fact present.
      */
     @Configuration(proxyBeanMethods = false)
-    @ConditionalOnMissingBean(EntityStorage.class)
+    @ConditionalOnMissingBean({EntityStorage.class, DataSource.class})
     @ConditionalOnProperty(prefix = "jclaim.storage", name = "type", havingValue = "postgres")
     static class RequiredFailFast {
 
         @Bean
         EntityStorage jclaimPostgresStorageMissingDataSource(
                 ObjectProvider<DataSource> dataSources) {
-            if (dataSources.getIfAvailable() == null) {
-                throw new IllegalStateException(
-                        "jclaim.storage.type=postgres requires a DataSource bean. "
-                                + "Add spring-boot-starter-jdbc (or define one).");
-            }
-            throw new AssertionError(
-                    "Unreachable: ExplicitWiring should have provided the EntityStorage bean when DataSource is present");
+            throw new IllegalStateException(
+                    "jclaim.storage.type=postgres requires a DataSource bean. "
+                            + "Add spring-boot-starter-jdbc (or define one).");
         }
     }
 }
