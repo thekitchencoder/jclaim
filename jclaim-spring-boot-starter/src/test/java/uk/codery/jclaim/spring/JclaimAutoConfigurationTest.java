@@ -103,6 +103,25 @@ class JclaimAutoConfigurationTest {
             });
     }
 
+    @Test
+    void loggingConflictSinkSwapsInOnProperty() {
+        runner.withPropertyValues("jclaim.conflict-sink.type=log").run(ctx -> {
+            assertThat(ctx.getBean(uk.codery.jclaim.event.ConflictEventSink.class))
+                    .isInstanceOf(uk.codery.jclaim.spring.conflict.LoggingConflictSink.class);
+        });
+    }
+
+    @Test
+    void noneConflictSinkDoesNotPublishOrLog() {
+        runner.withPropertyValues("jclaim.conflict-sink.type=none").run(ctx -> {
+            uk.codery.jclaim.event.ConflictEventSink sink =
+                    ctx.getBean(uk.codery.jclaim.event.ConflictEventSink.class);
+            assertThat(sink)
+                    .isNotInstanceOf(uk.codery.jclaim.spring.conflict.SpringEventConflictSink.class)
+                    .isNotInstanceOf(uk.codery.jclaim.spring.conflict.LoggingConflictSink.class);
+        });
+    }
+
     @Configuration(proxyBeanMethods = false)
     static class UserResolverConfig {
         static final EntityResolver MARKER = new StubResolver();
