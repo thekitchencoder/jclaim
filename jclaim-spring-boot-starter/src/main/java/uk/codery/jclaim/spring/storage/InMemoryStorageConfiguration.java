@@ -8,10 +8,11 @@ import uk.codery.jclaim.storage.memory.InMemoryEntityStorage;
 
 /**
  * Last-resort storage configuration. Registers an {@link InMemoryEntityStorage}
- * whenever no other {@link EntityStorage} bean is present in the context.
- * The Mongo and Postgres storage configurations run earlier (declared
- * via {@code @AutoConfigureBefore} in later commits) and provide their own
- * beans when their classpath + bean prerequisites are met.
+ * when no other {@link EntityStorage} bean is present in the context. The
+ * Mongo and Postgres storage configurations are imported ahead of this one
+ * by {@code JclaimAutoConfiguration}; once they register their own
+ * {@link EntityStorage} beans (Tasks 5 + 6), this fallback steps back via
+ * {@code @ConditionalOnMissingBean(EntityStorage.class)}.
  */
 @Configuration(proxyBeanMethods = false)
 public class InMemoryStorageConfiguration {
