@@ -39,6 +39,7 @@
     <modules>
         <module>jclaim-core</module>
         <module>jclaim-storage-postgres</module>
+        <module>jclaim-storage-mongo</module>
     </modules>
 
     <properties>
