@@ -1,10 +1,12 @@
 package uk.codery.jclaim.storage;
 
 import uk.codery.jclaim.model.Alias;
+import uk.codery.jclaim.model.Claim;
 import uk.codery.jclaim.model.Entity;
 import uk.codery.jclaim.model.EntityId;
 
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Supplier;
 
 /**
@@ -51,4 +53,32 @@ public interface EntityStorage {
      * current state.
      */
     Entity addAlias(EntityId urn, Alias alias);
+
+    /**
+     * Returns the set of stored entities that could potentially be the same
+     * entity the claim describes — the union of:
+     *
+     * <ul>
+     *   <li>entities whose alias graph contains {@code (claim.source, claim.sourceId)},</li>
+     *   <li>entities carrying any {@code (name, value)} attribute pair that also
+     *       appears in {@code claim.attributes()}.</li>
+     * </ul>
+     *
+     * <p>This is a <strong>candidate retrieval</strong> operation: it is
+     * deliberately inclusive and performs no scoring, ranking or confidence
+     * filtering. Callers — typically a future matching policy backed by JSpec —
+     * score the returned set themselves and decide which (if any) candidate is
+     * truly the same entity. {@link #resolveOrCreate} remains the canonical
+     * decision-making entry point for the current alias-only matching model.
+     *
+     * <p>Equality of attribute values uses {@link Object#equals(Object)} on the
+     * stored vs. claimed values. An entity with attribute {@code (name=email,
+     * value="x")} is returned for a claim asserting attribute {@code
+     * (name=email, value="x")}; it is <em>not</em> returned for a claim asserting
+     * {@code (name=primary_email, value="x")} — both name and value must match.
+     *
+     * <p>Returns an empty set if no candidates exist; never returns
+     * {@code null}.
+     */
+    Set<Entity> findCandidates(Claim claim);
 }

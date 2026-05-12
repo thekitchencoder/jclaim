@@ -1,15 +1,20 @@
 package uk.codery.jclaim.storage.memory;
 
 import uk.codery.jclaim.model.Alias;
+import uk.codery.jclaim.model.Claim;
 import uk.codery.jclaim.model.Entity;
 import uk.codery.jclaim.model.EntityId;
+import uk.codery.jclaim.model.MatchingAttribute;
 import uk.codery.jclaim.storage.AliasAlreadyClaimedException;
 import uk.codery.jclaim.storage.EntityNotFoundException;
 import uk.codery.jclaim.storage.EntityStorage;
 import uk.codery.jclaim.storage.StorageOutcome;
 
+import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Supplier;
@@ -127,6 +132,28 @@ public final class InMemoryEntityStorage implements EntityStorage {
         } finally {
             writeLock.unlock();
         }
+    }
+
+    @Override
+    public Set<Entity> findCandidates(Claim claim) {
+        Objects.requireNonNull(claim, "claim");
+        Alias claimAlias = claim.asAlias();
+        Set<MatchingAttribute> claimAttrs = new HashSet<>(claim.attributes());
+
+        Set<Entity> candidates = new LinkedHashSet<>();
+        for (Entity entity : byUrn.values()) {
+            if (entity.aliases().contains(claimAlias)) {
+                candidates.add(entity);
+                continue;
+            }
+            for (MatchingAttribute attr : entity.attributes()) {
+                if (claimAttrs.contains(attr)) {
+                    candidates.add(entity);
+                    break;
+                }
+            }
+        }
+        return candidates;
     }
 
     /** Returns the current number of stored entities. Intended for tests. */

@@ -26,6 +26,7 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.function.Supplier;
 
@@ -105,6 +106,12 @@ public final class DefaultEntityResolver implements EntityResolver {
     @Override
     public Entity addAlias(EntityId urn, SourceSystem source, String sourceId) {
         return storage.addAlias(urn, new Alias(source, sourceId));
+    }
+
+    @Override
+    public Set<Entity> findCandidates(Claim claim) {
+        Objects.requireNonNull(claim, "claim");
+        return storage.findCandidates(claim);
     }
 
     private Entity mintEntity(Claim claim) {

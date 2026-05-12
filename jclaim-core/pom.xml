@@ -78,6 +78,30 @@
                 <artifactId>maven-surefire-plugin</artifactId>
             </plugin>
 
+            <!-- Attach a tests-classifier jar so jclaim-storage-* modules can
+                 depend on the EntityStorageContract suite, corpus reconciliation
+                 base classes, and shared fixtures. -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-jar-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>attach-test-jar</id>
+                        <goals>
+                            <goal>test-jar</goal>
+                        </goals>
+                        <configuration>
+                            <!-- Exclude the runnable QuickStart classes pulled in from /examples
+                                 via build-helper — they are not part of the conformance contract
+                                 and pollute the adapter test classpaths. -->
+                            <excludes>
+                                <exclude>uk/codery/jclaim/examples/**</exclude>
+                            </excludes>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
             <!-- Register top-level examples/ as an additional test source so the runnable
                  QuickStart classes compile against the same code the suite exercises and
                  stay in sync with the API. The examples directory sits at the repository

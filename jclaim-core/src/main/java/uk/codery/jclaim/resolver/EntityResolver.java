@@ -8,6 +8,7 @@ import uk.codery.jclaim.model.ResolutionResult;
 import uk.codery.jclaim.model.SourceSystem;
 
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * Public surface of the JClaim library. Implementations resolve identity
@@ -61,4 +62,23 @@ public interface EntityResolver {
     default Entity addAlias(EntityId urn, Alias alias) {
         return addAlias(urn, alias.source(), alias.sourceId());
     }
+
+    /**
+     * Returns the set of stored entities that could potentially be the same
+     * entity {@code claim} describes — the union of entities sharing the
+     * claim's alias and entities carrying any of the claim's {@code (name,
+     * value)} attribute pairs.
+     *
+     * <p>This is an <strong>inspection</strong> API for stewardship,
+     * debugging and analytics — "which entities could this claim be?". It is
+     * deliberately not used by {@link #resolveOrMint(Claim)} in the current
+     * release: the resolver matches purely on the alias index until a future
+     * JSpec-driven matching policy plugs in. Callers that want to apply a
+     * matching policy themselves can score and filter the candidates
+     * returned here.
+     *
+     * <p>Returns an empty set if no candidates exist; never returns
+     * {@code null}.
+     */
+    Set<Entity> findCandidates(Claim claim);
 }
