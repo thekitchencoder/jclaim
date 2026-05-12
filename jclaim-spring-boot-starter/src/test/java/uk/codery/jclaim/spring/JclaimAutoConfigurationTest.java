@@ -37,6 +37,14 @@ class JclaimAutoConfigurationTest {
     }
 
     @Test
+    void explicitInMemoryStorageTypeYieldsInMemoryBean() {
+        runner.withPropertyValues("jclaim.storage.type=in-memory").run(ctx -> {
+            assertThat(ctx).hasSingleBean(EntityStorage.class);
+            assertThat(ctx.getBean(EntityStorage.class)).isInstanceOf(InMemoryEntityStorage.class);
+        });
+    }
+
+    @Test
     void userProvidedResolverWins() {
         runner.withUserConfiguration(UserResolverConfig.class).run(ctx -> {
             assertThat(ctx).hasSingleBean(EntityResolver.class);
