@@ -33,8 +33,9 @@ library rather than an enterprise platform. Sibling library to
 
 JClaim is a multi-module Maven project. The repository root holds the
 aggregator POM (`packaging=pom`) and each capability lives in its own
-module. Today only `jclaim-core` exists; storage adapters land as
-sibling modules in subsequent sessions.
+module: `jclaim-core` holds the port + in-memory adapter + abstract
+conformance suite, and the two storage adapters ship as sibling
+modules.
 
 ```
 jclaim/
@@ -43,6 +44,8 @@ jclaim/
 │   ├── RetailQuickStart.java                       # registered on jclaim-core's test classpath
 │   ├── ProductQuickStart.java                      # via build-helper-maven-plugin
 │   └── PropertyQuickStart.java
+├── jclaim-storage-postgres/                        # PostgreSQL adapter — plain JDBC, normalised 3-table schema
+├── jclaim-storage-mongo/                           # MongoDB adapter — single-collection, unique compound index
 └── jclaim-core/
     ├── pom.xml                                     # Inherits parent; declares own deps
     └── src/
@@ -74,10 +77,16 @@ jclaim/
         │       └── EntityResolver.java             # Public interface
         └── test/java/uk/codery/jclaim/
             ├── id/                                 # Crockford, Damm, HumanId tests
-            ├── storage/memory/                     # In-memory adapter tests
+            ├── storage/                            # EntityStorageContract — abstract suite every adapter passes
+            │   └── memory/                         # In-memory adapter pinned to the contract
+            ├── retail/, product/, property/        # Abstract corpus reconciliation tests + in-memory bindings
             ├── resolver/                           # Resolver happy-path + conflict tests
             └── examples/                           # Tests that pin the QuickStart classes to the API
 ```
+
+The `jclaim-core` test sources publish as a `tests`-classifier jar so
+adapter modules consume the conformance suite + corpus contracts via
+`<type>test-jar</type><scope>test</scope>`.
 
 The aggregator centralises:
 
@@ -153,13 +162,24 @@ Kafka, etc.
   the alias index
 - `addAlias(EntityId, Alias) -> Entity` — atomic on the alias index
 
-`InMemoryEntityStorage` ships in `jclaim-core` for testing and
-evaluation. The `MongoEntityStorage` and `PostgresEntityStorage`
-adapters follow as separate Maven modules (`jclaim-storage-mongo`,
-`jclaim-storage-postgres`) in subsequent sessions. The port surface is
-deliberately small and Mongo-friendly: the atomic `resolveOrCreate`
-primitive maps to `findOneAndUpdate(..., upsert)` guarded by a unique
-compound index on `(source, sourceId)`.
+`InMemoryEntityStorage` ships in `jclaim-core` for tests and
+evaluation. Production adapters:
+
+- **`jclaim-storage-mongo`** — single collection, unique compound
+  index on `(aliases.source, aliases.sourceId)`. `resolveOrCreate`
+  uses optimistic alias lookup + `insertOne` guarded by the index;
+  `addAlias` uses `$addToSet`. Indexes auto-created on construction.
+- **`jclaim-storage-postgres`** — plain-JDBC adapter against
+  `entities`, `entity_aliases`, `entity_attributes` (normalised
+  3-table schema). `resolveOrCreate` uses transactional INSERT
+  guarded by the primary key on `(source, source_id)`; `addAlias`
+  uses single-row INSERT. Schema auto-applied from a classpath
+  `schema.sql` on construction.
+
+Every adapter — including the in-memory reference — passes the
+abstract `EntityStorageContract` suite in `jclaim-core`'s test-jar.
+Adding a new adapter is: implement `EntityStorage`, extend
+`EntityStorageContract` with a `newStorage()` factory, and pass.
 
 ## Terminology & Naming
 
@@ -264,14 +284,16 @@ onto `jclaim-core`'s test classpath via
 
 Designed for extension; not yet implemented:
 
-- **`jclaim-storage-mongo`** — next session, lands as its own module.
-  Same port, document-shape mapping, unique compound index on
-  `(source, sourceId)`.
-- **`jclaim-storage-postgres`** — same session as Mongo, sibling module
-  using row-level uniqueness on the alias columns.
+- **Spring Boot starter** — next session; auto-configures the
+  resolver, picks a storage adapter from the classpath, and wires the
+  `ConflictEventSink` to `ApplicationEventPublisher`.
 - **Matching policy DSL** — separate session. JSpec specifications
   express the matching policy; tri-state evaluation maps to `MATCHED`
   / `NOT_MATCHED` / `UNDETERMINED`.
+- **Additional storage adapters** — third-party adapters depend on
+  `jclaim-core` (compile) and `jclaim-core` tests-classifier (test),
+  implement `EntityStorage`, and extend `EntityStorageContract` to
+  prove conformance. DynamoDB, Cassandra, etc. drop in this way.
 - **Merge / split operations** — deferred per the design effort note.
 
 ## Design References
@@ -296,11 +318,13 @@ When working with this codebase, consider:
 - **Version**: 0.1.0-SNAPSHOT (held across the multi-module split
   because no Maven Central artefact has been published yet)
 - **Java Version**: 21
-- **Layout**: Multi-module Maven; today the only published module is
-  `jclaim-core`.
-- **In scope this milestone**: domain model, resolver, in-memory storage,
-  human ID generation, conflict events, build + workflow scaffolding,
-  multi-module split, FOSSA + Codecov CI integrations.
-- **Next session**: Mongo + Postgres storage adapters as
-  `jclaim-storage-mongo` and `jclaim-storage-postgres` modules.
+- **Layout**: Multi-module Maven; three published modules
+  (`jclaim-core`, `jclaim-storage-mongo`, `jclaim-storage-postgres`).
+- **In scope this milestone**: domain model, resolver, conflict
+  events, in-memory storage, MongoDB + PostgreSQL adapters, abstract
+  `EntityStorageContract` suite pinning every adapter to identical
+  behaviour, corpus reconciliation contracts shared across all three
+  backends, build + workflow scaffolding, FOSSA + Codecov CI
+  integrations.
+- **Next session**: Spring Boot starter as `jclaim-spring-boot-starter`.
 - **After that**: matching policy DSL via JSpec composition.

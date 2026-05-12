@@ -7,6 +7,67 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **`EntityStorage.findCandidates(Claim) -> Set<Entity>`.** Candidate
+  retrieval operation: returns the union of entities whose alias graph
+  contains the claim's `(source, sourceId)` and entities carrying any
+  `(name, value)` attribute pair that also appears in the claim's
+  attributes. Inclusive, unordered, no scoring — scoring is the future
+  matching policy's job. Implemented identically across all three
+  adapters and pinned to behaviour by 11 new conformance tests.
+  - In-memory adapter scans `byUrn.values()` under no lock (read-only
+    snapshot).
+  - Mongo adapter uses a single `find({$or: [...]})` query; a new
+    non-unique compound index `jclaim_attributes_lookup` on
+    `(attributes.name, attributes.value)` is auto-created on startup
+    alongside the existing alias / humanId unique indexes.
+  - Postgres adapter uses one alias-table lookup plus one
+    per-attribute name+value query against `entity_attributes`, with a
+    new non-unique index `idx_entity_attributes_name_value` on
+    `(name, value)` shipped in `schema.sql`.
+  - Exposed on `EntityResolver` as a pure delegation to the storage
+    port. Documented as an inspection API for stewardship and
+    debugging; `resolveOrMint` still matches only on alias in this
+    release. The future JSpec-driven matching policy session will
+    plug into this candidate stream.
+- **Storage adapters: MongoDB and PostgreSQL.** Two new modules ship
+  drop-in `EntityStorage` adapters for production-grade durable storage:
+  - `uk.codery:jclaim-storage-mongo` — single-collection adapter backed
+    by a unique compound index on `(aliases.source, aliases.sourceId)`.
+    Atomic `resolveOrCreate` via `insertOne` against the index; atomic
+    `addAlias` via `$addToSet`. Indexes auto-created on startup;
+    opt-out via `.createIndexes(false)`.
+  - `uk.codery:jclaim-storage-postgres` — plain-JDBC adapter against a
+    normalised three-table schema (`entities`, `entity_aliases`,
+    `entity_attributes`). Atomic `resolveOrCreate` via transactional
+    INSERT guarded by a primary key on `(source, source_id)`; atomic
+    `addAlias` via single-row INSERT. Schema auto-applied on startup
+    from a classpath `schema.sql`; opt-out via `.applySchema(false)`.
+    No Spring, no JPA, no JDBI — plain JDBC by design.
+- **`EntityStorageContract` abstract test suite.** Pins every adapter
+  (in-memory, Mongo, Postgres) to identical behaviour: 22 conformance
+  tests cover lookup, mint / match outcomes, factory-invocation
+  semantics, alias collisions, idempotency, and concurrent
+  `resolveOrCreate` on the same alias. Ships in `jclaim-core`'s
+  tests-classifier jar so adapter modules consume it via
+  `<type>test-jar</type>`.
+- **Corpus reconciliation contracts.** The retail, product, and
+  property reconciliation tests are now abstract base classes
+  parameterised by storage factory. Every adapter runs the same
+  ~12 reconciliation tests against the same YAML corpora; identical
+  entity graphs across all three backends are part of the test
+  contract.
+- **`maven-jar-plugin` registered in parent pluginManagement** so any
+  module can attach a `test-jar` classifier output with a single
+  execution stanza.
+- **`maven-failsafe-plugin` registered in parent pluginManagement** for
+  modules that prefer to run their integration tests under
+  `failsafe:integration-test` rather than `surefire:test`.
+- Centralised dependency versions in the parent POM for
+  `mongodb-driver-sync` (5.2.0), `postgresql` (42.7.4), and the
+  `testcontainers-bom` (1.21.3, imported as scope=import).
+
 ### Changed
 
 - **Restructured from single-module to multi-module Maven project.**

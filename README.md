@@ -19,7 +19,7 @@ The MDM (Master Data Management) entity-matching pattern, packaged as a library 
 - **Matching policy as data** *(roadmap)* — Express your matching logic as a JSPEC specification. Tri-state evaluation surfaces `MATCHED`, `NOT_MATCHED`, and `UNDETERMINED` claims naturally.
 - **Alias graph from day one** — Records the mapping from canonical identity to source IDs, with the data shape ready for merge, split, and federation correlation.
 - **Conflict-aware** — When a match succeeds but stored attributes differ from the new claim, JCLAIM emits an event rather than silently updating. Evidence is preserved for stewardship.
-- **Storage adapters** — In-memory in `jclaim-core` for testing and evaluation; MongoDB and PostgreSQL adapters follow as separate modules. Alternative storage via a small port interface.
+- **Storage adapters** — In-memory in `jclaim-core` for tests and evaluation; production adapters for MongoDB (`jclaim-storage-mongo`) and PostgreSQL (`jclaim-storage-postgres`) ship as separate modules. All three back the same conformance suite, so behaviour is identical across paradigms.
 - **Spring-independent** — Works in plain Java applications; integrates with Spring Boot without depending on it.
 - **Java 21 foundation** — Records, sealed interfaces, switch expressions, immutable collections throughout.
 
@@ -33,7 +33,23 @@ The MDM (Master Data Management) entity-matching pattern, packaged as a library 
 </dependency>
 ```
 
-`jclaim-core` ships the domain model, the resolver service, the in-memory storage adapter, and the conflict event surface — everything needed to exercise the library end-to-end. Storage adapters for Mongo and Postgres land in separate modules (`jclaim-storage-mongo`, `jclaim-storage-postgres`) in subsequent releases.
+`jclaim-core` ships the domain model, the resolver service, the in-memory storage adapter, and the conflict event surface — everything needed to exercise the library end-to-end. Pair it with one of the storage adapter modules for durable persistence:
+
+```xml
+<!-- MongoDB adapter -->
+<dependency>
+    <groupId>uk.codery</groupId>
+    <artifactId>jclaim-storage-mongo</artifactId>
+    <version>0.1.0-SNAPSHOT</version>
+</dependency>
+
+<!-- PostgreSQL adapter -->
+<dependency>
+    <groupId>uk.codery</groupId>
+    <artifactId>jclaim-storage-postgres</artifactId>
+    <version>0.1.0-SNAPSHOT</version>
+</dependency>
+```
 
 > JCLAIM is in pre-1.0 development; Maven Central publication will follow with the first tagged release.
 
@@ -168,7 +184,7 @@ thin domain-named loader wrapper differ.
 
 - **URN scheme** — `urn:<namespace>:entity:<UUID v7>`. The namespace is caller-configurable; the UUID is RFC 9562 v7 (time-ordered, B-tree-friendly) generated via [`uuid-creator`](https://github.com/f4b6a3/uuid-creator).
 - **Human ID** — Eight Crockford Base32 characters plus a Damm check digit, displayed as `XXXX-XXXX-X`. Independently minted, never derived from the URN. Storage enforces uniqueness; the resolver re-rolls on collision.
-- **Storage as a port** — `EntityStorage` exposes five operations: three reads, one atomic `resolveOrCreate` primitive (Mongo-shaped, maps to `findOneAndUpdate` upsert), and one atomic `addAlias`. The Mongo adapter in the next release fits this port without changing service code.
+- **Storage as a port** — `EntityStorage` exposes five operations: three reads, one atomic `resolveOrCreate` primitive (Mongo-shaped, maps to `findOneAndUpdate` upsert), and one atomic `addAlias`. The MongoDB and PostgreSQL adapters fit this port without any service-code change, and an abstract `EntityStorageContract` suite pins every adapter to identical behaviour across paradigms.
 - **Alias-only match in this release** — `resolveOrMint` matches solely on the `(source, sourceId)` alias. A future release adds attribute-based matching driven by a [JSPEC](https://github.com/thekitchencoder/jspec) specification.
 
 ## Documentation
@@ -197,10 +213,10 @@ JCLAIM is a multi-module Maven project. The repository root holds the aggregator
 | Module                        | Purpose                                                                          | Status      |
 |-------------------------------|----------------------------------------------------------------------------------|-------------|
 | `jclaim-core`                 | Domain model, resolver service, in-memory storage adapter, conflict events       | available   |
-| `jclaim-storage-mongo`        | MongoDB storage adapter for the `EntityStorage` port                             | planned     |
-| `jclaim-storage-postgres`     | PostgreSQL storage adapter for the `EntityStorage` port                          | planned     |
+| `jclaim-storage-mongo`        | MongoDB storage adapter for the `EntityStorage` port — see [module README](jclaim-storage-mongo/README.md) | available |
+| `jclaim-storage-postgres`     | PostgreSQL storage adapter for the `EntityStorage` port — see [module README](jclaim-storage-postgres/README.md) | available |
 
-Consumers depend only on the modules they need. The in-memory adapter is shipped in `jclaim-core` for testing and evaluation; production deployments should pair `jclaim-core` with one of the dedicated storage adapter modules once they are released.
+Consumers depend only on the modules they need. The in-memory adapter is shipped in `jclaim-core` for tests and evaluation; production deployments pair `jclaim-core` with one of the dedicated storage adapter modules. Every adapter passes the same `EntityStorageContract` test suite, so swapping backends is behaviourally transparent.
 
 ## Suite
 
