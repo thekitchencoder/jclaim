@@ -1,0 +1,222 @@
+# jclaim-spring-boot-starter
+
+Spring Boot 3.x auto-configuration for [JCLAIM](../README.md).
+
+## What the starter does
+
+- Auto-wires an `EntityResolver` bean (in-memory by default; opt-in
+  Mongo or Postgres when the corresponding adapter and client are on
+  the classpath).
+- Bridges `EntityAttributesConflicted` events to Spring's
+  `ApplicationEventPublisher` as `JclaimConflictEvent`, so application
+  code reacts via ordinary `@EventListener` methods.
+- Registers optional Spring Boot Actuator `HealthIndicator` and
+  Micrometer metrics (`MeterRegistry`-driven) when those facilities
+  are on the classpath.
+
+## Maven dependency
+
+```xml
+<dependency>
+    <groupId>uk.codery</groupId>
+    <artifactId>jclaim-spring-boot-starter</artifactId>
+    <version>0.1.0-SNAPSHOT</version>
+</dependency>
+```
+
+`jclaim-core` is pulled in transitively. Storage-adapter modules are
+opt-in additional dependencies — add only the one you need.
+
+## Quick Start — zero config
+
+With just the starter on the classpath, a Spring Boot application
+receives an in-memory `EntityResolver` bean immediately:
+
+```java
+@SpringBootApplication
+public class App {
+
+    public static void main(String[] args) {
+        SpringApplication.run(App.class, args);
+    }
+}
+
+@Component
+class ReconciliationService {
+
+    private final EntityResolver resolver;
+
+    ReconciliationService(EntityResolver resolver) {
+        this.resolver = resolver;
+    }
+
+    public ResolutionResult ingest(Claim claim) {
+        return resolver.resolveOrMint(claim);
+    }
+}
+```
+
+No `application.yml` entries required. The resolver mints into a
+`InMemoryEntityStorage` under the default `codery` URN namespace.
+
+## Quick Start — MongoDB
+
+Add the Mongo adapter and a `MongoClient` source (typically Spring
+Boot's Mongo starter):
+
+```xml
+<dependency>
+    <groupId>uk.codery</groupId>
+    <artifactId>jclaim-storage-mongo</artifactId>
+    <version>0.1.0-SNAPSHOT</version>
+</dependency>
+<dependency>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-data-mongodb</artifactId>
+</dependency>
+```
+
+```yaml
+spring:
+  data:
+    mongodb:
+      uri: mongodb://localhost:27017
+jclaim:
+  storage:
+    type: mongo
+    mongo:
+      database: jclaim
+      collection-name: jclaim_entities
+```
+
+The starter resolves a `MongoClient` bean from the context, opens the
+configured database + collection, and constructs a
+`MongoEntityStorage`. Indexes are auto-created on startup.
+
+## Quick Start — PostgreSQL
+
+Add the Postgres adapter and a `DataSource` source (typically Spring
+Boot's JDBC starter):
+
+```xml
+<dependency>
+    <groupId>uk.codery</groupId>
+    <artifactId>jclaim-storage-postgres</artifactId>
+    <version>0.1.0-SNAPSHOT</version>
+</dependency>
+<dependency>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-jdbc</artifactId>
+</dependency>
+<dependency>
+    <groupId>org.postgresql</groupId>
+    <artifactId>postgresql</artifactId>
+    <scope>runtime</scope>
+</dependency>
+```
+
+```yaml
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/jclaim
+    username: jclaim
+    password: jclaim
+jclaim:
+  storage:
+    type: postgres
+```
+
+The starter picks up the `DataSource`, constructs a
+`PostgresEntityStorage`, and applies the bundled `schema.sql` on
+startup.
+
+## Properties
+
+All properties live under the `jclaim.*` prefix.
+
+| Property                                  | Default            | Description                                                                                       |
+|-------------------------------------------|--------------------|---------------------------------------------------------------------------------------------------|
+| `jclaim.namespace`                        | `codery`           | URN namespace; produces `urn:<ns>:entity:<UUID>`.                                                 |
+| `jclaim.storage.type`                     | `auto`             | One of `auto`, `in-memory`, `mongo`, `postgres`.                                                  |
+| `jclaim.storage.mongo.database`           | `jclaim`           | Mongo database name.                                                                              |
+| `jclaim.storage.mongo.collection-name`    | `jclaim_entities`  | Mongo collection name.                                                                            |
+| `jclaim.storage.mongo.create-indexes`     | `true`             | Auto-create the unique alias + humanId indexes on startup.                                        |
+| `jclaim.storage.postgres.apply-schema`    | `true`             | Auto-apply the bundled `schema.sql` on startup.                                                   |
+| `jclaim.conflict-sink.type`               | `spring-event`     | One of `spring-event`, `log`, `none`.                                                             |
+| `jclaim.metrics.enabled`                  | `true`             | Wraps the resolver with a Micrometer-instrumented decorator when a `MeterRegistry` bean exists.   |
+| `jclaim.health.enabled`                   | `true`             | Registers an Actuator `HealthIndicator` for the configured storage.                               |
+
+## Listening to conflict events
+
+The default `ConflictEventSink` republishes every conflict as a
+`JclaimConflictEvent` on the application context. Consume it with a
+plain `@EventListener`:
+
+```java
+@Component
+class ConflictAuditor {
+
+    @EventListener
+    public void onConflict(JclaimConflictEvent event) {
+        var diff = event.payload().differences();
+        log.warn("conflict on {}: {}", event.payload().stored().id(), diff);
+    }
+}
+```
+
+The stored entity is **not** silently updated — the event preserves
+evidence for stewardship.
+
+## Overriding beans
+
+Every bean the starter registers is `@ConditionalOnMissingBean`.
+Define your own `EntityResolver`, `EntityStorage`, or
+`ConflictEventSink` and the starter steps aside:
+
+```java
+@Configuration
+class JclaimOverrides {
+
+    @Bean
+    ConflictEventSink myConflictSink() {
+        return event -> kafkaTemplate.send("jclaim.conflicts", event);
+    }
+}
+```
+
+The same pattern works for `EntityStorage` (e.g. to plug in a custom
+adapter) and for `EntityResolver` (e.g. to wrap the default with your
+own decorator).
+
+## Observability
+
+### Health
+
+When `spring-boot-starter-actuator` is on the classpath, a
+`HealthIndicator` named `jclaimHealthIndicator` is registered. It
+appears under `/actuator/health` and reports the configured storage
+adapter's connectivity. Disable with `jclaim.health.enabled=false`.
+
+### Metrics
+
+When a `MeterRegistry` bean exists in the application context, the
+resolver is wrapped with a Micrometer-instrumented decorator that
+emits:
+
+- `jclaim.resolve` — counter, tagged `outcome=matched|minted`.
+- `jclaim.resolve.duration` — timer recording `resolveOrMint` latency.
+- `jclaim.findCandidates` — counter incremented per `findCandidates`
+  call.
+
+Disable with `jclaim.metrics.enabled=false`.
+
+## Storage selection priority
+
+In `jclaim.storage.type=auto` (the default), the starter chooses an
+adapter by scanning the application context. Current behaviour: when
+both Postgres and Mongo adapters are present (both modules and both
+client beans on the classpath), **Postgres wins** — this falls out of
+the `@Import` ordering in the auto-configuration. To pin the choice
+explicitly, set `jclaim.storage.type` to `mongo` or `postgres`. When
+neither adapter is wired the starter falls back to
+`InMemoryEntityStorage`.

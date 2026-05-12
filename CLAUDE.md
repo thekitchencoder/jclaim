@@ -46,6 +46,7 @@ jclaim/
 │   └── PropertyQuickStart.java
 ├── jclaim-storage-postgres/                        # PostgreSQL adapter — plain JDBC, normalised 3-table schema
 ├── jclaim-storage-mongo/                           # MongoDB adapter — single-collection, unique compound index
+├── jclaim-spring-boot-starter/                     # Spring Boot 3.x auto-configuration; consumes core + storage adapters
 └── jclaim-core/
     ├── pom.xml                                     # Inherits parent; declares own deps
     └── src/
@@ -284,9 +285,12 @@ onto `jclaim-core`'s test classpath via
 
 Designed for extension; not yet implemented:
 
-- **Spring Boot starter** — next session; auto-configures the
-  resolver, picks a storage adapter from the classpath, and wires the
-  `ConflictEventSink` to `ApplicationEventPublisher`.
+- **Spring Boot starter** — **Delivered** as `jclaim-spring-boot-starter`
+  — auto-configures the resolver, selects a storage adapter from the
+  classpath (in-memory by default, opt-in Mongo / Postgres), bridges
+  conflict events to Spring's `ApplicationEventPublisher` as
+  `JclaimConflictEvent`, and ships optional Actuator health +
+  Micrometer metrics.
 - **Matching policy DSL** — separate session. JSpec specifications
   express the matching policy; tri-state evaluation maps to `MATCHED`
   / `NOT_MATCHED` / `UNDETERMINED`.
@@ -318,13 +322,18 @@ When working with this codebase, consider:
 - **Version**: 0.1.0-SNAPSHOT (held across the multi-module split
   because no Maven Central artefact has been published yet)
 - **Java Version**: 21
-- **Layout**: Multi-module Maven; three published modules
-  (`jclaim-core`, `jclaim-storage-mongo`, `jclaim-storage-postgres`).
+- **Layout**: Multi-module Maven; four published modules
+  (`jclaim-core`, `jclaim-storage-mongo`, `jclaim-storage-postgres`,
+  `jclaim-spring-boot-starter`).
 - **In scope this milestone**: domain model, resolver, conflict
   events, in-memory storage, MongoDB + PostgreSQL adapters, abstract
   `EntityStorageContract` suite pinning every adapter to identical
   behaviour, corpus reconciliation contracts shared across all three
   backends, build + workflow scaffolding, FOSSA + Codecov CI
   integrations.
-- **Next session**: Spring Boot starter as `jclaim-spring-boot-starter`.
-- **After that**: matching policy DSL via JSpec composition.
+- **Also in scope this milestone**: `jclaim-spring-boot-starter` —
+  Spring Boot 3.x auto-configuration wiring the resolver, selecting a
+  storage adapter from the classpath, bridging conflict events to
+  `ApplicationEventPublisher`, plus optional Actuator health +
+  Micrometer metrics.
+- **Next session**: matching policy DSL via JSpec composition.

@@ -20,7 +20,7 @@ The MDM (Master Data Management) entity-matching pattern, packaged as a library 
 - **Alias graph from day one** — Records the mapping from canonical identity to source IDs, with the data shape ready for merge, split, and federation correlation.
 - **Conflict-aware** — When a match succeeds but stored attributes differ from the new claim, JCLAIM emits an event rather than silently updating. Evidence is preserved for stewardship.
 - **Storage adapters** — In-memory in `jclaim-core` for tests and evaluation; production adapters for MongoDB (`jclaim-storage-mongo`) and PostgreSQL (`jclaim-storage-postgres`) ship as separate modules. All three back the same conformance suite, so behaviour is identical across paradigms.
-- **Spring-independent** — Works in plain Java applications; integrates with Spring Boot without depending on it.
+- **Spring-independent core, optional Boot integration** — `jclaim-core` and the storage adapters never import Spring. `jclaim-spring-boot-starter` provides idiomatic auto-configuration for Boot users without compromising that independence.
 - **Java 21 foundation** — Records, sealed interfaces, switch expressions, immutable collections throughout.
 
 ## Installation
@@ -49,7 +49,16 @@ The MDM (Master Data Management) entity-matching pattern, packaged as a library 
     <artifactId>jclaim-storage-postgres</artifactId>
     <version>0.1.0-SNAPSHOT</version>
 </dependency>
+
+<!-- Spring Boot 3.x auto-configuration -->
+<dependency>
+    <groupId>uk.codery</groupId>
+    <artifactId>jclaim-spring-boot-starter</artifactId>
+    <version>0.1.0-SNAPSHOT</version>
+</dependency>
 ```
+
+Spring Boot 3.x apps can use `jclaim-spring-boot-starter` for auto-configured wiring (storage adapter selection, conflict-event bridging, Actuator health, Micrometer metrics). See its [module README](./jclaim-spring-boot-starter/README.md). Non-Spring callers use `jclaim-core` directly.
 
 > JCLAIM is in pre-1.0 development; Maven Central publication will follow with the first tagged release.
 
@@ -215,6 +224,7 @@ JCLAIM is a multi-module Maven project. The repository root holds the aggregator
 | `jclaim-core`                 | Domain model, resolver service, in-memory storage adapter, conflict events       | available   |
 | `jclaim-storage-mongo`        | MongoDB storage adapter for the `EntityStorage` port — see [module README](jclaim-storage-mongo/README.md) | available |
 | `jclaim-storage-postgres`     | PostgreSQL storage adapter for the `EntityStorage` port — see [module README](jclaim-storage-postgres/README.md) | available |
+| `jclaim-spring-boot-starter`  | Spring Boot 3.x auto-configuration — wires the resolver, selects a storage adapter, bridges conflict events, adds Actuator health + Micrometer metrics — see [module README](jclaim-spring-boot-starter/README.md) | available |
 
 Consumers depend only on the modules they need. The in-memory adapter is shipped in `jclaim-core` for tests and evaluation; production deployments pair `jclaim-core` with one of the dedicated storage adapter modules. Every adapter passes the same `EntityStorageContract` test suite, so swapping backends is behaviourally transparent.
 

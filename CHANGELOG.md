@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`jclaim-spring-boot-starter`.** Fourth Maven module — Spring Boot 3.x
+  auto-configuration that wires the resolver, selects a storage adapter by
+  classpath + bean presence (in-memory default, plus opt-in Mongo / Postgres),
+  bridges conflict events to Spring's `ApplicationEventPublisher` as
+  `JclaimConflictEvent`, and ships optional Actuator `HealthIndicator` +
+  Micrometer metrics (`jclaim.resolve` counter tagged by outcome,
+  `jclaim.resolve.duration` timer, `jclaim.findCandidates` counter). All
+  beans are `@ConditionalOnMissingBean`. Configuration via the `jclaim.*`
+  property prefix. `jclaim-core` and the storage adapters keep zero Spring
+  dependencies — the starter consumes them.
 - **`EntityStorage.findCandidates(Claim) -> Set<Entity>`.** Candidate
   retrieval operation: returns the union of entities whose alias graph
   contains the claim's `(source, sourceId)` and entities carrying any
