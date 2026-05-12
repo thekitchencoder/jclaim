@@ -36,6 +36,9 @@ class JclaimAutoConfigurationTest {
         });
     }
 
+    // Pins the IN_MEMORY enum value to the in-memory adapter. Currently
+    // equivalent to the default case; will diverge once Mongo/Postgres
+    // adapters auto-register and AUTO might pick a different backend.
     @Test
     void explicitInMemoryStorageTypeYieldsInMemoryBean() {
         runner.withPropertyValues("jclaim.storage.type=in-memory").run(ctx -> {
