@@ -38,6 +38,7 @@
 
     <modules>
         <module>jclaim-core</module>
+        <module>jclaim-storage-postgres</module>
     </modules>
 
     <properties>
