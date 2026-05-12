@@ -55,10 +55,44 @@ class JclaimAutoConfigurationTest {
         });
     }
 
+    @Test
+    void mongoStorageWiresWhenClientPresentAndTypeAuto() {
+        runner
+            .withUserConfiguration(MongoClientConfig.class)
+            .withPropertyValues("jclaim.storage.mongo.create-indexes=false")
+            .run(ctx -> {
+                assertThat(ctx).hasSingleBean(EntityStorage.class);
+                assertThat(ctx.getBean(EntityStorage.class))
+                        .isInstanceOf(uk.codery.jclaim.storage.mongo.MongoEntityStorage.class);
+            });
+    }
+
+    @Test
+    void mongoTypeMissingClientFailsStartup() {
+        runner
+            .withPropertyValues("jclaim.storage.type=mongo")
+            .run(ctx -> {
+                assertThat(ctx).hasFailed();
+                assertThat(ctx.getStartupFailure())
+                        .rootCause()
+                        .hasMessageContaining("MongoClient");
+            });
+    }
+
     @Configuration(proxyBeanMethods = false)
     static class UserResolverConfig {
         static final EntityResolver MARKER = new StubResolver();
         @Bean EntityResolver userResolver() { return MARKER; }
+    }
+
+    @Configuration(proxyBeanMethods = false)
+    static class MongoClientConfig {
+        @Bean
+        com.mongodb.client.MongoClient mongoClient() {
+            // Offline test — adapter is configured with create-indexes=false so
+            // no I/O happens. The URL just needs to be syntactically valid.
+            return com.mongodb.client.MongoClients.create("mongodb://localhost:1");
+        }
     }
 
     private static final class StubResolver implements EntityResolver {

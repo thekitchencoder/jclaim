@@ -60,6 +60,18 @@
             <optional>true</optional>
         </dependency>
 
+        <!-- The Mongo driver classes are referenced directly from
+             MongoStorageConfiguration so the auto-configuration can declare
+             @ConditionalOnClass / @ConditionalOnBean on them. Declared
+             optional (and at compile scope) so the starter compiles against
+             the types without forcing them onto downstream consumers — the
+             @ConditionalOnClass guard handles absence at runtime. -->
+        <dependency>
+            <groupId>org.mongodb</groupId>
+            <artifactId>mongodb-driver-sync</artifactId>
+            <optional>true</optional>
+        </dependency>
+
         <!-- SLF4J for the few INFO/DEBUG log lines the auto-configuration emits. -->
         <dependency>
             <groupId>org.slf4j</groupId>
@@ -75,11 +87,6 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-actuator</artifactId>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.mongodb</groupId>
-            <artifactId>mongodb-driver-sync</artifactId>
             <scope>test</scope>
         </dependency>
         <dependency>
