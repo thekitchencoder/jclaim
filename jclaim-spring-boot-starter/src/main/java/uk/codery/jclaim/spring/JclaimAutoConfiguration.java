@@ -7,11 +7,11 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
-import uk.codery.jclaim.event.ConflictEventSink;
+import uk.codery.jclaim.event.MatchEventSink;
 import uk.codery.jclaim.resolver.DefaultEntityResolver;
 import uk.codery.jclaim.resolver.EntityResolver;
-import uk.codery.jclaim.spring.conflict.LoggingConflictSink;
-import uk.codery.jclaim.spring.conflict.SpringEventConflictSink;
+import uk.codery.jclaim.spring.match.LoggingMatchSink;
+import uk.codery.jclaim.spring.match.SpringEventMatchSink;
 import uk.codery.jclaim.spring.storage.InMemoryStorageConfiguration;
 import uk.codery.jclaim.spring.storage.MongoStorageConfiguration;
 import uk.codery.jclaim.spring.storage.PostgresStorageConfiguration;
@@ -21,7 +21,7 @@ import uk.codery.jclaim.storage.EntityStorage;
  * Top-level auto-configuration for JClaim. Enables {@link JclaimProperties},
  * imports the three storage configurations (in selection-priority order:
  * Postgres, Mongo, then in-memory fallback), and registers the resolver +
- * default conflict sink. All beans are {@code @ConditionalOnMissingBean}
+ * default match sink. All beans are {@code @ConditionalOnMissingBean}
  * so applications can override any layer.
  */
 @AutoConfiguration
@@ -35,17 +35,17 @@ public class JclaimAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
-    public ConflictEventSink jclaimConflictEventSink(
+    public MatchEventSink jclaimMatchEventSink(
             JclaimProperties properties,
             ObjectProvider<ApplicationEventPublisher> publishers) {
-        return switch (properties.conflictSink().type()) {
-            case SPRING_EVENT -> new SpringEventConflictSink(
+        return switch (properties.matchSink().type()) {
+            case SPRING_EVENTS -> new SpringEventMatchSink(
                     publishers.getIfAvailable(() -> {
                         throw new IllegalStateException(
-                                "jclaim.conflict-sink.type=spring-event requires an ApplicationEventPublisher");
+                                "jclaim.match-sink.type=spring-events requires an ApplicationEventPublisher");
                     }));
-            case LOG -> new LoggingConflictSink();
-            case NONE -> ConflictEventSink.noop();
+            case LOGGING -> new LoggingMatchSink();
+            case NOOP -> MatchEventSink.noop();
         };
     }
 
@@ -53,11 +53,11 @@ public class JclaimAutoConfiguration {
     @ConditionalOnMissingBean
     public EntityResolver jclaimEntityResolver(
             EntityStorage storage,
-            ConflictEventSink conflictSink,
+            MatchEventSink matchSink,
             JclaimProperties properties) {
         return DefaultEntityResolver.builder(storage)
                 .namespace(properties.namespace())
-                .conflictSink(conflictSink)
+                .matchEventSink(matchSink)
                 .build();
     }
 }
