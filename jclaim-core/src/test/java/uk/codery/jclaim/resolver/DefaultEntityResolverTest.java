@@ -126,6 +126,36 @@ class DefaultEntityResolverTest {
     }
 
     @Test
+    void builder_rejectsNonPositiveMaxCandidates() {
+        assertThatThrownBy(() ->
+                DefaultEntityResolver.builder(storage).maxCandidates(0))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() ->
+                DefaultEntityResolver.builder(storage).maxCandidates(-1))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void builder_defaultPolicyIsAliasOnly_soBehaviourIsUnchanged() {
+        // With no policy configured the resolver uses aliasOnly(); a second
+        // claim for the same alias short-circuits to Matched with no events.
+        DefaultEntityResolver defaults = DefaultEntityResolver.builder(storage)
+                .namespace("codery")
+                .uuidSupplier(deterministicUuids())
+                .humanIdGenerator(new HumanIdGenerator(new Random(7)))
+                .matchEventSink(sink)
+                .build();
+
+        Claim claim = new Claim(ECOMMERCE, "cust-1", List.of(
+                MatchingAttribute.of("email", "alice@example.com")));
+        assertThat(defaults.resolveOrMint(claim))
+                .isInstanceOf(ResolutionResult.Minted.class);
+        assertThat(defaults.resolveOrMint(claim))
+                .isInstanceOf(ResolutionResult.Matched.class);
+        assertThat(sink.events).isEmpty();
+    }
+
+    @Test
     void findByAlias_returnsEmptyWhenAliasUnknown() {
         assertThat(resolver.findByAlias(POS, "ghost")).isEmpty();
     }

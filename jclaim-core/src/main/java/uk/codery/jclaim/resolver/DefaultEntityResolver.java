@@ -5,7 +5,10 @@ import org.slf4j.LoggerFactory;
 import uk.codery.jclaim.event.AttributeDiff;
 import uk.codery.jclaim.event.EntityAttributesConflicted;
 import uk.codery.jclaim.event.MatchEventSink;
+import uk.codery.jclaim.event.MatchEvent;
 import uk.codery.jclaim.id.HumanIdGenerator;
+import uk.codery.jclaim.matching.MatchingPolicy;
+import uk.codery.jclaim.matching.TriState;
 import uk.codery.jclaim.id.UuidV7;
 import uk.codery.jclaim.model.Alias;
 import uk.codery.jclaim.model.Claim;
@@ -50,6 +53,8 @@ public final class DefaultEntityResolver implements EntityResolver {
     private final HumanIdGenerator humanIdGenerator;
     private final Clock clock;
     private final MatchEventSink matchEventSink;
+    private final MatchingPolicy matchingPolicy;
+    private final int maxCandidates;
 
     /** Builder for {@link DefaultEntityResolver}. */
     public static Builder builder(EntityStorage storage) {
@@ -63,6 +68,8 @@ public final class DefaultEntityResolver implements EntityResolver {
         this.humanIdGenerator = Objects.requireNonNull(b.humanIdGenerator, "humanIdGenerator");
         this.clock = Objects.requireNonNull(b.clock, "clock");
         this.matchEventSink = Objects.requireNonNull(b.matchEventSink, "matchEventSink");
+        this.matchingPolicy = Objects.requireNonNull(b.matchingPolicy, "matchingPolicy");
+        this.maxCandidates = b.maxCandidates;
     }
 
     @Override
@@ -191,6 +198,8 @@ public final class DefaultEntityResolver implements EntityResolver {
         private HumanIdGenerator humanIdGenerator = new HumanIdGenerator();
         private Clock clock = Clock.systemUTC();
         private MatchEventSink matchEventSink = MatchEventSink.noop();
+        private MatchingPolicy matchingPolicy = MatchingPolicy.aliasOnly();
+        private int maxCandidates = 100;
 
         private Builder(EntityStorage storage) {
             this.storage = storage;
@@ -218,6 +227,29 @@ public final class DefaultEntityResolver implements EntityResolver {
 
         public Builder matchEventSink(MatchEventSink matchEventSink) {
             this.matchEventSink = matchEventSink;
+            return this;
+        }
+
+        /**
+         * The matching policy used to score attribute-blocked candidates when
+         * no exact alias owner exists. Defaults to {@link MatchingPolicy#aliasOnly()},
+         * which reproduces jclaim's historic alias-only behaviour.
+         */
+        public Builder matchingPolicy(MatchingPolicy matchingPolicy) {
+            this.matchingPolicy = matchingPolicy;
+            return this;
+        }
+
+        /**
+         * Caps how many candidates the resolver pulls from storage per claim.
+         * Defaults to {@code 100}. Must be strictly positive.
+         */
+        public Builder maxCandidates(int maxCandidates) {
+            if (maxCandidates <= 0) {
+                throw new IllegalArgumentException(
+                        "maxCandidates must be positive, was " + maxCandidates);
+            }
+            this.maxCandidates = maxCandidates;
             return this;
         }
 
