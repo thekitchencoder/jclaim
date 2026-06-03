@@ -60,7 +60,7 @@ public abstract class AbstractProductReconciliationTest {
                 .uuidSupplier(DeterministicUuids.supplier())
                 .humanIdGenerator(new HumanIdGenerator(new Random(43)))
                 .clock(Clock.fixed(Instant.parse("2026-05-11T10:00:00Z"), ZoneOffset.UTC))
-                .conflictSink(conflictSink)
+                .matchEventSink(conflictSink)
                 .build();
     }
 
@@ -132,8 +132,8 @@ public abstract class AbstractProductReconciliationTest {
         assertThat(conflictSink.events()).hasSize(1);
         EntityAttributesConflicted event = conflictSink.events().get(0);
         assertThat(event.stored()).isEqualTo(result.entity());
-        assertThat(event.incoming()).isEqualTo(mutated);
-        assertThat(event.differences()).contains(
+        assertThat(event.claim()).isEqualTo(mutated);
+        assertThat(event.differingValues()).contains(
                 new AttributeDiff("brand", "Globex", "Globex Industries"));
     }
 
@@ -153,7 +153,7 @@ public abstract class AbstractProductReconciliationTest {
 
         assertThat(result).isInstanceOf(ResolutionResult.Matched.class);
         assertThat(conflictSink.events()).hasSize(1);
-        assertThat(conflictSink.events().get(0).differences()).contains(
+        assertThat(conflictSink.events().get(0).differingValues()).contains(
                 new AttributeDiff("brand", "Initech", "Hooli"));
     }
 

@@ -60,7 +60,7 @@ public abstract class AbstractPropertyReconciliationTest {
                 .uuidSupplier(DeterministicUuids.supplier())
                 .humanIdGenerator(new HumanIdGenerator(new Random(44)))
                 .clock(Clock.fixed(Instant.parse("2026-05-11T10:00:00Z"), ZoneOffset.UTC))
-                .conflictSink(conflictSink)
+                .matchEventSink(conflictSink)
                 .build();
     }
 
@@ -133,8 +133,8 @@ public abstract class AbstractPropertyReconciliationTest {
         assertThat(conflictSink.events()).hasSize(1);
         EntityAttributesConflicted event = conflictSink.events().get(0);
         assertThat(event.stored()).isEqualTo(result.entity());
-        assertThat(event.incoming()).isEqualTo(mutated);
-        assertThat(event.differences()).contains(
+        assertThat(event.claim()).isEqualTo(mutated);
+        assertThat(event.differingValues()).contains(
                 new AttributeDiff("postcode", "EC2A 4DP", "EC2A 5DP"));
     }
 
@@ -156,7 +156,7 @@ public abstract class AbstractPropertyReconciliationTest {
         assertThat(conflictSink.events()).hasSize(1);
         // A new attribute that was not asserted before (uprn) shows up as
         // a diff with stored=null.
-        assertThat(conflictSink.events().get(0).differences()).contains(
+        assertThat(conflictSink.events().get(0).differingValues()).contains(
                 new AttributeDiff("uprn", null, "100099000099"));
     }
 

@@ -1,7 +1,7 @@
 package uk.codery.jclaim.examples;
 
-import uk.codery.jclaim.event.ConflictEventSink;
 import uk.codery.jclaim.event.EntityAttributesConflicted;
+import uk.codery.jclaim.event.MatchEventSink;
 import uk.codery.jclaim.model.Alias;
 import uk.codery.jclaim.model.Claim;
 import uk.codery.jclaim.model.Entity;
@@ -63,7 +63,7 @@ public final class PropertyQuickStart {
         PropertyFixtures fixtures = PropertyFixtures.load();
         EntityResolver resolver = DefaultEntityResolver.builder(new InMemoryEntityStorage())
                 .namespace("codery")
-                .conflictSink(loggingConflictSink(out))
+                .matchEventSink(loggingMatchSink(out))
                 .build();
 
         header(out);
@@ -140,11 +140,14 @@ public final class PropertyQuickStart {
         out.println("attach as aliases on the same entity.");
     }
 
-    private static ConflictEventSink loggingConflictSink(PrintStream out) {
+    private static MatchEventSink loggingMatchSink(PrintStream out) {
         return event -> {
-            EntityId urn = event.stored().id();
+            if (!(event instanceof EntityAttributesConflicted conflict)) {
+                return;
+            }
+            EntityId urn = conflict.stored().id();
             out.println("  ! conflict on " + urn + ":");
-            event.differences().forEach(diff -> out.printf(
+            conflict.differingValues().forEach(diff -> out.printf(
                     "      %s: stored=%s incoming=%s%n",
                     diff.name(), diff.stored(), diff.incoming()));
         };

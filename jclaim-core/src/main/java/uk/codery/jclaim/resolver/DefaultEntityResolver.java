@@ -3,8 +3,8 @@ package uk.codery.jclaim.resolver;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import uk.codery.jclaim.event.AttributeDiff;
-import uk.codery.jclaim.event.ConflictEventSink;
 import uk.codery.jclaim.event.EntityAttributesConflicted;
+import uk.codery.jclaim.event.MatchEventSink;
 import uk.codery.jclaim.id.HumanIdGenerator;
 import uk.codery.jclaim.id.UuidV7;
 import uk.codery.jclaim.model.Alias;
@@ -32,7 +32,7 @@ import java.util.function.Supplier;
 
 /**
  * Default {@link EntityResolver} implementation. Composes a storage adapter
- * with identifier generators, a clock, and a {@link ConflictEventSink}.
+ * with identifier generators, a clock, and a {@link MatchEventSink}.
  *
  * <p>Match semantics in this release are <strong>alias-only</strong>: a claim
  * matches an existing entity iff the storage adapter already records the
@@ -49,7 +49,7 @@ public final class DefaultEntityResolver implements EntityResolver {
     private final Supplier<UUID> uuidSupplier;
     private final HumanIdGenerator humanIdGenerator;
     private final Clock clock;
-    private final ConflictEventSink conflictSink;
+    private final MatchEventSink matchEventSink;
 
     /** Builder for {@link DefaultEntityResolver}. */
     public static Builder builder(EntityStorage storage) {
@@ -62,7 +62,7 @@ public final class DefaultEntityResolver implements EntityResolver {
         this.uuidSupplier = Objects.requireNonNull(b.uuidSupplier, "uuidSupplier");
         this.humanIdGenerator = Objects.requireNonNull(b.humanIdGenerator, "humanIdGenerator");
         this.clock = Objects.requireNonNull(b.clock, "clock");
-        this.conflictSink = Objects.requireNonNull(b.conflictSink, "conflictSink");
+        this.matchEventSink = Objects.requireNonNull(b.matchEventSink, "matchEventSink");
     }
 
     @Override
@@ -147,10 +147,9 @@ public final class DefaultEntityResolver implements EntityResolver {
             return;
         }
         try {
-            conflictSink.accept(new EntityAttributesConflicted(
-                    stored, incoming, diffs, clock.instant()));
+            matchEventSink.accept(new EntityAttributesConflicted(stored, incoming, diffs));
         } catch (RuntimeException ex) {
-            log.warn("ConflictEventSink threw while handling event for {}: {}",
+            log.warn("MatchEventSink threw while handling event for {}: {}",
                     stored.id(), ex.toString());
         }
     }
@@ -196,7 +195,7 @@ public final class DefaultEntityResolver implements EntityResolver {
         private Supplier<UUID> uuidSupplier = UuidV7.supplier();
         private HumanIdGenerator humanIdGenerator = new HumanIdGenerator();
         private Clock clock = Clock.systemUTC();
-        private ConflictEventSink conflictSink = ConflictEventSink.noop();
+        private MatchEventSink matchEventSink = MatchEventSink.noop();
 
         private Builder(EntityStorage storage) {
             this.storage = storage;
@@ -222,8 +221,8 @@ public final class DefaultEntityResolver implements EntityResolver {
             return this;
         }
 
-        public Builder conflictSink(ConflictEventSink conflictSink) {
-            this.conflictSink = conflictSink;
+        public Builder matchEventSink(MatchEventSink matchEventSink) {
+            this.matchEventSink = matchEventSink;
             return this;
         }
 

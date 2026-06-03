@@ -3,8 +3,9 @@ package uk.codery.jclaim.resolver;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import uk.codery.jclaim.event.AttributeDiff;
-import uk.codery.jclaim.event.ConflictEventSink;
 import uk.codery.jclaim.event.EntityAttributesConflicted;
+import uk.codery.jclaim.event.MatchEvent;
+import uk.codery.jclaim.event.MatchEventSink;
 import uk.codery.jclaim.id.HumanIdGenerator;
 import uk.codery.jclaim.model.Claim;
 import uk.codery.jclaim.model.EntityId;
@@ -43,7 +44,7 @@ class DefaultEntityResolverTest {
                 .uuidSupplier(deterministicUuids())
                 .humanIdGenerator(new HumanIdGenerator(new Random(7)))
                 .clock(Clock.fixed(Instant.parse("2026-05-10T12:00:00Z"), ZoneOffset.UTC))
-                .conflictSink(sink)
+                .matchEventSink(sink)
                 .build();
     }
 
@@ -97,10 +98,10 @@ class DefaultEntityResolverTest {
                 MatchingAttribute.of("phone", "+44 1234 567890"));
 
         assertThat(sink.events).hasSize(1);
-        EntityAttributesConflicted event = sink.events.get(0);
+        EntityAttributesConflicted event = (EntityAttributesConflicted) sink.events.get(0);
         assertThat(event.stored()).isEqualTo(result.entity());
-        assertThat(event.incoming()).isEqualTo(updated);
-        assertThat(event.differences()).containsExactlyInAnyOrder(
+        assertThat(event.claim()).isEqualTo(updated);
+        assertThat(event.differingValues()).containsExactlyInAnyOrder(
                 new AttributeDiff("email", "alice@example.com", "alice.new@example.com"),
                 new AttributeDiff("preferredName", null, "Ali")
         );
@@ -157,11 +158,11 @@ class DefaultEntityResolverTest {
         };
     }
 
-    private static final class RecordingSink implements ConflictEventSink {
-        final List<EntityAttributesConflicted> events = new ArrayList<>();
+    private static final class RecordingSink implements MatchEventSink {
+        final List<MatchEvent> events = new ArrayList<>();
 
         @Override
-        public void accept(EntityAttributesConflicted event) {
+        public void accept(MatchEvent event) {
             events.add(event);
         }
     }

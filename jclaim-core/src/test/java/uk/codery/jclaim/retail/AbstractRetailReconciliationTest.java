@@ -67,7 +67,7 @@ public abstract class AbstractRetailReconciliationTest {
                 .uuidSupplier(DeterministicUuids.supplier())
                 .humanIdGenerator(new HumanIdGenerator(new Random(42)))
                 .clock(Clock.fixed(Instant.parse("2026-05-11T10:00:00Z"), ZoneOffset.UTC))
-                .conflictSink(conflictSink)
+                .matchEventSink(conflictSink)
                 .build();
     }
 
@@ -137,8 +137,8 @@ public abstract class AbstractRetailReconciliationTest {
         assertThat(conflictSink.events()).hasSize(1);
         EntityAttributesConflicted event = conflictSink.events().get(0);
         assertThat(event.stored()).isEqualTo(result.entity());
-        assertThat(event.incoming()).isEqualTo(mutated);
-        assertThat(event.differences()).contains(
+        assertThat(event.claim()).isEqualTo(mutated);
+        assertThat(event.differingValues()).contains(
                 new AttributeDiff("phone", "+44 7700 900110", "+44 7700 900911"));
     }
 
