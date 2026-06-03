@@ -1,6 +1,7 @@
 package uk.codery.jclaim.event;
 
 import org.junit.jupiter.api.Test;
+import uk.codery.jclaim.matching.TriState;
 import uk.codery.jclaim.model.Claim;
 import uk.codery.jclaim.model.Entity;
 import uk.codery.jclaim.model.EntityId;
@@ -77,5 +78,52 @@ class EventTypesTest {
 
         sink.accept(event);  // must not throw
         assertThat(((EntityAttributesConflicted) event).differingValues()).hasSize(1);
+    }
+
+    @Test
+    void candidateOutcome_rejectsNulls() {
+        Entity entity = entity("01900000-0000-7000-8000-000000000035");
+        assertThatThrownBy(() -> new CandidateOutcome(null, TriState.MATCHED))
+                .isInstanceOf(NullPointerException.class);
+        assertThatThrownBy(() -> new CandidateOutcome(entity, null))
+                .isInstanceOf(NullPointerException.class);
+    }
+
+    @Test
+    void matchUndecided_defensivelyCopiesCandidatesAndRejectsNulls() {
+        Entity minted = entity("01900000-0000-7000-8000-000000000036");
+        Entity candidate = entity("01900000-0000-7000-8000-000000000037");
+        Claim claim = new Claim(SourceSystem.of("crm"), "id-1", List.of());
+        List<CandidateOutcome> outcomes = new ArrayList<>();
+        outcomes.add(new CandidateOutcome(candidate, TriState.UNDETERMINED));
+
+        MatchUndecided event = new MatchUndecided(claim, minted, outcomes, 1, 1, false);
+        outcomes.clear();
+
+        assertThat(event.candidates()).hasSize(1);
+        assertThat(event.candidatesConsidered()).isEqualTo(1);
+        assertThatThrownBy(() -> new MatchUndecided(null, minted, List.of(), 0, 0, false))
+                .isInstanceOf(NullPointerException.class);
+    }
+
+    @Test
+    void matchAmbiguous_defensivelyCopiesAndRejectsNulls() {
+        Entity winner = entity("01900000-0000-7000-8000-000000000038");
+        Entity other = entity("01900000-0000-7000-8000-000000000039");
+        Claim claim = new Claim(SourceSystem.of("crm"), "id-1", List.of());
+        List<Entity> others = new ArrayList<>(List.of(other));
+        List<CandidateOutcome> outcomes = new ArrayList<>(List.of(
+                new CandidateOutcome(winner, TriState.MATCHED),
+                new CandidateOutcome(other, TriState.MATCHED)));
+
+        MatchAmbiguous event = new MatchAmbiguous(claim, winner, others, outcomes, 2, 2, true);
+        others.clear();
+        outcomes.clear();
+
+        assertThat(event.otherMatched()).containsExactly(other);
+        assertThat(event.candidates()).hasSize(2);
+        assertThat(event.candidatePoolTruncated()).isTrue();
+        assertThatThrownBy(() -> new MatchAmbiguous(claim, null, List.of(), List.of(), 0, 0, false))
+                .isInstanceOf(NullPointerException.class);
     }
 }
