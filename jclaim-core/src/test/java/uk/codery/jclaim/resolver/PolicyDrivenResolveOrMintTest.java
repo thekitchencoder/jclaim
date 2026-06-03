@@ -189,6 +189,25 @@ class PolicyDrivenResolveOrMintTest {
         assertThat(event.candidatesFound()).isEqualTo(cap);
     }
 
+    @Test
+    void candidatePoolBelowCap_isNotFlaggedTruncated() {
+        // Two overlapping candidates, cap of 5 -> pool is below the cap, so the
+        // truncation flag must be false and no WARN-worthy truncation occurs.
+        seed(ECOMMERCE, "cust-1", "alice@example.com");
+        seed(CRM, "crm-2", "alice@example.com");
+
+        Claim claim = new Claim(POS, "loyalty-9", List.of(
+                MatchingAttribute.of("email", "alice@example.com")));
+        MatchingPolicy policy = (c, cand) -> TriState.UNDETERMINED;
+
+        ResolutionResult result = resolverWith(policy, 5).resolveOrMint(claim);
+
+        assertThat(result).isInstanceOf(ResolutionResult.Minted.class);
+        MatchUndecided event = (MatchUndecided) sink.events.get(0);
+        assertThat(event.candidatePoolTruncated()).isFalse();
+        assertThat(event.candidatesFound()).isEqualTo(2);
+    }
+
     // --- helpers ---------------------------------------------------------
 
     /** Seeds an entity with a specific createdAt by minting via a fixed clock. */
