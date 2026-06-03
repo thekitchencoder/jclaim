@@ -6,7 +6,7 @@ import uk.codery.jclaim.event.AttributeDiff;
 import uk.codery.jclaim.event.EntityAttributesConflicted;
 import uk.codery.jclaim.fixtures.DeterministicUuids;
 import uk.codery.jclaim.fixtures.GroundTruthIngester;
-import uk.codery.jclaim.fixtures.RecordingConflictSink;
+import uk.codery.jclaim.fixtures.RecordingMatchSink;
 import uk.codery.jclaim.id.HumanIdGenerator;
 import uk.codery.jclaim.model.Alias;
 import uk.codery.jclaim.model.Claim;
@@ -44,7 +44,7 @@ public abstract class AbstractPropertyReconciliationTest {
 
     protected PropertyFixtures fixtures;
     protected EntityStorage storage;
-    protected RecordingConflictSink conflictSink;
+    protected RecordingMatchSink matchSink;
     protected EntityResolver resolver;
 
     /** Returns a fresh, empty {@link EntityStorage} for the test about to run. */
@@ -54,13 +54,13 @@ public abstract class AbstractPropertyReconciliationTest {
     final void setUp() {
         fixtures = PropertyFixtures.load();
         storage = newStorage();
-        conflictSink = new RecordingConflictSink();
+        matchSink = new RecordingMatchSink();
         resolver = DefaultEntityResolver.builder(storage)
                 .namespace("codery")
                 .uuidSupplier(DeterministicUuids.supplier())
                 .humanIdGenerator(new HumanIdGenerator(new Random(44)))
                 .clock(Clock.fixed(Instant.parse("2026-05-11T10:00:00Z"), ZoneOffset.UTC))
-                .matchEventSink(conflictSink)
+                .matchEventSink(matchSink)
                 .build();
     }
 
@@ -88,7 +88,7 @@ public abstract class AbstractPropertyReconciliationTest {
         assertThat(second).isInstanceOf(ResolutionResult.Matched.class);
         assertThat(second.entity()).isEqualTo(first.entity());
         assertThat(countEntitiesReachableVia(List.of(paf))).isEqualTo(1);
-        assertThat(conflictSink.events()).isEmpty();
+        assertThat(matchSink.events()).isEmpty();
     }
 
     @Test
@@ -130,8 +130,8 @@ public abstract class AbstractPropertyReconciliationTest {
         assertThat(result.entity().attributes())
                 .containsExactlyElementsOf(baseline.attributes());
 
-        assertThat(conflictSink.events()).hasSize(1);
-        EntityAttributesConflicted event = conflictSink.events().get(0);
+        assertThat(matchSink.events()).hasSize(1);
+        EntityAttributesConflicted event = matchSink.events().get(0);
         assertThat(event.stored()).isEqualTo(result.entity());
         assertThat(event.claim()).isEqualTo(mutated);
         assertThat(event.differingValues()).contains(
@@ -154,14 +154,14 @@ public abstract class AbstractPropertyReconciliationTest {
         ResolutionResult result = resolver.resolveOrMint(withUprn);
 
         assertThat(result).isInstanceOf(ResolutionResult.Matched.class);
-        assertThat(conflictSink.events()).hasSize(1);
+        assertThat(matchSink.events()).hasSize(1);
         // The freshly-assigned uprn is an attribute the entity never carried —
         // additive, not a conflict — so it must NOT appear as a diff.
-        assertThat(conflictSink.events().get(0).differingValues())
+        assertThat(matchSink.events().get(0).differingValues())
                 .noneMatch(d -> d.name().equals("uprn"));
         // The address line, however, exists on both sides with a changed
         // value, so it is a genuine conflict.
-        assertThat(conflictSink.events().get(0).differingValues()).contains(
+        assertThat(matchSink.events().get(0).differingValues()).contains(
                 new AttributeDiff("address_line_1", "Plot 9, Hanover Place", "9 Hanover Place"));
     }
 
@@ -264,7 +264,7 @@ public abstract class AbstractPropertyReconciliationTest {
     void updateClaimsBatch_emitsConflictEventsAgainstStoredAttributes() {
         // Stage 1 — full baseline ingestion, no conflicts expected.
         GroundTruthIngester.ingest(resolver, fixtures.allClaims(), fixtures.claimsByProperty());
-        assertThat(conflictSink.events())
+        assertThat(matchSink.events())
                 .as("baseline ingest must not emit conflicts")
                 .isEmpty();
 
@@ -277,7 +277,7 @@ public abstract class AbstractPropertyReconciliationTest {
             ResolutionResult result = resolver.resolveOrMint(update);
             assertThat(result).isInstanceOf(ResolutionResult.Matched.class);
         }
-        assertThat(conflictSink.events())
+        assertThat(matchSink.events())
                 .as("at least one update diverges on a shared attribute")
                 .isNotEmpty()
                 .hasSizeLessThanOrEqualTo(fixtures.updateClaims().size());

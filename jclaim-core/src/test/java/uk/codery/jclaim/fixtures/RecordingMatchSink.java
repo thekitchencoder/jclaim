@@ -15,7 +15,7 @@ import java.util.List;
  * recorder. Non-conflict stewardship events are not produced by the default
  * alias-only resolver these tests exercise.
  */
-public final class RecordingConflictSink implements MatchEventSink {
+public final class RecordingMatchSink implements MatchEventSink {
 
     private final List<EntityAttributesConflicted> events = new ArrayList<>();
 
