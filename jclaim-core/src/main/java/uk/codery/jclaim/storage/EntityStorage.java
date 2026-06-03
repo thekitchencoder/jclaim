@@ -79,6 +79,23 @@ public interface EntityStorage {
      *
      * <p>Returns an empty set if no candidates exist; never returns
      * {@code null}.
+     *
+     * <p>{@code limit} caps the number of candidates returned, enforced at the
+     * query level so adapters never load more than {@code limit} entities. A
+     * {@code limit} of {@code 0} returns an empty set; a negative {@code limit}
+     * is rejected with {@link IllegalArgumentException}. The cap is applied
+     * inclusively across both retrieval mechanisms (alias-owner candidates count
+     * toward the cap first); which candidates survive truncation is otherwise
+     * unspecified and adapter-dependent.
      */
-    Set<Entity> findCandidates(Claim claim);
+    Set<Entity> findCandidates(Claim claim, int limit);
+
+    /**
+     * Convenience overload equivalent to {@link #findCandidates(Claim, int)
+     * findCandidates(claim, Integer.MAX_VALUE)} — returns every candidate with
+     * no cap.
+     */
+    default Set<Entity> findCandidates(Claim claim) {
+        return findCandidates(claim, Integer.MAX_VALUE);
+    }
 }
