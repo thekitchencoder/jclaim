@@ -3,13 +3,16 @@ package uk.codery.jclaim.resolver;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import uk.codery.jclaim.event.AttributeDiff;
+import uk.codery.jclaim.event.CandidateOutcome;
 import uk.codery.jclaim.event.EntityAttributesConflicted;
-import uk.codery.jclaim.event.MatchEventSink;
+import uk.codery.jclaim.event.MatchAmbiguous;
 import uk.codery.jclaim.event.MatchEvent;
+import uk.codery.jclaim.event.MatchEventSink;
+import uk.codery.jclaim.event.MatchUndecided;
 import uk.codery.jclaim.id.HumanIdGenerator;
+import uk.codery.jclaim.id.UuidV7;
 import uk.codery.jclaim.matching.MatchingPolicy;
 import uk.codery.jclaim.matching.TriState;
-import uk.codery.jclaim.id.UuidV7;
 import uk.codery.jclaim.model.Alias;
 import uk.codery.jclaim.model.Claim;
 import uk.codery.jclaim.model.Entity;
@@ -17,12 +20,14 @@ import uk.codery.jclaim.model.EntityId;
 import uk.codery.jclaim.model.MatchingAttribute;
 import uk.codery.jclaim.model.ResolutionResult;
 import uk.codery.jclaim.model.SourceSystem;
+import uk.codery.jclaim.storage.AliasAlreadyClaimedException;
 import uk.codery.jclaim.storage.EntityStorage;
 import uk.codery.jclaim.storage.StorageOutcome;
 
 import java.time.Clock;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -77,19 +82,114 @@ public final class DefaultEntityResolver implements EntityResolver {
         Objects.requireNonNull(claim, "claim");
         Alias alias = claim.asAlias();
 
-        StorageOutcome outcome = storage.resolveOrCreate(alias, () -> mintEntity(claim));
+        // 1. Exact-alias short-circuit: an alias owner is an identity link.
+        // This preserves the alias-atomic concurrency guarantee — the policy
+        // never runs against a candidate that already owns the claim's alias.
+        Optional<Entity> owner = storage.findByAlias(alias);
+        if (owner.isPresent()) {
+            Entity matched = owner.get();
+            emitConflictIfDiverged(matched, claim);
+            log.debug("Matched alias {} to {} (exact-alias)", alias, matched.id());
+            return new ResolutionResult.Matched(matched);
+        }
 
+        // 2. No exact alias owner: attribute blocking + matching policy.
+        Set<Entity> candidates = storage.findCandidates(claim, maxCandidates);
+        // Heuristic truncation flag: a full pool is *assumed* truncated. An exact
+        // found-count is deferred — querying limit+1 to detect overflow would
+        // defeat the cap's IO bound. candidatesFound therefore reports the
+        // post-cap count (== candidatesConsidered).
+        boolean truncated = candidates.size() == maxCandidates;
+        if (truncated) {
+            log.warn("Candidate pool for alias {} hit the cap of {}; results truncated",
+                    alias, maxCandidates);
+        }
+
+        List<CandidateOutcome> outcomes = candidates.stream()
+                .map(c -> new CandidateOutcome(c, matchingPolicy.evaluate(claim, c)))
+                .toList();
+        List<CandidateOutcome> matched = outcomes.stream()
+                .filter(o -> o.policyResult() == TriState.MATCHED)
+                .toList();
+        int considered = candidates.size();
+        int found = candidates.size();
+
+        if (matched.size() == 1) {
+            return linkSingleMatch(claim, alias, matched.get(0).candidate());
+        }
+        if (matched.size() > 1) {
+            return linkAmbiguousMatch(
+                    claim, alias, matched, outcomes, considered, found, truncated);
+        }
+
+        // 3. No MATCHED candidate: atomic mint preserves the concurrency contract.
+        StorageOutcome outcome = storage.resolveOrCreate(alias, () -> mintEntity(claim));
         return switch (outcome) {
             case StorageOutcome.Created created -> {
-                log.debug("Minted {} for alias {}", created.entity().id(), alias);
-                yield new ResolutionResult.Minted(created.entity());
+                Entity minted = created.entity();
+                log.debug("Minted {} for alias {}", minted.id(), alias);
+                if (outcomes.stream().anyMatch(o -> o.policyResult() == TriState.UNDETERMINED)) {
+                    safeAccept(new MatchUndecided(
+                            claim, minted, outcomes, considered, found, truncated), minted.id());
+                }
+                yield new ResolutionResult.Minted(minted);
             }
             case StorageOutcome.Existing existing -> {
-                emitConflictIfDiverged(existing.entity(), claim);
-                log.debug("Matched alias {} to {}", alias, existing.entity().id());
-                yield new ResolutionResult.Matched(existing.entity());
+                // Lost a mint race: the alias now resolves, so treat as a match.
+                // No MatchUndecided — the alias resolves cleanly now.
+                Entity now = existing.entity();
+                emitConflictIfDiverged(now, claim);
+                log.debug("Matched alias {} to {} (mint race lost)", alias, now.id());
+                yield new ResolutionResult.Matched(now);
             }
         };
+    }
+
+    private ResolutionResult linkSingleMatch(Claim claim, Alias alias, Entity winner) {
+        Entity attached;
+        try {
+            attached = storage.addAlias(winner.id(), alias);
+        } catch (AliasAlreadyClaimedException e) {
+            // A concurrent mint grabbed this alias between findCandidates and
+            // addAlias; the alias now resolves to that entity.
+            Entity now = storage.findByAlias(alias).orElseThrow();
+            emitConflictIfDiverged(now, claim);
+            log.debug("Matched alias {} to {} (alias claimed concurrently)", alias, now.id());
+            return new ResolutionResult.Matched(now);
+        }
+        emitConflictIfDiverged(attached, claim);
+        log.debug("Matched alias {} to {} (single policy match)", alias, attached.id());
+        return new ResolutionResult.Matched(attached);
+    }
+
+    private ResolutionResult linkAmbiguousMatch(
+            Claim claim, Alias alias, List<CandidateOutcome> matched,
+            List<CandidateOutcome> outcomes, int considered, int found, boolean truncated) {
+        Entity winner = matched.stream()
+                .map(CandidateOutcome::candidate)
+                .min(Comparator.comparing(Entity::createdAt)
+                        .thenComparing(e -> e.id().urn()))
+                .orElseThrow();
+        List<Entity> others = matched.stream()
+                .map(CandidateOutcome::candidate)
+                .filter(e -> !e.equals(winner))
+                .toList();
+
+        Entity attached;
+        try {
+            attached = storage.addAlias(winner.id(), alias);
+        } catch (AliasAlreadyClaimedException e) {
+            Entity now = storage.findByAlias(alias).orElseThrow();
+            emitConflictIfDiverged(now, claim);
+            log.debug("Matched alias {} to {} (alias claimed concurrently)", alias, now.id());
+            return new ResolutionResult.Matched(now);
+        }
+        safeAccept(new MatchAmbiguous(
+                claim, attached, others, outcomes, considered, found, truncated), attached.id());
+        emitConflictIfDiverged(attached, claim);
+        log.debug("Matched alias {} to {} (ambiguous policy match, {} runners-up)",
+                alias, attached.id(), others.size());
+        return new ResolutionResult.Matched(attached);
     }
 
     @Override
@@ -153,11 +253,20 @@ public final class DefaultEntityResolver implements EntityResolver {
         if (diffs.isEmpty()) {
             return;
         }
+        safeAccept(new EntityAttributesConflicted(stored, incoming, diffs), stored.id());
+    }
+
+    /**
+     * Delivers {@code event} to the configured sink, catching and WARN-logging
+     * any sink {@link RuntimeException} so a misbehaving sink cannot break
+     * resolution. {@code entityId} names the entity for the log line.
+     */
+    private void safeAccept(MatchEvent event, EntityId entityId) {
         try {
-            matchEventSink.accept(new EntityAttributesConflicted(stored, incoming, diffs));
+            matchEventSink.accept(event);
         } catch (RuntimeException ex) {
             log.warn("MatchEventSink threw while handling event for {}: {}",
-                    stored.id(), ex.toString());
+                    entityId, ex.toString());
         }
     }
 
