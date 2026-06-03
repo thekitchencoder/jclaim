@@ -38,6 +38,7 @@
 
     <modules>
         <module>jclaim-core</module>
+        <module>jclaim-matching-jspec</module>
         <module>jclaim-storage-postgres</module>
         <module>jclaim-storage-mongo</module>
         <module>jclaim-spring-boot-starter</module>
@@ -55,6 +56,7 @@
         <junit.version>5.10.1</junit.version>
         <assertj.version>3.24.2</assertj.version>
         <jackson.version>2.17.2</jackson.version>
+        <jspec.version>0.6.0</jspec.version>
 
         <!-- Plugin versions -->
         <maven-compiler-plugin.version>3.14.1</maven-compiler-plugin.version>
@@ -119,6 +121,15 @@
                 <groupId>com.fasterxml.jackson.core</groupId>
                 <artifactId>jackson-databind</artifactId>
                 <version>${jackson.version}</version>
+            </dependency>
+
+            <!-- jspec — matching policy DSL engine. Declared centrally here, but
+                 added as a real dependency only by jclaim-matching-jspec; never by
+                 jclaim-core (which must stay free of any uk.codery.jspec import). -->
+            <dependency>
+                <groupId>uk.codery</groupId>
+                <artifactId>jspec</artifactId>
+                <version>${jspec.version}</version>
             </dependency>
 
             <!-- jclaim-core test-jar (conformance suite + corpus contracts) -->
