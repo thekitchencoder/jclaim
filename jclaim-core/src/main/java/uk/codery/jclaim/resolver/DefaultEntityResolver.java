@@ -178,13 +178,8 @@ public final class DefaultEntityResolver implements EntityResolver {
                 diffs.add(new AttributeDiff(name, storedValue, incomingValue));
             }
         }
-        // Then incoming-only attributes — these are conflicts because the
-        // claim asserts a value the stored entity does not carry.
-        for (Map.Entry<String, Object> entry : incomingByName.entrySet()) {
-            if (!storedByName.containsKey(entry.getKey())) {
-                diffs.add(new AttributeDiff(entry.getKey(), null, entry.getValue()));
-            }
-        }
+        // Attributes the claim introduces that the stored entity has never
+        // carried are additive, not conflicts — they are intentionally omitted.
         return diffs;
     }
 

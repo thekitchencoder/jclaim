@@ -141,7 +141,8 @@ public abstract class AbstractPropertyReconciliationTest {
     @Test
     void conflictEvent_emittedWhenNewBuildReceivesUprnAssignment() {
         // prop-009 — provisional new build, originally no UPRN; updates.yaml
-        // re-asserts the same PAF alias with the freshly-assigned UPRN.
+        // re-asserts the same PAF alias with the freshly-assigned UPRN plus a
+        // tidied-up address line.
         Claim baseline = sourceClaim("prop-009", "royal_mail_paf");
         Claim withUprn = fixtures.updateClaims().stream()
                 .filter(c -> c.source().name().equals("royal_mail_paf")
@@ -154,10 +155,14 @@ public abstract class AbstractPropertyReconciliationTest {
 
         assertThat(result).isInstanceOf(ResolutionResult.Matched.class);
         assertThat(conflictSink.events()).hasSize(1);
-        // A new attribute that was not asserted before (uprn) shows up as
-        // a diff with stored=null.
+        // The freshly-assigned uprn is an attribute the entity never carried —
+        // additive, not a conflict — so it must NOT appear as a diff.
+        assertThat(conflictSink.events().get(0).differingValues())
+                .noneMatch(d -> d.name().equals("uprn"));
+        // The address line, however, exists on both sides with a changed
+        // value, so it is a genuine conflict.
         assertThat(conflictSink.events().get(0).differingValues()).contains(
-                new AttributeDiff("uprn", null, "100099000099"));
+                new AttributeDiff("address_line_1", "Plot 9, Hanover Place", "9 Hanover Place"));
     }
 
     @Test
@@ -263,14 +268,19 @@ public abstract class AbstractPropertyReconciliationTest {
                 .as("baseline ingest must not emit conflicts")
                 .isEmpty();
 
-        // Stage 2 — apply updates and assert each produces a Matched result
-        // plus a conflict event. Stored attributes must remain untouched.
+        // Stage 2 — apply updates and assert each produces a Matched result.
+        // Update claims that change a shared attribute value emit a conflict;
+        // claims that only add previously-unseen attributes are additive and
+        // emit nothing. Stored attributes must remain untouched throughout.
         Map<Alias, List<MatchingAttribute>> storedBefore = snapshotAttributesByAlias();
         for (Claim update : fixtures.updateClaims()) {
             ResolutionResult result = resolver.resolveOrMint(update);
             assertThat(result).isInstanceOf(ResolutionResult.Matched.class);
         }
-        assertThat(conflictSink.events()).hasSize(fixtures.updateClaims().size());
+        assertThat(conflictSink.events())
+                .as("at least one update diverges on a shared attribute")
+                .isNotEmpty()
+                .hasSizeLessThanOrEqualTo(fixtures.updateClaims().size());
         assertThat(snapshotAttributesByAlias()).isEqualTo(storedBefore);
     }
 

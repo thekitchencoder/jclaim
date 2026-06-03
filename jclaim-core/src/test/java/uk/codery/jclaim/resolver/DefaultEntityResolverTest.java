@@ -101,10 +101,28 @@ class DefaultEntityResolverTest {
         EntityAttributesConflicted event = (EntityAttributesConflicted) sink.events.get(0);
         assertThat(event.stored()).isEqualTo(result.entity());
         assertThat(event.claim()).isEqualTo(updated);
-        assertThat(event.differingValues()).containsExactlyInAnyOrder(
-                new AttributeDiff("email", "alice@example.com", "alice.new@example.com"),
-                new AttributeDiff("preferredName", null, "Ali")
+        // preferredName is claim-only — additive, not a conflict — so it is
+        // intentionally absent from differingValues.
+        assertThat(event.differingValues()).containsExactly(
+                new AttributeDiff("email", "alice@example.com", "alice.new@example.com")
         );
+    }
+
+    @Test
+    void resolveOrMint_claimAddsNewAttribute_doesNotEmitConflict() {
+        Claim original = new Claim(ECOMMERCE, "cust-1", List.of(
+                MatchingAttribute.of("email", "alice@example.com")));
+        Claim withExtra = new Claim(ECOMMERCE, "cust-1", List.of(
+                MatchingAttribute.of("email", "alice@example.com"),
+                MatchingAttribute.of("preferredName", "Ali")));
+
+        resolver.resolveOrMint(original);
+        ResolutionResult result = resolver.resolveOrMint(withExtra);
+
+        assertThat(result).isInstanceOf(ResolutionResult.Matched.class);
+        // A claim that only adds a previously-unseen attribute is additive, not
+        // a conflict — no stewardship event is emitted.
+        assertThat(sink.events).isEmpty();
     }
 
     @Test
