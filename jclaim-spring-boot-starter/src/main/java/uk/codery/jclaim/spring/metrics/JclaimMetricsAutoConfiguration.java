@@ -20,7 +20,7 @@ import uk.codery.jclaim.spring.JclaimAutoConfiguration;
  */
 @AutoConfiguration(after = JclaimAutoConfiguration.class)
 @ConditionalOnClass(MeterRegistry.class)
-@ConditionalOnBean(value = MeterRegistry.class, name = "jclaimEntityResolver")
+@ConditionalOnBean(value = MeterRegistry.class, name = "jclaimResolver")
 @ConditionalOnProperty(prefix = "jclaim.metrics", name = "enabled",
         havingValue = "true", matchIfMissing = true)
 public class JclaimMetricsAutoConfiguration {
@@ -28,7 +28,7 @@ public class JclaimMetricsAutoConfiguration {
     @Bean
     @Primary
     public EntityResolver meteredEntityResolver(
-            @Qualifier("jclaimEntityResolver") EntityResolver delegate,
+            @Qualifier("jclaimResolver") EntityResolver delegate,
             MeterRegistry registry) {
         return new MeteredEntityResolver(delegate, registry);
     }

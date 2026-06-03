@@ -45,6 +45,18 @@
             <optional>true</optional>
         </dependency>
 
+        <!-- The jspec-backed matching policy provider is optional — the starter
+             references JspecMatchingPolicy only from a @ConditionalOnClass-guarded
+             config, so it compiles and runs without this on the classpath. Consumers
+             opt in by adding jclaim-matching-jspec themselves (and setting
+             jclaim.matching.spec). Mirrors how the storage adapters are declared. -->
+        <dependency>
+            <groupId>uk.codery</groupId>
+            <artifactId>jclaim-matching-jspec</artifactId>
+            <version>${project.version}</version>
+            <optional>true</optional>
+        </dependency>
+
         <!-- Storage adapters are optional — the starter selects whichever is on the
              classpath at runtime. Consumers add exactly one. -->
         <dependency>

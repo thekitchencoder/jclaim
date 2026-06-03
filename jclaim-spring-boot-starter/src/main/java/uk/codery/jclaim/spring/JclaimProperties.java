@@ -14,6 +14,7 @@ public class JclaimProperties {
     private String namespace = "codery";
     private Storage storage = new Storage();
     private MatchSink matchSink = new MatchSink();
+    private Matching matching = new Matching();
     private Metrics metrics = new Metrics();
     private Health health = new Health();
 
@@ -44,6 +45,14 @@ public class JclaimProperties {
 
     public void setMatchSink(MatchSink matchSink) {
         this.matchSink = matchSink;
+    }
+
+    public Matching matching() {
+        return matching;
+    }
+
+    public void setMatching(Matching matching) {
+        this.matching = matching;
     }
 
     public Metrics metrics() {
@@ -157,6 +166,34 @@ public class JclaimProperties {
 
         public void setType(MatchSinkType type) {
             this.type = type;
+        }
+    }
+
+    /**
+     * Matching-policy configuration. When {@code spec} is set the starter builds
+     * a jspec-backed {@code MatchingPolicy} from the named classpath resource
+     * (requiring {@code jclaim-matching-jspec} on the classpath); otherwise the
+     * alias-only default policy is used.
+     */
+    public static class Matching {
+        private String spec;
+        private int maxCandidates = 100;
+
+        /** Classpath path to the jspec matching spec (e.g. {@code matching/policy.yaml}); null/blank means alias-only. */
+        public String spec() {
+            return spec;
+        }
+
+        public void setSpec(String spec) {
+            this.spec = spec;
+        }
+
+        public int maxCandidates() {
+            return maxCandidates;
+        }
+
+        public void setMaxCandidates(int maxCandidates) {
+            this.maxCandidates = maxCandidates;
         }
     }
 
