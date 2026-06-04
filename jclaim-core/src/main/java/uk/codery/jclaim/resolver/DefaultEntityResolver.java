@@ -197,9 +197,25 @@ public final class DefaultEntityResolver implements EntityResolver {
 
     @Override
     public Entity getByUrn(EntityId urn) {
-        Objects.requireNonNull(urn, "urn");
+        requireOwnUrn(urn);
         return storage.findByUrn(urn).orElseThrow(
                 () -> new NoSuchElementException("No entity stored for URN " + urn));
+    }
+
+    /**
+     * Guards that {@code urn} belongs to the {@code (namespace, type)} pair
+     * this resolver reconciles. Later phases physically isolate storage per
+     * type, so a foreign-type lookup that fell through to storage would
+     * silently look like "not found" rather than a programming error — this
+     * guard fails it loudly at the resolver boundary instead.
+     */
+    private void requireOwnUrn(EntityId urn) {
+        Objects.requireNonNull(urn, "urn");
+        if (!namespace.equals(urn.namespace()) || !entityType.equals(urn.type())) {
+            throw new IllegalArgumentException(
+                    "URN " + urn + " belongs to (" + urn.namespace() + ", " + urn.type()
+                            + ") but this resolver reconciles (" + namespace + ", " + entityType + ")");
+        }
     }
 
     @Override
@@ -215,6 +231,7 @@ public final class DefaultEntityResolver implements EntityResolver {
 
     @Override
     public Entity addAlias(EntityId urn, SourceSystem source, String sourceId) {
+        requireOwnUrn(urn);
         return storage.addAlias(urn, new Alias(source, sourceId));
     }
 

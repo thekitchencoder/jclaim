@@ -154,6 +154,36 @@ class DefaultEntityResolverTest {
     }
 
     @Test
+    void getByUrn_rejectsForeignType() {
+        EntityResolver acme = DefaultEntityResolver.builder(new InMemoryEntityStorage())
+                .namespace("acme").entityType("customer").build();
+        assertThatThrownBy(() ->
+                acme.getByUrn(EntityId.of("acme", "vehicle", UUID.randomUUID())))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("customer")
+                .hasMessageContaining("vehicle");
+    }
+
+    @Test
+    void getByUrn_rejectsForeignNamespace() {
+        EntityResolver acme = DefaultEntityResolver.builder(new InMemoryEntityStorage())
+                .namespace("acme").entityType("customer").build();
+        assertThatThrownBy(() ->
+                acme.getByUrn(EntityId.of("other", "customer", UUID.randomUUID())))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void addAlias_rejectsForeignTypeUrn() {
+        EntityResolver acme = DefaultEntityResolver.builder(new InMemoryEntityStorage())
+                .namespace("acme").entityType("customer").build();
+        assertThatThrownBy(() ->
+                acme.addAlias(EntityId.of("acme", "vehicle", UUID.randomUUID()),
+                        SourceSystem.of("crm"), "x"))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
     void builder_defaultPolicyIsAliasOnly_soBehaviourIsUnchanged() {
         // With no policy configured the resolver uses aliasOnly(); a second
         // claim for the same alias short-circuits to Matched with no events.
