@@ -6,10 +6,15 @@ import java.util.Objects;
 import java.util.Optional;
 
 /**
- * Canonical reconciled entity. Holds the URN, a human-friendly lookup ID,
- * the alias graph of contributing source-system claims, the attributes
+ * Canonical reconciled entity. Holds the URN, a nullable human-friendly lookup
+ * ID, the alias graph of contributing source-system claims, the attributes
  * recorded on the entity, an optional {@code supersededBy} pointer for future
  * merge operations, and creation / update timestamps.
+ *
+ * <p>The {@code humanId} is <strong>nullable</strong>: it is an independently
+ * minted lookup attribute, not part of the entity's core identity. An entity
+ * type that mints no human-friendly ID carries {@code humanId == null}. When
+ * present it must be non-blank.
  *
  * <p>Records are immutable; mutating operations on the resolver return new
  * instances. Defensive copies are taken of the alias and attribute lists.
@@ -26,13 +31,14 @@ public record Entity(
 
     public Entity {
         Objects.requireNonNull(id, "id");
-        Objects.requireNonNull(humanId, "humanId");
         Objects.requireNonNull(aliases, "aliases");
         Objects.requireNonNull(attributes, "attributes");
         Objects.requireNonNull(createdAt, "createdAt");
         Objects.requireNonNull(updatedAt, "updatedAt");
-        if (humanId.isBlank()) {
-            throw new IllegalArgumentException("humanId must not be blank");
+        // humanId is nullable: absent means this entity type mints no humanId.
+        // When present it must be non-blank.
+        if (humanId != null && humanId.isBlank()) {
+            throw new IllegalArgumentException("humanId must not be blank when present");
         }
         aliases = List.copyOf(aliases);
         attributes = List.copyOf(attributes);
