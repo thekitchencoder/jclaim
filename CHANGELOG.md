@@ -9,6 +9,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Configurable URN type segment.** The URN type segment — historically
+  the hard-coded literal `entity` in `urn:<namespace>:<type>:<uuid>` — is
+  now configurable per resolver. `EntityId.of(namespace, type, uuid)`
+  constructs an arbitrary-type URN; the two-arg
+  `EntityId.of(namespace, uuid)` still defaults type to
+  `EntityId.DEFAULT_TYPE` (`entity`). New `EntityId.type()` accessor.
+  Resolver builder slot `DefaultEntityResolver.Builder.entityType(...)`;
+  starter property `jclaim.urn.type` (default `entity`). Defaults
+  reproduce prior URN output exactly.
+- **Configurable humanId template.** The humanId format (e.g.
+  `K7M2-9X4P-N`) is now driven by a template compiled into the new
+  immutable `HumanIdFormat` value object —
+  `HumanIdFormat.ofTemplate(String)`. In the template, `?` is a
+  placeholder (the **last** `?` renders the Damm check digit, every other
+  `?` a random Crockford Base32 data symbol) and any other character is a
+  literal; 1–12 data placeholders (2–13 `?` total) keep the value within
+  a 60-bit `long`. Resolver builder slots
+  `DefaultEntityResolver.Builder.humanIdTemplate(String)` /
+  `.humanIdFormat(HumanIdFormat)`; starter property
+  `jclaim.human-id.template` (default `????-????-?`), eagerly validated —
+  a malformed template fails context startup. The default template
+  reproduces the historic `XXXX-XXXX-X` shape exactly.
 - **Configurable matching policy.** `resolveOrMint` no longer mints
   blindly when an exact `(source, sourceId)` alias owner is absent. It
   blocks a candidate pool sharing an attribute with the claim and scores
@@ -132,6 +154,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed (breaking, pre-1.0)
 
+- **Starter: `jclaim.namespace` → `jclaim.urn.namespace`.** The URN
+  namespace property moves under the new `jclaim.urn.*` group (alongside
+  the new `jclaim.urn.type`); default unchanged (`codery`). Safe because
+  no artefact has been published.
 - **`ConflictEventSink` → `MatchEventSink`.** The event sink interface
   is renamed; its single method now accepts the new sealed `MatchEvent`
   supertype. Default factory `MatchEventSink.noop()`. Resolver builder

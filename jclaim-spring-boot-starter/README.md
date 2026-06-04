@@ -154,6 +154,34 @@ All properties live under the `jclaim.*` prefix.
 | `jclaim.metrics.enabled`                  | `true`             | Wraps the resolver with a Micrometer-instrumented decorator when a `MeterRegistry` bean exists.   |
 | `jclaim.health.enabled`                   | `true`             | Registers an Actuator `HealthIndicator` for the configured storage.                               |
 
+### humanId template
+
+`jclaim.human-id.template` drives the shape of every minted humanId. The
+template is compiled once into a `HumanIdFormat` at startup and is
+eagerly validated — a malformed template fails context startup.
+
+Grammar (one template character → one output character):
+
+- `?` is a **placeholder**. The **last `?`** renders the Damm check
+  digit; every **other `?`** renders a random Crockford Base32 data
+  symbol.
+- Any other character is a **literal**, emitted verbatim.
+
+Because the last placeholder is always the check digit, every
+well-formed template yields a self-validating ID. There must be **2–13
+`?` total** (1–12 data placeholders); the 12-data ceiling keeps the
+value within a 60-bit `long`. A literal cannot itself be `?` (no
+escaping in v1).
+
+Examples (sample data `K7M2 9X4P`, check digit `N`):
+
+| Template        | Breakdown                    | Renders         | Data bits |
+|-----------------|------------------------------|-----------------|-----------|
+| `????-????-?`   | 8 data + check (**default**) | `K7M2-9X4P-N`   | 40        |
+| `#?????`        | literal `#` + 4 data + check | `#K7M2N`        | 20        |
+| `JG??????`      | `JG` + 5 data + check        | `JGK7M29N`      | 25        |
+| `ID????-????-?` | `ID` + 4 data + check        | `IDK7M2-9X4P-N` | 40        |
+
 ## Listening to match events
 
 The default `MatchEventSink` republishes every `MatchEvent` as a
