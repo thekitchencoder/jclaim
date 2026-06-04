@@ -185,6 +185,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `JclaimMatchEvent` (now wrapping the sealed `MatchEvent`).
   `LoggingConflictSink` → `LoggingMatchSink`,
   `SpringEventConflictSink` → `SpringEventMatchSink`.
+- **`HumanIdGenerator.isValid` / `HumanIdFormat.isValid` are now
+  fixed-width** and require the format's literal separators at their exact
+  positions. The old `normalise`-based path silently stripped hyphens
+  before checking, so loosely-formatted input (missing or misplaced
+  separators) was wrongly accepted as valid.
 
 ### Changed
 

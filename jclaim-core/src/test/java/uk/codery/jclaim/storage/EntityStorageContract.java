@@ -3,6 +3,7 @@ package uk.codery.jclaim.storage;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import uk.codery.jclaim.id.HumanIdFormat;
+import uk.codery.jclaim.id.UuidV7;
 import uk.codery.jclaim.model.Alias;
 import uk.codery.jclaim.model.Claim;
 import uk.codery.jclaim.model.Entity;
@@ -91,6 +92,30 @@ public abstract class EntityStorageContract {
         storage.resolveOrCreate(ALICE_ECOM, () -> entityWith(0, List.of(ALICE_ECOM)));
 
         assertThat(storage.findByUrn(freshEntityId())).isEmpty();
+    }
+
+    @Test
+    void roundTripsNonDefaultNamespaceAndType() {
+        Alias alias = new Alias(SourceSystem.of("crm"), "rt-1");
+        EntityId id = EntityId.of("acme", "customer", UuidV7.supplier().get());
+        Entity minted = new Entity(
+                id,
+                HumanIdFormat.DEFAULT.format(42L),
+                List.of(alias),
+                List.of(MatchingAttribute.of("seed", 42)),
+                null,
+                NOW,
+                NOW
+        );
+
+        StorageOutcome outcome = storage.resolveOrCreate(alias, () -> minted);
+        assertThat(outcome).isInstanceOf(StorageOutcome.Created.class);
+
+        Entity reloaded = storage.findByUrn(id).orElseThrow();
+        assertThat(reloaded.id()).isEqualTo(id);
+        assertThat(reloaded.id().urn()).isEqualTo("urn:acme:customer:" + id.uuid());
+        assertThat(reloaded.id().namespace()).isEqualTo("acme");
+        assertThat(reloaded.id().type()).isEqualTo("customer");
     }
 
     // ── findByHumanId ──────────────────────────────────────────────────────

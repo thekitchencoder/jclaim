@@ -30,7 +30,6 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
-import java.util.UUID;
 import java.util.function.Supplier;
 
 /**
@@ -152,7 +151,7 @@ public final class MongoEntityStorage implements EntityStorage {
             Document owner = collection.find(aliasFilter(other)).first();
             if (owner != null) {
                 throw new AliasAlreadyClaimedException(
-                        other, EntityId.of(parseUuidFromUrn(owner.getString(FIELD_ID))));
+                        other, new EntityId(owner.getString(FIELD_ID)));
             }
         }
         String message = ex.getError().getMessage();
@@ -182,7 +181,7 @@ public final class MongoEntityStorage implements EntityStorage {
         Document existingOwner = collection.find(aliasFilter(alias)).first();
         if (existingOwner != null && !existingOwner.getString(FIELD_ID).equals(urn.urn())) {
             throw new AliasAlreadyClaimedException(
-                    alias, EntityId.of(parseUuidFromUrn(existingOwner.getString(FIELD_ID))));
+                    alias, new EntityId(existingOwner.getString(FIELD_ID)));
         }
 
         try {
@@ -194,7 +193,7 @@ public final class MongoEntityStorage implements EntityStorage {
                 Document raced = collection.find(aliasFilter(alias)).first();
                 if (raced != null && !raced.getString(FIELD_ID).equals(urn.urn())) {
                     throw new AliasAlreadyClaimedException(
-                            alias, EntityId.of(parseUuidFromUrn(raced.getString(FIELD_ID))));
+                            alias, new EntityId(raced.getString(FIELD_ID)));
                 }
             }
             throw new MongoStorageException("addAlias failed for " + urn + "/" + alias, ex);
@@ -318,18 +317,13 @@ public final class MongoEntityStorage implements EntityStorage {
         }
 
         return new Entity(
-                EntityId.of(parseUuidFromUrn(urn)),
+                new EntityId(urn),
                 humanId,
                 aliases,
                 attributes,
-                supersededByUrn == null ? null : EntityId.of(parseUuidFromUrn(supersededByUrn)),
+                supersededByUrn == null ? null : new EntityId(supersededByUrn),
                 createdAt,
                 updatedAt);
-    }
-
-    private static UUID parseUuidFromUrn(String urn) {
-        int idx = urn.lastIndexOf(':');
-        return UUID.fromString(urn.substring(idx + 1));
     }
 
     // ── Index management ──────────────────────────────────────────────────
