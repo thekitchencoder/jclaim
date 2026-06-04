@@ -7,6 +7,8 @@ import org.springframework.beans.factory.config.ConfigurableListableBeanFactory;
 import org.springframework.beans.factory.support.BeanDefinitionRegistry;
 import org.springframework.beans.factory.support.BeanDefinitionRegistryPostProcessor;
 import org.springframework.beans.factory.support.RootBeanDefinition;
+import org.springframework.core.Ordered;
+import org.springframework.core.PriorityOrdered;
 import uk.codery.jclaim.spring.EntityTypeResolverRegistrar;
 import uk.codery.jclaim.storage.EntityStorage;
 
@@ -24,15 +26,37 @@ import uk.codery.jclaim.storage.EntityStorage;
  * supplier resolves the shared storage bean lazily, so the resolver and the
  * health probe share one scoped storage instance — schema/index creation runs
  * once per type.
+ *
+ * <h2>Post-processor ordering</h2>
+ * This registrar scans the registry for {@code jclaimEntityStorage_<type>} bean
+ * definitions and registers one indicator per match. Those definitions are
+ * created by {@link EntityTypeResolverRegistrar}; if this registrar ran first it
+ * would find none and silently register ZERO indicators (no error). To make that
+ * dependency explicit, both registrars implement {@link PriorityOrdered} and this
+ * one's {@link #ORDER} is strictly higher (runs later) than the resolver
+ * registrar's {@link EntityTypeResolverRegistrar#ORDER}, so the storage
+ * definitions always exist by the time this scan runs.
  */
 public class PerTypeHealthIndicatorRegistrar
-        implements BeanDefinitionRegistryPostProcessor {
+        implements BeanDefinitionRegistryPostProcessor, PriorityOrdered {
 
     private static final Logger log =
             LoggerFactory.getLogger(PerTypeHealthIndicatorRegistrar.class);
 
+    /**
+     * Order value — strictly higher (runs later) than
+     * {@link EntityTypeResolverRegistrar#ORDER}, so the per-type storage bean
+     * definitions this registrar scans for already exist.
+     */
+    public static final int ORDER = Ordered.LOWEST_PRECEDENCE - 50;
+
     /** Bean-name prefix for a per-type health indicator; the bare type key is appended. */
     static final String INDICATOR_PREFIX = "jclaimHealthIndicator_";
+
+    @Override
+    public int getOrder() {
+        return ORDER;
+    }
 
     @Override
     public void postProcessBeanDefinitionRegistry(BeanDefinitionRegistry registry)

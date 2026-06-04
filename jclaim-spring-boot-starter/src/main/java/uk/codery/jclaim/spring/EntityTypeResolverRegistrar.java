@@ -17,6 +17,8 @@ import org.springframework.beans.factory.support.BeanDefinitionRegistryPostProce
 import org.springframework.beans.factory.support.RootBeanDefinition;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.EnvironmentAware;
+import org.springframework.core.Ordered;
+import org.springframework.core.PriorityOrdered;
 import org.springframework.core.env.Environment;
 import org.springframework.boot.context.properties.bind.Binder;
 import org.springframework.util.ClassUtils;
@@ -74,11 +76,28 @@ import uk.codery.jclaim.storage.memory.InMemoryEntityStorage;
  * on the same connection bean would silently share a physical store. Where the
  * scope is statically known at registration time the registrar tracks
  * {@code (connection-bean-or-default, kind, scope)} and fails fast on a duplicate.
+ *
+ * <h2>Post-processor ordering</h2>
+ * This registrar registers the {@code jclaimEntityStorage_<type>} bean
+ * definitions that the {@code PerTypeHealthIndicatorRegistrar} scans for. The
+ * health registrar only finds anything once <em>these</em> definitions exist, so
+ * this registrar must run first. Both implement {@link PriorityOrdered} and
+ * Spring sorts {@code BeanDefinitionRegistryPostProcessor}s by their order before
+ * invoking them; this registrar's {@link #ORDER} is strictly lower (earlier) than
+ * the health registrar's, making the dependency explicit rather than relying on
+ * incidental bean-registration order.
  */
 public class EntityTypeResolverRegistrar
-        implements BeanDefinitionRegistryPostProcessor, EnvironmentAware {
+        implements BeanDefinitionRegistryPostProcessor, PriorityOrdered, EnvironmentAware {
 
     private static final Logger log = LoggerFactory.getLogger(EntityTypeResolverRegistrar.class);
+
+    /**
+     * Order value — strictly lower (runs earlier) than
+     * {@code PerTypeHealthIndicatorRegistrar}'s, so the per-type storage bean
+     * definitions exist before the health registrar scans for them.
+     */
+    public static final int ORDER = Ordered.LOWEST_PRECEDENCE - 100;
 
     /** Bean-name prefix for a per-type resolver; the bare type key is appended. */
     static final String BEAN_PREFIX = "jclaimEntityResolver_";
@@ -97,6 +116,11 @@ public class EntityTypeResolverRegistrar
     private static final int DEFAULT_MAX_CANDIDATES = 100;
 
     private Environment environment;
+
+    @Override
+    public int getOrder() {
+        return ORDER;
+    }
 
     @Override
     public void setEnvironment(Environment environment) {
