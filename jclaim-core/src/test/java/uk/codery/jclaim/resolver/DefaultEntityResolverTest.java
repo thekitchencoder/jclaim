@@ -185,6 +185,26 @@ class DefaultEntityResolverTest {
     }
 
     @Test
+    void humanIdTemplateRejectsInvalidTemplateEagerly() {
+        EntityStorage storage = new InMemoryEntityStorage();
+        DefaultEntityResolver.Builder builder = DefaultEntityResolver.builder(storage);
+        assertThatThrownBy(() -> builder.humanIdTemplate("AB")) // < 2 placeholders
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void unconfiguredResolverMintsLegacyDefaults() {
+        EntityStorage storage = new InMemoryEntityStorage();
+        EntityResolver resolver = DefaultEntityResolver.builder(storage).build();
+        ResolutionResult r = resolver.resolveOrMint(
+                new Claim(SourceSystem.of("crm"), "u-legacy", List.of()));
+        Entity e = ((ResolutionResult.Minted) r).entity();
+        assertThat(e.id().urn()).startsWith("urn:codery:entity:");
+        assertThat(e.id().type()).isEqualTo("entity");
+        assertThat(e.humanId()).matches("[0-9A-Z]{4}-[0-9A-Z]{4}-[0-9]");
+    }
+
+    @Test
     void findByAlias_returnsEmptyWhenAliasUnknown() {
         assertThat(resolver.findByAlias(POS, "ghost")).isEmpty();
     }
