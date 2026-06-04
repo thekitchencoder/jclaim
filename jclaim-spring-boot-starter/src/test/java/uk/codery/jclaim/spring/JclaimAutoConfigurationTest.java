@@ -16,6 +16,7 @@ import uk.codery.jclaim.resolver.EntityResolver;
 import uk.codery.jclaim.storage.EntityStorage;
 import uk.codery.jclaim.storage.memory.InMemoryEntityStorage;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
@@ -148,6 +149,28 @@ class JclaimAutoConfigurationTest {
                     .isNotInstanceOf(uk.codery.jclaim.spring.match.SpringEventMatchSink.class)
                     .isNotInstanceOf(uk.codery.jclaim.spring.match.LoggingMatchSink.class);
         });
+    }
+
+    @Test
+    void resolverHonoursConfiguredUrnTypeAndTemplate() {
+        new ApplicationContextRunner()
+            .withConfiguration(AutoConfigurations.of(JclaimAutoConfiguration.class))
+            .withPropertyValues("jclaim.urn.type=customer", "jclaim.human-id.template=JG??????")
+            .run(ctx -> {
+                EntityResolver r = ctx.getBean(EntityResolver.class);
+                Entity e = ((ResolutionResult.Minted) r.resolveOrMint(
+                        new Claim(SourceSystem.of("crm"), "u-1", List.of()))).entity();
+                assertThat(e.id().type()).isEqualTo("customer");
+                assertThat(e.humanId()).startsWith("JG");
+            });
+    }
+
+    @Test
+    void badHumanIdTemplateFailsStartup() {
+        new ApplicationContextRunner()
+            .withConfiguration(AutoConfigurations.of(JclaimAutoConfiguration.class))
+            .withPropertyValues("jclaim.human-id.template=AB") // < 2 placeholders
+            .run(ctx -> assertThat(ctx).hasFailed());
     }
 
     @Configuration(proxyBeanMethods = false)

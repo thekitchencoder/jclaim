@@ -140,7 +140,9 @@ All properties live under the `jclaim.*` prefix.
 
 | Property                                  | Default            | Description                                                                                       |
 |-------------------------------------------|--------------------|---------------------------------------------------------------------------------------------------|
-| `jclaim.namespace`                        | `codery`           | URN namespace; produces `urn:<ns>:entity:<UUID>`.                                                 |
+| `jclaim.urn.namespace`                    | `codery`           | URN namespace; produces `urn:<ns>:<type>:<UUID>`.                                                 |
+| `jclaim.urn.type`                         | `entity`           | URN type segment; produces `urn:<ns>:<type>:<UUID>`.                                              |
+| `jclaim.human-id.template`                | `????-????-?`      | Human-id format template; eagerly validated — a malformed template fails context startup.        |
 | `jclaim.storage.type`                     | `auto`             | One of `auto`, `in-memory`, `mongo`, `postgres`.                                                  |
 | `jclaim.storage.mongo.database`           | `jclaim`           | Mongo database name.                                                                              |
 | `jclaim.storage.mongo.collection-name`    | `jclaim_entities`  | Mongo collection name.                                                                            |

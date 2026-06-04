@@ -62,7 +62,9 @@ public class JclaimAutoConfiguration {
             MatchingPolicy matchingPolicy,
             JclaimProperties properties) {
         return DefaultEntityResolver.builder(storage)
-                .namespace(properties.namespace())
+                .namespace(properties.urn().namespace())
+                .entityType(properties.urn().type())
+                .humanIdTemplate(properties.humanId().template())
                 .matchEventSink(matchSink)
                 .matchingPolicy(matchingPolicy)
                 .maxCandidates(properties.matching().maxCandidates())
