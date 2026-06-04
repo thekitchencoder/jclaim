@@ -65,10 +65,24 @@ public final class PostgresEntityStorage implements EntityStorage {
 
     private final DataSource dataSource;
     private final ObjectMapper objectMapper;
+    /** Target Postgres schema, or {@code null} when unscoped (today's behaviour). */
+    private final String schema;
+    /** Schema-qualifying table prefix: {@code ""} when unscoped, else {@code "\"<schema>\"."}. */
+    private final String tablePrefix;
 
-    private PostgresEntityStorage(DataSource dataSource, ObjectMapper objectMapper) {
+    private PostgresEntityStorage(DataSource dataSource, ObjectMapper objectMapper, String schema) {
         this.dataSource = dataSource;
         this.objectMapper = objectMapper;
+        if (schema != null && !schema.isBlank()) {
+            // Validate before the name is ever interpolated into SQL — identifier-safe
+            // and injection-safe (same grammar as URN namespace/type segments).
+            EntityId.requireValidSegment("schema", schema);
+            this.schema = schema;
+            this.tablePrefix = "\"" + schema + "\".";
+        } else {
+            this.schema = null;
+            this.tablePrefix = "";
+        }
     }
 
     /** Builder for {@link PostgresEntityStorage}. */
@@ -521,6 +535,7 @@ public final class PostgresEntityStorage implements EntityStorage {
         private final DataSource dataSource;
         private boolean applySchema = true;
         private ObjectMapper objectMapper = new ObjectMapper();
+        private String schema;
 
         private Builder(DataSource dataSource) {
             this.dataSource = Objects.requireNonNull(dataSource, "dataSource");
@@ -545,8 +560,22 @@ public final class PostgresEntityStorage implements EntityStorage {
             return this;
         }
 
+        /**
+         * Scopes the adapter to a dedicated Postgres schema so each entity type
+         * can live in its own fully-isolated schema. {@code null} or blank (the
+         * default) leaves the adapter unscoped — today's single-type behaviour
+         * with unqualified table names. A non-blank value is validated as an
+         * identifier-safe URN segment and used to schema-qualify every table
+         * reference; with {@code applySchema(true)} the schema is created on
+         * construction.
+         */
+        public Builder schema(String schema) {
+            this.schema = schema;
+            return this;
+        }
+
         public PostgresEntityStorage build() {
-            PostgresEntityStorage storage = new PostgresEntityStorage(dataSource, objectMapper);
+            PostgresEntityStorage storage = new PostgresEntityStorage(dataSource, objectMapper, schema);
             if (applySchema) {
                 storage.applySchema();
             }
