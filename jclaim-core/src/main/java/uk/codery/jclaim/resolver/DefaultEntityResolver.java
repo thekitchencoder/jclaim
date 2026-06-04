@@ -73,7 +73,7 @@ public final class DefaultEntityResolver implements EntityResolver {
         this.namespace = Objects.requireNonNull(b.namespace, "namespace");
         this.entityType = Objects.requireNonNull(b.entityType, "entityType");
         this.uuidSupplier = Objects.requireNonNull(b.uuidSupplier, "uuidSupplier");
-        this.humanIdGenerator = Objects.requireNonNull(b.humanIdGenerator, "humanIdGenerator");
+        this.humanIdGenerator = b.humanIdGenerator;
         this.clock = Objects.requireNonNull(b.clock, "clock");
         this.matchEventSink = Objects.requireNonNull(b.matchEventSink, "matchEventSink");
         this.matchingPolicy = Objects.requireNonNull(b.matchingPolicy, "matchingPolicy");
@@ -227,7 +227,7 @@ public final class DefaultEntityResolver implements EntityResolver {
     private Entity mintEntity(Claim claim) {
         Instant now = clock.instant();
         EntityId entityId = EntityId.of(namespace, entityType, uuidSupplier.get());
-        String humanId = freshHumanId();
+        String humanId = humanIdGenerator == null ? null : freshHumanId();
         return new Entity(
                 entityId,
                 humanId,
@@ -308,7 +308,7 @@ public final class DefaultEntityResolver implements EntityResolver {
         private String namespace = EntityId.DEFAULT_NAMESPACE;
         private String entityType = EntityId.DEFAULT_TYPE;
         private Supplier<UUID> uuidSupplier = UuidV7.supplier();
-        private HumanIdGenerator humanIdGenerator = new HumanIdGenerator();
+        private HumanIdGenerator humanIdGenerator = null;
         private Clock clock = Clock.systemUTC();
         private MatchEventSink matchEventSink = MatchEventSink.noop();
         private MatchingPolicy matchingPolicy = MatchingPolicy.aliasOnly();
@@ -334,20 +334,23 @@ public final class DefaultEntityResolver implements EntityResolver {
             return this;
         }
 
+        /**
+         * Advanced/test hook: sets the humanId generator directly (e.g. with
+         * deterministic entropy). {@code null} means this resolver mints no
+         * humanId. Prefer {@link #humanIdTemplate(String)} for normal use; both
+         * target the same field, so the last call wins.
+         */
         public Builder humanIdGenerator(HumanIdGenerator humanIdGenerator) {
             this.humanIdGenerator = humanIdGenerator;
             return this;
         }
 
-        /** Sets the humanId format directly. */
-        public Builder humanIdFormat(HumanIdFormat format) {
-            this.humanIdGenerator = new HumanIdGenerator(format);
-            return this;
-        }
-
-        /** Convenience: compiles {@code template} into a {@link HumanIdFormat}. */
+        /** Sets the humanId template. {@code null} or blank means this resolver mints no humanId. */
         public Builder humanIdTemplate(String template) {
-            return humanIdFormat(HumanIdFormat.ofTemplate(template));
+            this.humanIdGenerator = (template == null || template.isBlank())
+                    ? null
+                    : new HumanIdGenerator(HumanIdFormat.ofTemplate(template));
+            return this;
         }
 
         public Builder clock(Clock clock) {

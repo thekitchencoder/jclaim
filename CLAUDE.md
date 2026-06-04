@@ -145,29 +145,37 @@ additive extension (see
 
 ### 2. Human-friendly IDs
 
-Each entity has a separate `humanId` minted at registration:
+The `humanId` is **opt-in, driven by the presence of a template**.
+`Entity.humanId` is **nullable**: with no template configured (the
+default) the resolver mints entities with `humanId == null` — no
+generation, no stored field, no index entry. Configure a template to opt
+in, and each entity then carries a separate `humanId` minted at
+registration:
 
-- random Crockford Base32 data characters (default 8 → 40 bits of entropy)
+- random Crockford Base32 data characters (8 → 40 bits of entropy with
+  the historic template)
 - 1 Damm check digit
-- Default display format: `XXXX-XXXX-X` (e.g. `K7M2-9X4P-3`)
+- Display format follows the template, e.g. `XXXX-XXXX-X` (`K7M2-9X4P-3`)
 
-The format is configurable per resolver via a template compiled into
-`HumanIdFormat` — `HumanIdFormat.ofTemplate(...)`,
-`DefaultEntityResolver.Builder.humanIdTemplate(...)` /
-`.humanIdFormat(...)`, or the Spring property `jclaim.human-id.template`
-(eagerly validated — a malformed template fails context startup).
-Grammar: `?` is a placeholder (the **last** `?` renders the Damm check
-digit, every other `?` a random data symbol) and any other character is
-a literal emitted verbatim; 1–12 data placeholders (2–13 `?` total) keep
-the value within the ≤60-bit `long` ceiling. The default template
-`????-????-?` reproduces the historic `XXXX-XXXX-X` shape exactly.
+The template is supplied via `HumanIdFormat.ofTemplate(...)`, the resolver
+builder slot `DefaultEntityResolver.Builder.humanIdTemplate(String)`
+(null/blank → no humanId; the former `humanIdFormat(HumanIdFormat)` setter
+was **dropped**), or the Spring property `jclaim.human-id.template`
+(default **none**; eagerly validated — a malformed *non-blank* template
+fails context startup). Grammar: `?` is a placeholder (the **last** `?`
+renders the Damm check digit, every other `?` a random data symbol) and
+any other character is a literal emitted verbatim; 1–12 data placeholders
+(2–13 `?` total) keep the value within the ≤60-bit `long` ceiling. The
+template `????-????-?` reproduces the historic `XXXX-XXXX-X` shape.
 
 Crockford Base32 drops the ambiguous symbols `I`, `L`, `O`, `U` and accepts
 case-insensitive input with the swap aliases `i/l → 1`, `o → 0`. The Damm
 algorithm catches all single-digit and adjacent-transposition errors. Human IDs
 are **not derived** from the URN — they are a separate, independently-minted
-lookup attribute. Storage enforces uniqueness; on collision the resolver
-re-mints.
+lookup attribute. Storage enforces uniqueness via a **partial** unique
+index covering only entities that have a humanId (Postgres
+`... WHERE human_id IS NOT NULL`, Mongo a `$exists` partial filter);
+on collision the resolver re-mints.
 
 ### 3. Match-or-mint
 

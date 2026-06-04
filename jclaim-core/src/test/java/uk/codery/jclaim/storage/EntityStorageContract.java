@@ -260,6 +260,21 @@ public abstract class EntityStorageContract {
     }
 
     @Test
+    void resolveOrCreate_noHumanId_storesAndRoundTripsNull() {
+        Entity e = entityWithoutHumanId(0, List.of(ALICE_ECOM));
+        storage.resolveOrCreate(ALICE_ECOM, () -> e);
+        assertThat(storage.findByUrn(e.id()).orElseThrow().humanId()).isNull();
+    }
+
+    @Test
+    void resolveOrCreate_multipleEntitiesWithoutHumanId_coexist() {
+        storage.resolveOrCreate(ALICE_ECOM, () -> entityWithoutHumanId(0, List.of(ALICE_ECOM)));
+        storage.resolveOrCreate(BOB_ECOM, () -> entityWithoutHumanId(1, List.of(BOB_ECOM)));
+        assertThat(storage.findByAlias(ALICE_ECOM)).isPresent();
+        assertThat(storage.findByAlias(BOB_ECOM)).isPresent();
+    }
+
+    @Test
     void resolveOrCreate_freshAliasButFactoryMintsMultipleAliases_allAliasesQueryable() {
         Entity multi = entityWith(0, List.of(ALICE_ECOM, ALICE_POS, ALICE_CRM));
 
@@ -588,6 +603,24 @@ public abstract class EntityStorageContract {
                 humanId,
                 new ArrayList<>(aliases),
                 attributes,
+                null,
+                NOW,
+                NOW
+        );
+    }
+
+    /**
+     * Variant of {@link #entityWith(int, List)} that mints the entity with a
+     * {@code null} humanId. Exercises the opt-in humanId contract: adapters must
+     * store and round-trip such entities without raising a false null-collision.
+     */
+    protected static Entity entityWithoutHumanId(int seed, List<Alias> aliases) {
+        UUID id = UUID.fromString("00000000-0000-7000-8000-" + String.format("%012d", seed));
+        return new Entity(
+                EntityId.of(id),
+                null,
+                new ArrayList<>(aliases),
+                List.of(MatchingAttribute.of("seed", seed)),
                 null,
                 NOW,
                 NOW

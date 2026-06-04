@@ -152,6 +152,18 @@ class JclaimAutoConfigurationTest {
     }
 
     @Test
+    void noTemplateConfigured_mintsNoHumanId() {
+        new ApplicationContextRunner()
+            .withConfiguration(AutoConfigurations.of(JclaimAutoConfiguration.class))
+            .run(ctx -> {
+                EntityResolver r = ctx.getBean(EntityResolver.class);
+                Entity e = ((ResolutionResult.Minted) r.resolveOrMint(
+                        new Claim(SourceSystem.of("crm"), "u-1", List.of()))).entity();
+                assertThat(e.humanId()).isNull();
+            });
+    }
+
+    @Test
     void resolverHonoursConfiguredUrnTypeAndTemplate() {
         new ApplicationContextRunner()
             .withConfiguration(AutoConfigurations.of(JclaimAutoConfiguration.class))

@@ -263,6 +263,18 @@
                                 <goal>report</goal>
                             </goals>
                         </execution>
+                        <!--
+                            Per-package floor of 80% on BOTH lines and branches.
+                            This HALTS the build only in modules that keep the
+                            default haltOnFailure=true (jclaim-core,
+                            jclaim-matching-jspec). The Docker-optional adapter
+                            and starter modules override haltOnFailure=false, so
+                            here the rule is advisory (a warning) — same posture
+                            the LINE limit has always had, since their coverage
+                            depends on Testcontainers being available. Lifting
+                            adapter/starter branch coverage to a hard gate is a
+                            separate follow-up, not gated here.
+                        -->
                         <execution>
                             <id>jacoco-check</id>
                             <goals>
@@ -275,6 +287,11 @@
                                         <limits>
                                             <limit>
                                                 <counter>LINE</counter>
+                                                <value>COVEREDRATIO</value>
+                                                <minimum>0.80</minimum>
+                                            </limit>
+                                            <limit>
+                                                <counter>BRANCH</counter>
                                                 <value>COVEREDRATIO</value>
                                                 <minimum>0.80</minimum>
                                             </limit>

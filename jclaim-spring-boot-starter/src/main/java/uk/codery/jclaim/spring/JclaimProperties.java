@@ -113,9 +113,15 @@ public class JclaimProperties {
         }
     }
 
-    /** Human-friendly lookup ID format. */
+    /**
+     * Human-friendly lookup ID format. The template is opt-in: when absent
+     * (null or blank) this entity type mints no humanId. Set a non-blank
+     * template (e.g. {@code ????-????-?}) to opt in; a malformed non-blank
+     * template fails startup via eager validation.
+     */
     public static class HumanId {
-        private String template = "????-????-?";
+        /** Display template; null/blank means no humanId is minted. */
+        private String template;
 
         public String template() {
             return template;

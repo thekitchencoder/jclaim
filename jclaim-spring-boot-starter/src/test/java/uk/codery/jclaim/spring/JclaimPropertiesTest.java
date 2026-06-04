@@ -62,7 +62,7 @@ class JclaimPropertiesTest {
         JclaimProperties p = JclaimProperties.defaults();
         assertThat(p.urn().namespace()).isEqualTo("codery");
         assertThat(p.urn().type()).isEqualTo("entity");
-        assertThat(p.humanId().template()).isEqualTo("????-????-?");
+        assertThat(p.humanId().template()).isNull();
     }
 
     private static JclaimProperties bind(Map<String, String> map) {
