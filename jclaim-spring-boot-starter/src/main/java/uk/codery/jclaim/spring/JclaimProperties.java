@@ -1,5 +1,8 @@
 package uk.codery.jclaim.spring;
 
+import java.util.LinkedHashMap;
+import java.util.Map;
+
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 /**
@@ -19,6 +22,14 @@ public class JclaimProperties {
     private Matching matching = new Matching();
     private Metrics metrics = new Metrics();
     private Health health = new Health();
+
+    /**
+     * Per-entity-type definitions, keyed by entity type (the URN {@code type}
+     * segment). When non-empty the application runs in multi-type mode and the
+     * single (default) top-level resolver is suppressed (see Phase 5). The
+     * top-level keys serve as inherited defaults for each entry.
+     */
+    private Map<String, EntityType> entityTypes = new LinkedHashMap<>();
 
     /** Factory used as the {@code orElseGet} fallback when binding finds no properties. */
     public static JclaimProperties defaults() {
@@ -79,6 +90,14 @@ public class JclaimProperties {
 
     public void setHealth(Health health) {
         this.health = health;
+    }
+
+    public Map<String, EntityType> entityTypes() {
+        return entityTypes;
+    }
+
+    public void setEntityTypes(Map<String, EntityType> entityTypes) {
+        this.entityTypes = entityTypes;
     }
 
     /** Selects which {@code EntityStorage} adapter the starter wires. */
@@ -258,6 +277,104 @@ public class JclaimProperties {
 
         public void setEnabled(boolean enabled) {
             this.enabled = enabled;
+        }
+    }
+
+    /**
+     * One entity-type definition under {@code jclaim.entity-types.<type>}.
+     * The map key is the entity type (the URN {@code type} segment), so this
+     * class carries no {@code type} field. The top-level {@code jclaim.*} keys
+     * act as inherited defaults for any value omitted here.
+     */
+    public static class EntityType {
+        /**
+         * URN settings for this type. Only {@code namespace} is meaningful —
+         * the {@code type} segment is supplied by the map key, never this
+         * nested {@code type} field (which is ignored for entity-type entries).
+         */
+        private Urn urn = new Urn();
+        private HumanId humanId = new HumanId();
+        private Matching matching = new Matching();
+        private EntityTypeStorage storage = new EntityTypeStorage();
+
+        public Urn urn() {
+            return urn;
+        }
+
+        public void setUrn(Urn urn) {
+            this.urn = urn;
+        }
+
+        public HumanId humanId() {
+            return humanId;
+        }
+
+        public void setHumanId(HumanId humanId) {
+            this.humanId = humanId;
+        }
+
+        public Matching matching() {
+            return matching;
+        }
+
+        public void setMatching(Matching matching) {
+            this.matching = matching;
+        }
+
+        public EntityTypeStorage storage() {
+            return storage;
+        }
+
+        public void setStorage(EntityTypeStorage storage) {
+            this.storage = storage;
+        }
+    }
+
+    /**
+     * Per-entity-type storage scoping. Lets a single application route each
+     * entity type to its own schema / collection and its own connection bean
+     * (DataSource or MongoClient) so types can live in separate stores.
+     */
+    public static class EntityTypeStorage {
+        /** Per-type Postgres schema (scope-name override). */
+        private String schema;
+        /** Per-type Mongo collection name (scope-name override). */
+        private String collectionName;
+        /** Bean name of the per-type JDBC {@code DataSource}. */
+        private String datasource;
+        /** Bean name of the per-type {@code MongoClient}. */
+        private String mongoClient;
+
+        public String schema() {
+            return schema;
+        }
+
+        public void setSchema(String schema) {
+            this.schema = schema;
+        }
+
+        public String collectionName() {
+            return collectionName;
+        }
+
+        public void setCollectionName(String collectionName) {
+            this.collectionName = collectionName;
+        }
+
+        public String datasource() {
+            return datasource;
+        }
+
+        public void setDatasource(String datasource) {
+            this.datasource = datasource;
+        }
+
+        public String mongoClient() {
+            return mongoClient;
+        }
+
+        public void setMongoClient(String mongoClient) {
+            this.mongoClient = mongoClient;
         }
     }
 
