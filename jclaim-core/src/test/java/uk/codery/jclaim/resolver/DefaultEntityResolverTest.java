@@ -9,10 +9,12 @@ import uk.codery.jclaim.event.MatchEventSink;
 import uk.codery.jclaim.id.HumanIdFormat;
 import uk.codery.jclaim.id.HumanIdGenerator;
 import uk.codery.jclaim.model.Claim;
+import uk.codery.jclaim.model.Entity;
 import uk.codery.jclaim.model.EntityId;
 import uk.codery.jclaim.model.MatchingAttribute;
 import uk.codery.jclaim.model.ResolutionResult;
 import uk.codery.jclaim.model.SourceSystem;
+import uk.codery.jclaim.storage.EntityStorage;
 import uk.codery.jclaim.storage.memory.InMemoryEntityStorage;
 
 import java.time.Clock;
@@ -154,6 +156,32 @@ class DefaultEntityResolverTest {
         assertThat(defaults.resolveOrMint(claim))
                 .isInstanceOf(ResolutionResult.Matched.class);
         assertThat(sink.events).isEmpty();
+    }
+
+    @Test
+    void mintsWithConfiguredEntityType() {
+        EntityStorage storage = new InMemoryEntityStorage();
+        EntityResolver resolver = DefaultEntityResolver.builder(storage)
+                .namespace("acme")
+                .entityType("customer")
+                .build();
+        ResolutionResult r = resolver.resolveOrMint(
+                new Claim(SourceSystem.of("crm"), "u-1", List.of()));
+        Entity e = ((ResolutionResult.Minted) r).entity();
+        assertThat(e.id().urn()).startsWith("urn:acme:customer:");
+        assertThat(e.id().type()).isEqualTo("customer");
+    }
+
+    @Test
+    void mintsHumanIdWithConfiguredTemplate() {
+        EntityStorage storage = new InMemoryEntityStorage();
+        EntityResolver resolver = DefaultEntityResolver.builder(storage)
+                .humanIdTemplate("JG??????")
+                .build();
+        ResolutionResult r = resolver.resolveOrMint(
+                new Claim(SourceSystem.of("crm"), "u-2", List.of()));
+        Entity e = ((ResolutionResult.Minted) r).entity();
+        assertThat(e.humanId()).startsWith("JG").hasSize(8);
     }
 
     @Test

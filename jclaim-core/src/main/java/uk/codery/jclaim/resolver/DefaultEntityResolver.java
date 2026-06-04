@@ -9,6 +9,7 @@ import uk.codery.jclaim.event.MatchAmbiguous;
 import uk.codery.jclaim.event.MatchEvent;
 import uk.codery.jclaim.event.MatchEventSink;
 import uk.codery.jclaim.event.MatchUndecided;
+import uk.codery.jclaim.id.HumanIdFormat;
 import uk.codery.jclaim.id.HumanIdGenerator;
 import uk.codery.jclaim.id.UuidV7;
 import uk.codery.jclaim.matching.MatchingPolicy;
@@ -54,6 +55,7 @@ public final class DefaultEntityResolver implements EntityResolver {
 
     private final EntityStorage storage;
     private final String namespace;
+    private final String entityType;
     private final Supplier<UUID> uuidSupplier;
     private final HumanIdGenerator humanIdGenerator;
     private final Clock clock;
@@ -69,6 +71,7 @@ public final class DefaultEntityResolver implements EntityResolver {
     private DefaultEntityResolver(Builder b) {
         this.storage = Objects.requireNonNull(b.storage, "storage");
         this.namespace = Objects.requireNonNull(b.namespace, "namespace");
+        this.entityType = Objects.requireNonNull(b.entityType, "entityType");
         this.uuidSupplier = Objects.requireNonNull(b.uuidSupplier, "uuidSupplier");
         this.humanIdGenerator = Objects.requireNonNull(b.humanIdGenerator, "humanIdGenerator");
         this.clock = Objects.requireNonNull(b.clock, "clock");
@@ -223,7 +226,7 @@ public final class DefaultEntityResolver implements EntityResolver {
 
     private Entity mintEntity(Claim claim) {
         Instant now = clock.instant();
-        EntityId entityId = EntityId.of(namespace, uuidSupplier.get());
+        EntityId entityId = EntityId.of(namespace, entityType, uuidSupplier.get());
         String humanId = freshHumanId();
         return new Entity(
                 entityId,
@@ -303,6 +306,7 @@ public final class DefaultEntityResolver implements EntityResolver {
     public static final class Builder {
         private final EntityStorage storage;
         private String namespace = EntityId.DEFAULT_NAMESPACE;
+        private String entityType = EntityId.DEFAULT_TYPE;
         private Supplier<UUID> uuidSupplier = UuidV7.supplier();
         private HumanIdGenerator humanIdGenerator = new HumanIdGenerator();
         private Clock clock = Clock.systemUTC();
@@ -319,6 +323,12 @@ public final class DefaultEntityResolver implements EntityResolver {
             return this;
         }
 
+        /** Sets the URN type segment of minted entity IDs. Defaults to {@code entity}. */
+        public Builder entityType(String entityType) {
+            this.entityType = entityType;
+            return this;
+        }
+
         public Builder uuidSupplier(Supplier<UUID> uuidSupplier) {
             this.uuidSupplier = uuidSupplier;
             return this;
@@ -327,6 +337,17 @@ public final class DefaultEntityResolver implements EntityResolver {
         public Builder humanIdGenerator(HumanIdGenerator humanIdGenerator) {
             this.humanIdGenerator = humanIdGenerator;
             return this;
+        }
+
+        /** Sets the humanId format directly. */
+        public Builder humanIdFormat(HumanIdFormat format) {
+            this.humanIdGenerator = new HumanIdGenerator(format);
+            return this;
+        }
+
+        /** Convenience: compiles {@code template} into a {@link HumanIdFormat}. */
+        public Builder humanIdTemplate(String template) {
+            return humanIdFormat(HumanIdFormat.ofTemplate(template));
         }
 
         public Builder clock(Clock clock) {
