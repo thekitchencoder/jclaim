@@ -15,6 +15,7 @@ import uk.codery.jclaim.model.ResolutionResult;
 import uk.codery.jclaim.model.SourceSystem;
 import uk.codery.jclaim.resolver.EntityResolver;
 import uk.codery.jclaim.resolver.EntityResolvers;
+import uk.codery.jclaim.spring.health.JclaimHealthAutoConfiguration;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -128,6 +129,26 @@ class MultiTypeWiringTest {
                             "crm", "c1");
                     assertThat(e.id().type()).isEqualTo("customer");
                     assertThat(MatchingPolicy.aliasOnly()).isNotNull();
+                });
+    }
+
+    // -- C1: health auto-config must back off in multi-type mode ------------
+
+    /**
+     * In multi-type mode no single {@link uk.codery.jclaim.storage.EntityStorage}
+     * bean exists (the single-type storage configs back off via
+     * {@code NoEntityTypesCondition}). The Actuator health auto-config — which is
+     * on the compile classpath — must therefore back off too, rather than try to
+     * autowire an absent {@code EntityStorage} and break context startup.
+     */
+    @Test
+    void healthAutoConfigBacksOffInMultiTypeMode() {
+        twoTypes()
+                .withConfiguration(AutoConfigurations.of(JclaimHealthAutoConfiguration.class))
+                .run(ctx -> {
+                    assertThat(ctx).hasNotFailed();
+                    assertThat(ctx).hasBean("jclaimEntityResolver_customer");
+                    assertThat(ctx).doesNotHaveBean("jclaimHealthIndicator");
                 });
     }
 
