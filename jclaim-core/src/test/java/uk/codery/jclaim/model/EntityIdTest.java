@@ -43,7 +43,7 @@ class EntityIdTest {
     }
 
     @Test
-    void buildsUrnWithExplicitType() {
+    void of_buildsUrnWithExplicitType() {
         UUID id = UUID.fromString("018f0000-0000-7000-8000-000000000000");
         EntityId e = EntityId.of("acme", "customer", id);
         assertThat(e.urn()).isEqualTo("urn:acme:customer:" + id);
@@ -53,7 +53,7 @@ class EntityIdTest {
     }
 
     @Test
-    void twoArgFactoryDefaultsTypeToEntity() {
+    void of_twoArgFactoryDefaultsTypeToEntity() {
         UUID id = UUID.fromString("018f0000-0000-7000-8000-000000000000");
         EntityId e = EntityId.of("acme", id);
         assertThat(e.urn()).isEqualTo("urn:acme:entity:" + id);
@@ -61,16 +61,23 @@ class EntityIdTest {
     }
 
     @Test
-    void existingEntityUrnStillParses() {
+    void constructor_acceptsExistingEntityUrn() {
         EntityId e = new EntityId("urn:codery:entity:018f0000-0000-7000-8000-000000000000");
         assertThat(e.namespace()).isEqualTo("codery");
         assertThat(e.type()).isEqualTo("entity");
     }
 
     @Test
-    void rejectsBlankType() {
+    void of_rejectsBlankType() {
         UUID id = UUID.fromString("018f0000-0000-7000-8000-000000000000");
         assertThatThrownBy(() -> EntityId.of("acme", "  ", id))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void of_rejectsTypeWithIllegalCharacter() {
+        assertThatThrownBy(() -> new EntityId(
+                "urn:acme:bad type:018f0000-0000-7000-8000-000000000000"))
                 .isInstanceOf(IllegalArgumentException.class);
     }
 

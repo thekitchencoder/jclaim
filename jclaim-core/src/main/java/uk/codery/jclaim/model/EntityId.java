@@ -2,6 +2,7 @@ package uk.codery.jclaim.model;
 
 import java.util.Objects;
 import java.util.UUID;
+import java.util.regex.MatchResult;
 import java.util.regex.Pattern;
 
 /**
@@ -21,8 +22,10 @@ public record EntityId(String urn) {
 
     public static final String DEFAULT_TYPE = "entity";
 
+    private static final String SEGMENT = "[A-Za-z0-9][A-Za-z0-9-]*";
+
     private static final Pattern URN_PATTERN = Pattern.compile(
-            "^urn:([A-Za-z0-9][A-Za-z0-9-]*):([A-Za-z0-9][A-Za-z0-9-]*):"
+            "^urn:(" + SEGMENT + "):(" + SEGMENT + "):"
             + "([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})$"
     );
 
@@ -59,25 +62,22 @@ public record EntityId(String urn) {
 
     /** Returns the namespace component. */
     public String namespace() {
-        return URN_PATTERN.matcher(urn).results()
-                .findFirst()
-                .map(m -> m.group(1))
-                .orElseThrow(() -> new IllegalStateException("Validated URN failed re-parse: " + urn));
+        return parsed().group(1);
     }
 
     /** Returns the type component. */
     public String type() {
-        return URN_PATTERN.matcher(urn).results()
-                .findFirst()
-                .map(m -> m.group(2))
-                .orElseThrow(() -> new IllegalStateException("Validated URN failed re-parse: " + urn));
+        return parsed().group(2);
     }
 
     /** Returns the UUID component. */
     public UUID uuid() {
+        return UUID.fromString(parsed().group(3));
+    }
+
+    private MatchResult parsed() {
         return URN_PATTERN.matcher(urn).results()
                 .findFirst()
-                .map(m -> UUID.fromString(m.group(3)))
                 .orElseThrow(() -> new IllegalStateException("Validated URN failed re-parse: " + urn));
     }
 
