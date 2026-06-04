@@ -19,17 +19,42 @@ import java.util.Set;
  * {@code resolveOrMint} with a duration timer and an outcome-tagged
  * counter (matched/minted), and {@code findCandidates} with a
  * standalone counter. All other operations forward unchanged.
+ *
+ * <p>In multi-type mode every per-type resolver is decorated with its own
+ * {@code MeteredEntityResolver} carrying a {@code type=<entity-type>} tag, so
+ * the same meter names ({@code jclaim.resolve}, {@code jclaim.resolve.duration},
+ * {@code jclaim.findCandidates}) carry per-type series. The single-type path
+ * uses the 2-arg constructor and emits untagged meters (no {@code type} tag),
+ * preserving the historic single-resolver behaviour.
  */
 public final class MeteredEntityResolver implements EntityResolver {
 
     private final EntityResolver delegate;
     private final MeterRegistry registry;
     private final Timer resolveTimer;
+    private final String type;
 
     public MeteredEntityResolver(EntityResolver delegate, MeterRegistry registry) {
+        this(delegate, registry, null);
+    }
+
+    /**
+     * Type-tagged variant: every meter this decorator registers carries a
+     * {@code type=<type>} tag. A {@code null} or blank {@code type} reverts to
+     * the untagged single-type behaviour.
+     *
+     * @param type the entity type this resolver reconciles, used as the
+     *             {@code type} meter tag; {@code null}/blank for no tag
+     */
+    public MeteredEntityResolver(EntityResolver delegate, MeterRegistry registry, String type) {
         this.delegate = Objects.requireNonNull(delegate, "delegate");
         this.registry = Objects.requireNonNull(registry, "registry");
-        this.resolveTimer = Timer.builder("jclaim.resolve.duration").register(registry);
+        this.type = (type == null || type.isBlank()) ? null : type;
+        Timer.Builder timerBuilder = Timer.builder("jclaim.resolve.duration");
+        if (this.type != null) {
+            timerBuilder.tag("type", this.type);
+        }
+        this.resolveTimer = timerBuilder.register(registry);
     }
 
     @Override
@@ -40,7 +65,11 @@ public final class MeteredEntityResolver implements EntityResolver {
                 case ResolutionResult.Matched m -> "matched";
                 case ResolutionResult.Minted m -> "minted";
             };
-            registry.counter("jclaim.resolve", "outcome", outcome).increment();
+            if (type != null) {
+                registry.counter("jclaim.resolve", "type", type, "outcome", outcome).increment();
+            } else {
+                registry.counter("jclaim.resolve", "outcome", outcome).increment();
+            }
             return result;
         });
     }
@@ -67,7 +96,11 @@ public final class MeteredEntityResolver implements EntityResolver {
 
     @Override
     public Set<Entity> findCandidates(Claim claim) {
-        registry.counter("jclaim.findCandidates").increment();
+        if (type != null) {
+            registry.counter("jclaim.findCandidates", "type", type).increment();
+        } else {
+            registry.counter("jclaim.findCandidates").increment();
+        }
         return delegate.findCandidates(claim);
     }
 }

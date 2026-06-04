@@ -39,6 +39,12 @@ import uk.codery.jclaim.storage.memory.InMemoryEntityStorage;
  * type key, so a caller can inject a specific resolver with
  * {@code @Qualifier("customer") EntityResolver}.
  *
+ * <p>Alongside each resolver the registrar registers the type's scoped
+ * {@link EntityStorage} as a separate bean named {@code jclaimEntityStorage_<type>}.
+ * The resolver resolves that storage bean rather than building its own, so the
+ * resolver and the per-type Actuator health contributor share <em>one</em> scoped
+ * storage instance — schema/index creation runs exactly once per type.
+ *
  * <p>This is a {@link BeanDefinitionRegistryPostProcessor} (and must be registered
  * via a {@code static @Bean} factory method) so it runs before regular bean
  * factory post-processing. Collaborators — the {@link MatchEventSink}, the
@@ -76,6 +82,9 @@ public class EntityTypeResolverRegistrar
 
     /** Bean-name prefix for a per-type resolver; the bare type key is appended. */
     static final String BEAN_PREFIX = "jclaimEntityResolver_";
+
+    /** Bean-name prefix for a per-type {@link EntityStorage}; the bare type key is appended. */
+    static final String STORAGE_BEAN_PREFIX = "jclaimEntityStorage_";
 
     private static final String JSPEC_POLICY_CLASS =
             "uk.codery.jclaim.matching.jspec.JspecMatchingPolicy";
@@ -118,13 +127,24 @@ public class EntityTypeResolverRegistrar
             validateTypeKeyAgreement(type, entry);
             reserveScope(claimedScopes, kind, type, entry);
 
+            // Per-type storage bean. One scoped EntityStorage instance per type,
+            // shared by the resolver and the per-type health contributor — built
+            // once via the instance supplier so schema/index creation runs once.
+            String storageBeanName = STORAGE_BEAN_PREFIX + type;
+            RootBeanDefinition storageBd = new RootBeanDefinition(EntityStorage.class);
+            storageBd.setInstanceSupplier(() -> buildStorage(
+                    (ConfigurableListableBeanFactory) registry, kind, type, entry, props));
+            storageBd.addQualifier(new AutowireCandidateQualifier(Qualifier.class, type));
+            registry.registerBeanDefinition(storageBeanName, storageBd);
+
             String beanName = BEAN_PREFIX + type;
             RootBeanDefinition bd = new RootBeanDefinition(EntityResolver.class);
             bd.setInstanceSupplier(() -> buildResolver(
-                    (ConfigurableListableBeanFactory) registry, kind, type, entry, props));
+                    (ConfigurableListableBeanFactory) registry, type, entry, props, storageBeanName));
             bd.addQualifier(new AutowireCandidateQualifier(Qualifier.class, type));
             registry.registerBeanDefinition(beanName, bd);
-            log.debug("Registered per-type resolver bean '{}' for entity type '{}'", beanName, type);
+            log.debug("Registered per-type resolver bean '{}' (storage '{}') for entity type '{}'",
+                    beanName, storageBeanName, type);
         }
     }
 
@@ -225,16 +245,19 @@ public class EntityTypeResolverRegistrar
      */
     private EntityResolver buildResolver(
             ConfigurableListableBeanFactory beanFactory,
-            StorageType kind,
             String type,
             EntityType entry,
-            JclaimProperties props) {
+            JclaimProperties props,
+            String storageBeanName) {
 
         MatchEventSink sink = beanFactory.getBean(MatchEventSink.class);
         MatchingPolicy policy = buildMatchingPolicy(type, entry);
         String namespace = resolveNamespace(props, entry);
         int maxCandidates = resolveMaxCandidates(props, entry);
-        EntityStorage storage = buildStorage(beanFactory, kind, type, entry, props);
+        // Reuse the single scoped storage instance registered as a bean, so the
+        // resolver and the per-type health contributor share one store (and
+        // schema/index creation happens exactly once).
+        EntityStorage storage = beanFactory.getBean(storageBeanName, EntityStorage.class);
 
         return DefaultEntityResolver.builder(storage)
                 .namespace(namespace)
@@ -398,7 +421,13 @@ public class EntityTypeResolverRegistrar
     }
 
     /** Returns the bare type key for a per-type resolver bean name, or {@code null}. */
-    static String typeOf(String beanName) {
+    public static String typeOf(String beanName) {
         return beanName.startsWith(BEAN_PREFIX) ? beanName.substring(BEAN_PREFIX.length()) : null;
+    }
+
+    /** Returns the bare type key for a per-type storage bean name, or {@code null}. */
+    public static String storageTypeOf(String beanName) {
+        return beanName.startsWith(STORAGE_BEAN_PREFIX)
+                ? beanName.substring(STORAGE_BEAN_PREFIX.length()) : null;
     }
 }
