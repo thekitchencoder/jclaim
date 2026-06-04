@@ -5,6 +5,7 @@ import com.mongodb.client.MongoClients;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.autoconfigure.ImportAutoConfiguration;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
@@ -28,10 +29,14 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 @ExtendWith(MongoDockerCondition.class)
 @Testcontainers
-@SpringBootTest(classes = {
-        JclaimAutoConfiguration.class,
-        MongoIntegrationTest.MongoConfig.class
-})
+// Load JclaimAutoConfiguration via @ImportAutoConfiguration (not as a plain
+// component in `classes`) so it is processed with auto-configuration ordering —
+// i.e. AFTER MongoConfig's MongoClient bean is registered. The storage wiring
+// uses @ConditionalOnBean(MongoClient), which is only reliable inside an
+// auto-configuration evaluated after user beans; listing it in `classes` made
+// the condition order-sensitive and brittle.
+@SpringBootTest(classes = MongoIntegrationTest.MongoConfig.class)
+@ImportAutoConfiguration(JclaimAutoConfiguration.class)
 class MongoIntegrationTest {
 
     @Container
