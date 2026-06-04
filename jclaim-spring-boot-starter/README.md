@@ -154,6 +154,31 @@ All properties live under the `jclaim.*` prefix.
 | `jclaim.metrics.enabled`                  | `true`             | Wraps the resolver with a Micrometer-instrumented decorator when a `MeterRegistry` bean exists.   |
 | `jclaim.health.enabled`                   | `true`             | Registers an Actuator `HealthIndicator` for the configured storage.                               |
 
+### Entity type & namespace
+
+The starter configures a **single entity type** — the kind of entity this
+resolver reconciles, surfaced as the `<type>` segment of
+`urn:<namespace>:<type>:<UUID>`. One resolver reconciles exactly one entity
+type. The two URN coordinates play different roles:
+
+- `jclaim.urn.namespace` — the organisation/tenant. A shared value for the
+  whole application; every entity type lives under it. Default `codery`.
+- `jclaim.urn.type` — the entity type itself (e.g. `customer`, `vehicle`).
+  Default `entity` (generic/unclassified).
+
+`jclaim.human-id.template`, `jclaim.matching.*` and `jclaim.storage.*`
+describe the format, matching policy and storage that belong to this entity
+type.
+
+> **Roadmap.** These top-level keys define a single, default entity type.
+> Reconciling **multiple entity types in one application** is planned: a
+> `jclaim.entity-types.<type>` map where each key is a URN `<type>` segment
+> overriding these same keys, with `jclaim.urn.namespace` /
+> `jclaim.human-id.*` / `jclaim.matching.*` serving as the inherited defaults.
+> The current keys are forward-compatible — the map is purely additive;
+> nothing here changes when it lands. See
+> `docs/plans/2026-06-04-multi-entity-type-direction.md`.
+
 ### humanId template
 
 `jclaim.human-id.template` drives the shape of every minted humanId. The

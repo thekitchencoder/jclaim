@@ -134,6 +134,15 @@ URN; the two-arg `EntityId.of(namespace, uuid)` defaults `type` to
 UUIDs are RFC 9562 version 7 (time-ordered, B-tree friendly) generated
 via `com.github.f4b6a3:uuid-creator`.
 
+Conceptually the namespace is the **tenant/organisation** (one shared value
+per application) and the `type` is the **entity type** a resolver reconciles —
+one resolver reconciles exactly one entity type. An application today
+configures a single (default) entity type via these top-level keys;
+reconciling multiple entity types in one application — a
+`jclaim.entity-types.<type>` map inheriting these as defaults — is a planned,
+additive extension (see
+`docs/plans/2026-06-04-multi-entity-type-direction.md`).
+
 ### 2. Human-friendly IDs
 
 Each entity has a separate `humanId` minted at registration:
