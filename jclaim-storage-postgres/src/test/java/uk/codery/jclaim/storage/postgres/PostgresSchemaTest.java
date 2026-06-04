@@ -44,18 +44,31 @@ final class PostgresSchemaTest {
             assertThat(tableColumns.get("entity_attributes"))
                     .containsExactlyInAnyOrder("entity_urn", "name", "value", "position");
 
+            // human_id is opt-in: nullable, so its uniqueness is enforced by a
+            // partial unique index (WHERE human_id IS NOT NULL) rather than an
+            // inline UNIQUE constraint. The table-constraint list therefore
+            // covers only urn / alias / attribute keys.
             List<String> uniqueConstraints = readUniqueOrPrimaryConstraintColumns(conn);
             assertThat(uniqueConstraints).contains(
                     "entities(urn)",
-                    "entities(human_id)",
                     "entity_aliases(source,source_id)",
                     "entity_attributes(entity_urn,name)");
+            assertThat(uniqueConstraints)
+                    .noneMatch(s -> s.equals("entities(human_id)"));
 
             List<String> indexes = readNonConstraintIndexes(conn);
             assertThat(indexes)
+                    .anyMatch(s -> s.contains("entities_human_id_unique"))
                     .anyMatch(s -> s.contains("idx_entity_aliases_entity_urn"))
                     .anyMatch(s -> s.contains("idx_entity_attributes_entity_urn"))
                     .anyMatch(s -> s.contains("idx_entity_attributes_name_value"));
+
+            // The human_id uniqueness index must be partial, otherwise multiple
+            // entities without a humanId would collide on NULL.
+            assertThat(readPartialUniqueIndexDefinition(conn, "entities_human_id_unique"))
+                    .isNotNull()
+                    .containsIgnoringCase("UNIQUE")
+                    .containsIgnoringCase("human_id IS NOT NULL");
         }
     }
 
@@ -91,6 +104,18 @@ final class PostgresSchemaTest {
             }
         }
         return result;
+    }
+
+    private static String readPartialUniqueIndexDefinition(Connection conn, String indexName)
+            throws SQLException {
+        try (var ps = conn.prepareStatement(
+                "SELECT indexdef FROM pg_indexes "
+                        + "WHERE schemaname = current_schema() AND indexname = ?")) {
+            ps.setString(1, indexName);
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next() ? rs.getString(1) : null;
+            }
+        }
     }
 
     private static List<String> readNonConstraintIndexes(Connection conn) throws SQLException {

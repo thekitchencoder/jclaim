@@ -10,11 +10,19 @@
 
 CREATE TABLE IF NOT EXISTS entities (
     urn            text PRIMARY KEY,
-    human_id       text NOT NULL UNIQUE,
+    human_id       text NULL,
     superseded_by  text NULL,
     created_at     timestamptz NOT NULL,
     updated_at     timestamptz NOT NULL
 );
+
+-- humanId is opt-in: nullable, but unique when present. A partial unique
+-- index enforces uniqueness only for non-null human_id values, so any
+-- number of entities may carry no humanId without colliding on NULL. The
+-- index name contains "human_id" so the adapter's unique-violation handler
+-- still recognises a present-humanId collision.
+CREATE UNIQUE INDEX IF NOT EXISTS entities_human_id_unique
+    ON entities (human_id) WHERE human_id IS NOT NULL;
 
 CREATE TABLE IF NOT EXISTS entity_aliases (
     source       text NOT NULL,
