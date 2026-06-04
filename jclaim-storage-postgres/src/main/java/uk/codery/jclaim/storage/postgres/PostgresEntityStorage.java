@@ -488,6 +488,17 @@ public final class PostgresEntityStorage implements EntityStorage {
         String ddl = loadSchemaSql();
         try (Connection conn = dataSource.getConnection();
              Statement stmt = conn.createStatement()) {
+            if (schema != null) {
+                // Provision the target schema, then steer the shipped (unqualified)
+                // schema.sql DDL into it via search_path. This search_path is safe:
+                // this is a dedicated, short-lived, one-shot DDL connection that is
+                // closed immediately — none of the pooled/transactional runtime
+                // hazards (rollback clearing SET LOCAL, re-query after rollback)
+                // apply here. The runtime queries are schema-qualified and do NOT
+                // depend on search_path. The schema name is validated in the ctor.
+                stmt.execute("CREATE SCHEMA IF NOT EXISTS \"" + schema + "\"");
+                stmt.execute("SET search_path TO \"" + schema + "\"");
+            }
             for (String statement : splitStatements(ddl)) {
                 if (!statement.isBlank()) {
                     stmt.execute(statement);
