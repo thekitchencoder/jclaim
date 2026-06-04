@@ -214,6 +214,16 @@ class DefaultEntityResolverTest {
     }
 
     @Test
+    void nullTemplate_mintsNoHumanId() {
+        EntityStorage storage = new InMemoryEntityStorage();
+        EntityResolver resolver = DefaultEntityResolver.builder(storage)
+                .humanIdTemplate(null).build();
+        Entity e = ((ResolutionResult.Minted) resolver.resolveOrMint(
+                new Claim(SourceSystem.of("crm"), "u-3", List.of()))).entity();
+        assertThat(e.humanId()).isNull();
+    }
+
+    @Test
     void blankTemplate_mintsNoHumanId() {
         EntityStorage storage = new InMemoryEntityStorage();
         EntityResolver resolver = DefaultEntityResolver.builder(storage)
