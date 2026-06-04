@@ -2,7 +2,6 @@ package uk.codery.jclaim.spring;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.function.Supplier;
 
 import javax.sql.DataSource;
 
@@ -193,8 +192,11 @@ public class EntityTypeResolverRegistrar
                         ? entry.storage().collectionName() : type;
             }
             default -> {
-                // In-memory: each type gets its own instance. Still flag an explicit
-                // scope clash if two types name the same schema/collection.
+                // In-memory: each type gets its own fresh InMemoryEntityStorage instance,
+                // so instances are never actually shared. This explicit-scope clash check
+                // is an intentionally over-strict guard: naming the same schema/collection
+                // on two in-memory types signals a copy-paste misconfiguration the author
+                // probably meant to catch on a real backend, so we fail fast here too.
                 String explicit = entry.storage().schema() != null
                         ? entry.storage().schema()
                         : entry.storage().collectionName();
@@ -316,6 +318,9 @@ public class EntityTypeResolverRegistrar
             EntityType entry,
             JclaimProperties props) {
         return switch (kind) {
+            // AUTO is already resolved to a concrete kind by resolveStorageKind, so it
+            // never reaches here; it shares the in-memory arm only to keep the switch
+            // exhaustive over the StorageType enum.
             case IN_MEMORY, AUTO -> new InMemoryEntityStorage();
             case POSTGRES -> buildPostgresStorage(beanFactory, type, entry, props);
             case MONGO -> buildMongoStorage(beanFactory, type, entry, props);
