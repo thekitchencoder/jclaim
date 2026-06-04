@@ -334,6 +334,12 @@ public final class DefaultEntityResolver implements EntityResolver {
             return this;
         }
 
+        /**
+         * Advanced/test hook: sets the humanId generator directly (e.g. with
+         * deterministic entropy). {@code null} means this resolver mints no
+         * humanId. Prefer {@link #humanIdTemplate(String)} for normal use; both
+         * target the same field, so the last call wins.
+         */
         public Builder humanIdGenerator(HumanIdGenerator humanIdGenerator) {
             this.humanIdGenerator = humanIdGenerator;
             return this;
