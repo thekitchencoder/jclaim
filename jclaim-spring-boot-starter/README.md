@@ -142,7 +142,7 @@ All properties live under the `jclaim.*` prefix.
 |-------------------------------------------|--------------------|---------------------------------------------------------------------------------------------------|
 | `jclaim.urn.namespace`                    | `codery`           | URN namespace; produces `urn:<ns>:<type>:<UUID>`.                                                 |
 | `jclaim.urn.type`                         | `entity`           | URN type segment; produces `urn:<ns>:<type>:<UUID>`.                                              |
-| `jclaim.human-id.template`                | `????-????-?`      | Human-id format template; eagerly validated — a malformed template fails context startup.        |
+| `jclaim.human-id.template`                | _(none)_           | Human-id template; **absent → no humanId is minted**. Set a template to opt in (eagerly validated — a malformed template fails context startup). |
 | `jclaim.storage.type`                     | `auto`             | One of `auto`, `in-memory`, `mongo`, `postgres`.                                                  |
 | `jclaim.storage.mongo.database`           | `jclaim`           | Mongo database name.                                                                              |
 | `jclaim.storage.mongo.collection-name`    | `jclaim_entities`  | Mongo collection name.                                                                            |
@@ -168,7 +168,9 @@ type. The two URN coordinates play different roles:
 
 `jclaim.human-id.template`, `jclaim.matching.*` and `jclaim.storage.*`
 describe the format, matching policy and storage that belong to this entity
-type.
+type. The humanId itself is **opt-in** — minted only when
+`jclaim.human-id.template` is set; with no template this entity type has no
+humanId.
 
 > **Roadmap.** These top-level keys define a single, default entity type.
 > Reconciling **multiple entity types in one application** is planned: a
@@ -181,9 +183,13 @@ type.
 
 ### humanId template
 
-`jclaim.human-id.template` drives the shape of every minted humanId. The
-template is compiled once into a `HumanIdFormat` at startup and is
-eagerly validated — a malformed template fails context startup.
+The humanId is **opt-in**: it is minted only when
+`jclaim.human-id.template` is configured. With no template set, entities of
+this type are minted with no humanId at all (no generation, no stored field,
+no index entry). When you do set one, the property drives the shape of every
+minted humanId. The template is compiled once into a `HumanIdFormat` at
+startup and is eagerly validated — a malformed template fails context
+startup.
 
 Grammar (one template character → one output character):
 
@@ -203,7 +209,7 @@ always 0–9, so the check character always renders as a digit):
 
 | Template        | Breakdown                    | Renders         | Data bits |
 |-----------------|------------------------------|-----------------|-----------|
-| `????-????-?`   | 8 data + check (**default**) | `K7M2-9X4P-3`   | 40        |
+| `????-????-?`   | 8 data + check               | `K7M2-9X4P-3`   | 40        |
 | `#?????`        | literal `#` + 4 data + check | `#K7M23`        | 20        |
 | `JG??????`      | `JG` + 5 data + check        | `JGK7M293`      | 25        |
 | `ID????-????-?` | `ID` + 8 data + check        | `IDK7M2-9X4P-3` | 40        |

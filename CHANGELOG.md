@@ -25,12 +25,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   placeholder (the **last** `?` renders the Damm check digit, every other
   `?` a random Crockford Base32 data symbol) and any other character is a
   literal; 1–12 data placeholders (2–13 `?` total) keep the value within
-  a 60-bit `long`. Resolver builder slots
-  `DefaultEntityResolver.Builder.humanIdTemplate(String)` /
-  `.humanIdFormat(HumanIdFormat)`; starter property
-  `jclaim.human-id.template` (default `????-????-?`), eagerly validated —
-  a malformed template fails context startup. The default template
-  reproduces the historic `XXXX-XXXX-X` shape exactly.
+  a 60-bit `long`. Resolver builder slot
+  `DefaultEntityResolver.Builder.humanIdTemplate(String)`; starter property
+  `jclaim.human-id.template`. humanId is **opt-in** — the default is no
+  template, so by default no humanId is minted (see _Changed (breaking,
+  pre-1.0)_); a configured non-blank template is eagerly validated — a
+  malformed template fails context startup, and `????-????-?` reproduces
+  the historic `XXXX-XXXX-X` shape.
 - **Configurable matching policy.** `resolveOrMint` no longer mints
   blindly when an exact `(source, sourceId)` alias owner is absent. It
   blocks a candidate pool sharing an attribute with the claim and scores
@@ -154,6 +155,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed (breaking, pre-1.0)
 
+- **humanId is now opt-in (presence-driven).** `jclaim.human-id.template`
+  defaults to **none** (was `????-????-?`), so the default configuration
+  mints **no** humanId — no generation, no stored field, no index entry.
+  Provide a template to opt in. `Entity.humanId` is now **nullable**. The
+  resolver builder dropped `humanIdFormat(HumanIdFormat)` — use
+  `humanIdTemplate(String)` (null/blank → no humanId). A malformed
+  *non-blank* template still throws eagerly. This flips the previous
+  default, which always minted `????-????-?`.
+- **Storage humanId unique index is now partial.** It covers only entities
+  that have a humanId:
+  - Postgres — `human_id` is nullable (`human_id text NULL`) and the
+    constraint is a partial unique index
+    `entities_human_id_unique ON entities (human_id) WHERE human_id IS NOT NULL`.
+  - Mongo — a partial unique index with
+    `partialFilterExpression {humanId: {$exists: true}}`; the `humanId`
+    field is **omitted** from the document when absent (a present-but-null
+    value would still satisfy `$exists` and collide).
+  - In-memory — the humanId index skips null keys.
+- **Migration (existing SNAPSHOT deployments only; nothing is released).**
+  - Postgres — make the column nullable, drop the old unique constraint,
+    and create the partial index:
+    ```sql
+    ALTER TABLE entities ALTER COLUMN human_id DROP NOT NULL;
+    -- drop the old (full) unique constraint/index, then:
+    CREATE UNIQUE INDEX entities_human_id_unique
+        ON entities (human_id) WHERE human_id IS NOT NULL;
+    ```
+  - Mongo — the new partial index reuses the name `jclaim_humanId_unique`
+    with different options, so drop the old one first; the adapter
+    recreates it as partial on next startup:
+    ```js
+    db.<collection>.dropIndex("jclaim_humanId_unique")
+    ```
 - **Starter: `jclaim.namespace` → `jclaim.urn.namespace`.** The URN
   namespace property moves under the new `jclaim.urn.*` group (alongside
   the new `jclaim.urn.type`); default unchanged (`codery`). Safe because
