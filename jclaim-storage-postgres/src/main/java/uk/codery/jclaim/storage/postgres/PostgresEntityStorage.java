@@ -69,6 +69,10 @@ public final class PostgresEntityStorage implements EntityStorage {
     private final String schema;
     /** Schema-qualifying table prefix: {@code ""} when unscoped, else {@code "\"<schema>\"."}. */
     private final String tablePrefix;
+    /** Schema-qualified table tokens, derived from {@link #tablePrefix}. */
+    private final String tEntities;
+    private final String tAliases;
+    private final String tAttributes;
 
     private PostgresEntityStorage(DataSource dataSource, ObjectMapper objectMapper, String schema) {
         this.dataSource = dataSource;
@@ -83,6 +87,11 @@ public final class PostgresEntityStorage implements EntityStorage {
             this.schema = null;
             this.tablePrefix = "";
         }
+        // When unscoped (prefix ""), these are the bare table names — SQL is
+        // textually identical to today's single-type path.
+        this.tEntities = tablePrefix + "entities";
+        this.tAliases = tablePrefix + "entity_aliases";
+        this.tAttributes = tablePrefix + "entity_attributes";
     }
 
     /** Builder for {@link PostgresEntityStorage}. */
@@ -110,7 +119,7 @@ public final class PostgresEntityStorage implements EntityStorage {
         Objects.requireNonNull(humanId, "humanId");
         try (Connection conn = dataSource.getConnection();
              PreparedStatement ps = conn.prepareStatement(
-                     "SELECT urn FROM entities WHERE human_id = ?")) {
+                     "SELECT urn FROM " + tEntities + " WHERE human_id = ?")) {
             ps.setString(1, humanId);
             try (ResultSet rs = ps.executeQuery()) {
                 if (!rs.next()) {
@@ -288,7 +297,7 @@ public final class PostgresEntityStorage implements EntityStorage {
             }
             if (candidateUrns.size() < limit && !claim.attributes().isEmpty()) {
                 try (PreparedStatement ps = conn.prepareStatement(
-                        "SELECT DISTINCT entity_urn FROM entity_attributes "
+                        "SELECT DISTINCT entity_urn FROM " + tAttributes + " "
                                 + "WHERE name = ? AND value = ?::jsonb LIMIT ?")) {
                     attributeLoop:
                     for (MatchingAttribute attr : claim.attributes()) {
@@ -319,7 +328,7 @@ public final class PostgresEntityStorage implements EntityStorage {
 
     private boolean entityExists(Connection conn, String urn) throws SQLException {
         try (PreparedStatement ps = conn.prepareStatement(
-                "SELECT 1 FROM entities WHERE urn = ?")) {
+                "SELECT 1 FROM " + tEntities + " WHERE urn = ?")) {
             ps.setString(1, urn);
             try (ResultSet rs = ps.executeQuery()) {
                 return rs.next();
@@ -329,7 +338,7 @@ public final class PostgresEntityStorage implements EntityStorage {
 
     private String findEntityUrnForAlias(Connection conn, Alias alias) throws SQLException {
         try (PreparedStatement ps = conn.prepareStatement(
-                "SELECT entity_urn FROM entity_aliases WHERE source = ? AND source_id = ?")) {
+                "SELECT entity_urn FROM " + tAliases + " WHERE source = ? AND source_id = ?")) {
             ps.setString(1, alias.source().name());
             ps.setString(2, alias.sourceId());
             try (ResultSet rs = ps.executeQuery()) {
@@ -344,7 +353,7 @@ public final class PostgresEntityStorage implements EntityStorage {
         java.time.Instant createdAt;
         java.time.Instant updatedAt;
         try (PreparedStatement ps = conn.prepareStatement(
-                "SELECT human_id, superseded_by, created_at, updated_at FROM entities WHERE urn = ?")) {
+                "SELECT human_id, superseded_by, created_at, updated_at FROM " + tEntities + " WHERE urn = ?")) {
             ps.setString(1, urn);
             try (ResultSet rs = ps.executeQuery()) {
                 if (!rs.next()) {
@@ -359,7 +368,7 @@ public final class PostgresEntityStorage implements EntityStorage {
 
         List<Alias> aliases = new ArrayList<>();
         try (PreparedStatement ps = conn.prepareStatement(
-                "SELECT source, source_id FROM entity_aliases "
+                "SELECT source, source_id FROM " + tAliases + " "
                         + "WHERE entity_urn = ? ORDER BY position")) {
             ps.setString(1, urn);
             try (ResultSet rs = ps.executeQuery()) {
@@ -371,7 +380,7 @@ public final class PostgresEntityStorage implements EntityStorage {
 
         List<MatchingAttribute> attributes = new ArrayList<>();
         try (PreparedStatement ps = conn.prepareStatement(
-                "SELECT name, value FROM entity_attributes "
+                "SELECT name, value FROM " + tAttributes + " "
                         + "WHERE entity_urn = ? ORDER BY position")) {
             ps.setString(1, urn);
             try (ResultSet rs = ps.executeQuery()) {
@@ -395,7 +404,7 @@ public final class PostgresEntityStorage implements EntityStorage {
 
     private void insertEntityRow(Connection conn, Entity entity) throws SQLException {
         try (PreparedStatement ps = conn.prepareStatement(
-                "INSERT INTO entities (urn, human_id, superseded_by, created_at, updated_at) "
+                "INSERT INTO " + tEntities + " (urn, human_id, superseded_by, created_at, updated_at) "
                         + "VALUES (?, ?, ?, ?, ?)")) {
             ps.setString(1, entity.id().urn());
             ps.setString(2, entity.humanId());
@@ -410,7 +419,7 @@ public final class PostgresEntityStorage implements EntityStorage {
                                 java.time.Instant attachedAt, int position)
             throws SQLException {
         try (PreparedStatement ps = conn.prepareStatement(
-                "INSERT INTO entity_aliases (source, source_id, entity_urn, attached_at, position) "
+                "INSERT INTO " + tAliases + " (source, source_id, entity_urn, attached_at, position) "
                         + "VALUES (?, ?, ?, ?, ?)")) {
             ps.setString(1, alias.source().name());
             ps.setString(2, alias.sourceId());
@@ -423,7 +432,7 @@ public final class PostgresEntityStorage implements EntityStorage {
 
     private int nextAliasPosition(Connection conn, String urn) throws SQLException {
         try (PreparedStatement ps = conn.prepareStatement(
-                "SELECT COALESCE(MAX(position), -1) + 1 FROM entity_aliases WHERE entity_urn = ?")) {
+                "SELECT COALESCE(MAX(position), -1) + 1 FROM " + tAliases + " WHERE entity_urn = ?")) {
             ps.setString(1, urn);
             try (ResultSet rs = ps.executeQuery()) {
                 rs.next();
@@ -437,7 +446,7 @@ public final class PostgresEntityStorage implements EntityStorage {
             return;
         }
         try (PreparedStatement ps = conn.prepareStatement(
-                "INSERT INTO entity_attributes (entity_urn, name, value, position) VALUES (?, ?, ?, ?)")) {
+                "INSERT INTO " + tAttributes + " (entity_urn, name, value, position) VALUES (?, ?, ?, ?)")) {
             int position = 0;
             for (MatchingAttribute attr : entity.attributes()) {
                 ps.setString(1, entity.id().urn());
