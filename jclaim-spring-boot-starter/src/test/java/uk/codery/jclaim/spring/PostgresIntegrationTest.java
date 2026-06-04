@@ -4,8 +4,9 @@ import javax.sql.DataSource;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.autoconfigure.ImportAutoConfiguration;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
@@ -27,10 +28,14 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 @ExtendWith(PostgresDockerCondition.class)
 @Testcontainers
-@SpringBootTest(classes = {
-        JclaimAutoConfiguration.class,
-        PostgresIntegrationTest.PgConfig.class
-})
+// Load JclaimAutoConfiguration via @ImportAutoConfiguration (not as a plain
+// component in `classes`) so it is processed with auto-configuration ordering —
+// i.e. AFTER PgConfig's DataSource bean is registered. The storage wiring uses
+// @ConditionalOnBean(DataSource), which is only reliable inside an
+// auto-configuration evaluated after user beans; listing it in `classes` made
+// the condition order-sensitive and brittle.
+@SpringBootTest(classes = PostgresIntegrationTest.PgConfig.class)
+@ImportAutoConfiguration(JclaimAutoConfiguration.class)
 class PostgresIntegrationTest {
 
     @Container
@@ -41,7 +46,7 @@ class PostgresIntegrationTest {
         reg.add("jclaim.storage.type", () -> "postgres");
     }
 
-    @TestConfiguration(proxyBeanMethods = false)
+    @Configuration(proxyBeanMethods = false)
     static class PgConfig {
         @Bean
         DataSource dataSource() {

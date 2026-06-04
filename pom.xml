@@ -70,11 +70,11 @@
 
         <!-- Storage-adapter dependency versions (consumed by jclaim-storage-* modules) -->
         <mongodb-driver-sync.version>5.2.0</mongodb-driver-sync.version>
-        <postgresql.version>42.7.4</postgresql.version>
+        <postgresql.version>42.7.11</postgresql.version>
         <testcontainers.version>1.21.3</testcontainers.version>
 
         <!-- Spring Boot starter dependency versions (consumed by jclaim-spring-boot-starter) -->
-        <spring-boot.version>3.5.5</spring-boot.version>
+        <spring-boot.version>3.5.14</spring-boot.version>
     </properties>
 
     <dependencyManagement>

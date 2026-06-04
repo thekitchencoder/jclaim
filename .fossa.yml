@@ -1,0 +1,19 @@
+# FOSSA licence-scan configuration.
+#
+# Scope the scan to dependencies that are actually distributed in the published
+# Maven artefacts. Test, provided, and system scoped dependencies (JUnit,
+# AssertJ, Testcontainers, Lombok, etc.) are build-time only — they are never
+# shipped, so their licences carry no distribution-compliance obligation.
+#
+# This excludes, for example, JUnit Jupiter's EPL-2.0 licence, which FOSSA
+# flagged as a transitive *test* dependency. Excluding it here keeps the
+# License Compliance check focused on what jclaim genuinely redistributes.
+#
+# Schema: https://github.com/fossas/fossa-cli/blob/master/docs/references/files/fossa-yml.md
+version: 3
+
+maven:
+  scope-exclude:
+    - provided
+    - system
+    - test
