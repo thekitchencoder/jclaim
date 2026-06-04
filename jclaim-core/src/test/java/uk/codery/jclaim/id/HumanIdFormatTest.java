@@ -93,6 +93,21 @@ class HumanIdFormatTest {
     }
 
     @Test
+    void rejectsNonDigitLetterInCheckPosition() {
+        // 'A' decodes to 10 (> 9) — must fail the check-digit range guard.
+        String id = HumanIdFormat.DEFAULT.format(0L);            // "0000-0000-0"
+        String bad = id.substring(0, id.length() - 1) + "A";
+        assertThat(HumanIdFormat.DEFAULT.isValid(bad)).isFalse();
+    }
+
+    @Test
+    void rejectsInvalidSymbolInDataPosition() {
+        // 'U' is dropped from the Crockford alphabet — must fail the data decode.
+        HumanIdFormat.DEFAULT.format(0L); // anchor on default shape
+        assertThat(HumanIdFormat.DEFAULT.isValid("000U-0000-0")).isFalse();
+    }
+
+    @Test
     void damm0and1RenderAsDigits() {
         assertThat(HumanIdFormat.DEFAULT.format(0L)).endsWith("0"); // Damm(0)=0
         long v = 0L;

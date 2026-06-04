@@ -65,4 +65,16 @@ class CrockfordBase32Test {
     void normalise_stripsHyphensAndUpperCases() {
         assertThat(CrockfordBase32.normalise("abcd-efgh")).isEqualTo("ABCDEFGH");
     }
+
+    @Test
+    void decodeCharHonoursAliasesAndRejectsInvalid() {
+        assertThat(CrockfordBase32.decodeChar('0')).isZero();
+        assertThat(CrockfordBase32.decodeChar('O')).isZero();   // alias O -> 0
+        assertThat(CrockfordBase32.decodeChar('I')).isEqualTo(1); // alias I -> 1
+        assertThat(CrockfordBase32.decodeChar('L')).isEqualTo(1); // alias L -> 1
+        assertThat(CrockfordBase32.decodeChar('Z')).isEqualTo(31);
+        assertThat(CrockfordBase32.decodeChar('U')).isEqualTo(-1); // dropped symbol
+        assertThat(CrockfordBase32.decodeChar('-')).isEqualTo(-1);
+        assertThat(CrockfordBase32.decodeChar('!')).isEqualTo(-1);
+    }
 }

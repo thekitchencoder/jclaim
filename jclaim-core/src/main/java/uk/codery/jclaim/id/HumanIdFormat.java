@@ -96,11 +96,7 @@ public final class HumanIdFormat {
 
     /** Decodes one Crockford symbol (honouring O/I/L aliases); -1 if invalid. */
     private static int decodeSymbol(char c) {
-        try {
-            return (int) CrockfordBase32.decode(String.valueOf(c));
-        } catch (IllegalArgumentException ex) {
-            return -1;
-        }
+        return CrockfordBase32.decodeChar(c);
     }
 
     /** Formats the low {@code dataBits} of {@code value} per this template. */
