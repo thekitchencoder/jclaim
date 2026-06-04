@@ -1,88 +1,74 @@
 package uk.codery.jclaim.id;
 
 import java.security.SecureRandom;
+import java.util.Objects;
 import java.util.Random;
 import java.util.function.Supplier;
 
 /**
- * Generates and validates the human-friendly identifier displayed alongside
- * an entity's URN. The format is {@code XXXX-XXXX-X}: eight randomly drawn
- * Crockford Base32 symbols (40 bits of entropy) followed by a Damm check
- * digit computed over the decimal representation of the 40-bit value, encoded
- * back into the Crockford alphabet. Hyphens are presentational only.
+ * Mints the human-friendly identifier displayed alongside an entity's URN,
+ * delegating shape and validation to a {@link HumanIdFormat}. The default
+ * format is {@code ????-????-?} (eight Crockford Base32 data symbols + a Damm
+ * check digit), reproducing jclaim's historic {@code XXXX-XXXX-X} ID.
  *
  * <p>The human ID is <strong>not</strong> derived from the entity URN — it is
  * an independently minted lookup attribute, stored alongside the entity.
  * Uniqueness is enforced by the storage adapter; on collision the resolver
  * re-mints.
  *
- * <p>Inputs are normalised through {@link CrockfordBase32}, so users typing
- * {@code o} for {@code 0} or {@code l} for {@code 1} verify correctly.
+ * <p>This generator and its {@link HumanIdFormat} are immutable, so an instance
+ * is thread-safe <em>iff</em> the injected entropy {@link Supplier} is. The
+ * default {@link SecureRandom} is; a bare {@link Random} (used in tests) is not.
  */
 public final class HumanIdGenerator {
 
-    private static final int DATA_BITS = 40;
-    private static final int DATA_CHARS = DATA_BITS / 5;     // 8
-    private static final long MASK = (1L << DATA_BITS) - 1L; // 40-bit mask
-
+    private final HumanIdFormat format;
     private final Supplier<Long> entropy;
 
-    /** Default generator backed by {@link SecureRandom}. */
+    /** Default generator: legacy format, {@link SecureRandom} entropy. */
     public HumanIdGenerator() {
-        this(new SecureRandom());
+        this(HumanIdFormat.DEFAULT);
     }
 
-    /** Test-friendly constructor that draws bits from the supplied {@link Random}. */
+    /** Generator for {@code format}, backed by {@link SecureRandom}. */
+    public HumanIdGenerator(HumanIdFormat format) {
+        this(format, new SecureRandom());
+    }
+
+    /** Legacy-format generator drawing bits from {@code random}. */
     public HumanIdGenerator(Random random) {
-        this(() -> random.nextLong() & MASK);
+        this(HumanIdFormat.DEFAULT, random);
     }
 
-    /** Constructor taking a raw 40-bit entropy supplier. */
+    /** Generator for {@code format} drawing bits from {@code random}. */
+    public HumanIdGenerator(HumanIdFormat format, Random random) {
+        // Cast disambiguates the overload — bind to the (HumanIdFormat, Supplier) ctor.
+        this(format, (Supplier<Long>) random::nextLong);
+    }
+
+    /** Legacy-format generator drawing raw entropy from {@code entropy}. */
     public HumanIdGenerator(Supplier<Long> entropy) {
-        this.entropy = entropy;
+        this(HumanIdFormat.DEFAULT, entropy);
     }
 
-    /** Mints a fresh human ID. */
+    /** Generator for {@code format} drawing raw entropy from {@code entropy}. */
+    public HumanIdGenerator(HumanIdFormat format, Supplier<Long> entropy) {
+        this.format = Objects.requireNonNull(format, "format");
+        this.entropy = Objects.requireNonNull(entropy, "entropy");
+    }
+
+    /** Mints a fresh human ID. {@link HumanIdFormat#format(long)} masks the entropy. */
     public String generate() {
-        long value = entropy.get() & MASK;
-        return format(value);
+        return format.format(entropy.get());
     }
 
-    /** Validates that {@code humanId} is well-formed and its Damm check digit is correct. */
-    public static boolean isValid(String humanId) {
-        if (humanId == null) {
-            return false;
-        }
-        String stripped;
-        try {
-            stripped = CrockfordBase32.normalise(humanId);
-        } catch (IllegalArgumentException ex) {
-            return false;
-        }
-        if (stripped.length() != DATA_CHARS + 1) {
-            return false;
-        }
-        long value = CrockfordBase32.decode(stripped.substring(0, DATA_CHARS));
-        int check;
-        try {
-            check = (int) CrockfordBase32.decode(stripped.substring(DATA_CHARS));
-        } catch (IllegalArgumentException ex) {
-            return false;
-        }
-        return check >= 0 && check <= 9 && Damm.verify(value, check);
+    /** Validates {@code humanId} against this generator's format. */
+    public boolean isValid(String humanId) {
+        return format.isValid(humanId);
     }
 
-    /**
-     * Formats a raw 40-bit value as a human ID string. Intended for tests and
-     * for callers that mint values from a deterministic source.
-     */
-    public static String format(long value) {
-        if ((value & ~MASK) != 0L) {
-            throw new IllegalArgumentException("value exceeds " + DATA_BITS + " bits: " + value);
-        }
-        String data = CrockfordBase32.encode(value, DATA_BITS);
-        int check = Damm.checkDigit(value);
-        char checkChar = CrockfordBase32.ALPHABET.charAt(check);
-        return data.substring(0, 4) + "-" + data.substring(4, 8) + "-" + checkChar;
+    /** The format this generator mints. */
+    public HumanIdFormat format() {
+        return format;
     }
 }

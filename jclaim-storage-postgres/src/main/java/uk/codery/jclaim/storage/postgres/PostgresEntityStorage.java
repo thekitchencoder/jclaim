@@ -199,7 +199,7 @@ public final class PostgresEntityStorage implements EntityStorage {
             }
             String owner = findEntityUrnForAlias(conn, other);
             if (owner != null) {
-                throw new AliasAlreadyClaimedException(other, EntityId.of(parseUuidFromUrn(owner)));
+                throw new AliasAlreadyClaimedException(other, new EntityId(owner));
             }
         }
         // humanId or URN collision — surface as the existing in-memory adapter does.
@@ -232,7 +232,7 @@ public final class PostgresEntityStorage implements EntityStorage {
                     return loadEntity(conn, urn.urn())
                             .orElseThrow(() -> new EntityNotFoundException(urn));
                 }
-                throw new AliasAlreadyClaimedException(alias, EntityId.of(parseUuidFromUrn(existingOwner)));
+                throw new AliasAlreadyClaimedException(alias, new EntityId(existingOwner));
             }
 
             try {
@@ -244,7 +244,7 @@ public final class PostgresEntityStorage implements EntityStorage {
                     String newOwner = findEntityUrnForAlias(conn, alias);
                     if (newOwner != null && !newOwner.equals(urn.urn())) {
                         throw new AliasAlreadyClaimedException(
-                                alias, EntityId.of(parseUuidFromUrn(newOwner)));
+                                alias, new EntityId(newOwner));
                     }
                 }
                 throw new PostgresStorageException("addAlias insert failed for " + alias, ex);
@@ -370,18 +370,13 @@ public final class PostgresEntityStorage implements EntityStorage {
         }
 
         return Optional.of(new Entity(
-                EntityId.of(parseUuidFromUrn(urn)),
+                new EntityId(urn),
                 humanId,
                 aliases,
                 attributes,
-                supersededBy == null ? null : EntityId.of(parseUuidFromUrn(supersededBy)),
+                supersededBy == null ? null : new EntityId(supersededBy),
                 createdAt,
                 updatedAt));
-    }
-
-    private static java.util.UUID parseUuidFromUrn(String urn) {
-        int idx = urn.lastIndexOf(':');
-        return java.util.UUID.fromString(urn.substring(idx + 1));
     }
 
     private void insertEntityRow(Connection conn, Entity entity) throws SQLException {

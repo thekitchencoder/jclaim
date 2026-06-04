@@ -2,7 +2,8 @@ package uk.codery.jclaim.storage;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import uk.codery.jclaim.id.HumanIdGenerator;
+import uk.codery.jclaim.id.HumanIdFormat;
+import uk.codery.jclaim.id.UuidV7;
 import uk.codery.jclaim.model.Alias;
 import uk.codery.jclaim.model.Claim;
 import uk.codery.jclaim.model.Entity;
@@ -93,11 +94,35 @@ public abstract class EntityStorageContract {
         assertThat(storage.findByUrn(freshEntityId())).isEmpty();
     }
 
+    @Test
+    void roundTripsNonDefaultNamespaceAndType() {
+        Alias alias = new Alias(SourceSystem.of("crm"), "rt-1");
+        EntityId id = EntityId.of("acme", "customer", UuidV7.supplier().get());
+        Entity minted = new Entity(
+                id,
+                HumanIdFormat.DEFAULT.format(42L),
+                List.of(alias),
+                List.of(MatchingAttribute.of("seed", 42)),
+                null,
+                NOW,
+                NOW
+        );
+
+        StorageOutcome outcome = storage.resolveOrCreate(alias, () -> minted);
+        assertThat(outcome).isInstanceOf(StorageOutcome.Created.class);
+
+        Entity reloaded = storage.findByUrn(id).orElseThrow();
+        assertThat(reloaded.id()).isEqualTo(id);
+        assertThat(reloaded.id().urn()).isEqualTo("urn:acme:customer:" + id.uuid());
+        assertThat(reloaded.id().namespace()).isEqualTo("acme");
+        assertThat(reloaded.id().type()).isEqualTo("customer");
+    }
+
     // ── findByHumanId ──────────────────────────────────────────────────────
 
     @Test
     void findByHumanId_emptyStorage_returnsEmpty() {
-        assertThat(storage.findByHumanId(HumanIdGenerator.format(0L))).isEmpty();
+        assertThat(storage.findByHumanId(HumanIdFormat.DEFAULT.format(0L))).isEmpty();
     }
 
     @Test
@@ -112,7 +137,7 @@ public abstract class EntityStorageContract {
     void findByHumanId_unknownHumanId_returnsEmpty() {
         storage.resolveOrCreate(ALICE_ECOM, () -> entityWith(0, List.of(ALICE_ECOM)));
 
-        assertThat(storage.findByHumanId(HumanIdGenerator.format(999_999L))).isEmpty();
+        assertThat(storage.findByHumanId(HumanIdFormat.DEFAULT.format(999_999L))).isEmpty();
     }
 
     // ── findByAlias ────────────────────────────────────────────────────────
@@ -557,7 +582,7 @@ public abstract class EntityStorageContract {
     /** Variant of {@link #entityWith(int, List)} taking an explicit attribute list. */
     protected static Entity entityWith(int seed, List<Alias> aliases, List<MatchingAttribute> attributes) {
         UUID id = UUID.fromString("00000000-0000-7000-8000-" + String.format("%012d", seed));
-        String humanId = HumanIdGenerator.format(((long) seed) & ((1L << 40) - 1L));
+        String humanId = HumanIdFormat.DEFAULT.format(((long) seed) & ((1L << 40) - 1L));
         return new Entity(
                 EntityId.of(id),
                 humanId,

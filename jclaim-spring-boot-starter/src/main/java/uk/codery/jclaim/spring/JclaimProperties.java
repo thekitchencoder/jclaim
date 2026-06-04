@@ -4,14 +4,16 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 
 /**
  * Tunables exposed by the JClaim Spring Boot starter under the {@code jclaim}
- * property namespace. Covers the URN namespace, storage selection and per-adapter
- * settings, match-sink wiring, and the optional metrics and health indicators.
- * Defaults yield a working in-memory setup with no required overrides.
+ * property namespace. Covers the URN namespace and type, the human-id template,
+ * storage selection and per-adapter settings, match-sink wiring, and the optional
+ * metrics and health indicators. Defaults yield a working in-memory setup with no
+ * required overrides.
  */
 @ConfigurationProperties("jclaim")
 public class JclaimProperties {
 
-    private String namespace = "codery";
+    private Urn urn = new Urn();
+    private HumanId humanId = new HumanId();
     private Storage storage = new Storage();
     private MatchSink matchSink = new MatchSink();
     private Matching matching = new Matching();
@@ -23,12 +25,20 @@ public class JclaimProperties {
         return new JclaimProperties();
     }
 
-    public String namespace() {
-        return namespace;
+    public Urn urn() {
+        return urn;
     }
 
-    public void setNamespace(String namespace) {
-        this.namespace = namespace;
+    public void setUrn(Urn urn) {
+        this.urn = urn;
+    }
+
+    public HumanId humanId() {
+        return humanId;
+    }
+
+    public void setHumanId(HumanId humanId) {
+        this.humanId = humanId;
     }
 
     public Storage storage() {
@@ -79,6 +89,41 @@ public class JclaimProperties {
     /** Selects how {@code MatchEvent} stewardship events are delivered. */
     public enum MatchSinkType {
         SPRING_EVENTS, LOGGING, NOOP
+    }
+
+    /** URN namespace + type: urn:&lt;namespace&gt;:&lt;type&gt;:&lt;uuid&gt;. */
+    public static class Urn {
+        private String namespace = "codery";
+        private String type = "entity";
+
+        public String namespace() {
+            return namespace;
+        }
+
+        public void setNamespace(String namespace) {
+            this.namespace = namespace;
+        }
+
+        public String type() {
+            return type;
+        }
+
+        public void setType(String type) {
+            this.type = type;
+        }
+    }
+
+    /** Human-friendly lookup ID format. */
+    public static class HumanId {
+        private String template = "????-????-?";
+
+        public String template() {
+            return template;
+        }
+
+        public void setTemplate(String template) {
+            this.template = template;
+        }
     }
 
     /** Storage adapter selection and per-adapter settings. */

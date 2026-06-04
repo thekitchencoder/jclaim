@@ -140,7 +140,9 @@ All properties live under the `jclaim.*` prefix.
 
 | Property                                  | Default            | Description                                                                                       |
 |-------------------------------------------|--------------------|---------------------------------------------------------------------------------------------------|
-| `jclaim.namespace`                        | `codery`           | URN namespace; produces `urn:<ns>:entity:<UUID>`.                                                 |
+| `jclaim.urn.namespace`                    | `codery`           | URN namespace; produces `urn:<ns>:<type>:<UUID>`.                                                 |
+| `jclaim.urn.type`                         | `entity`           | URN type segment; produces `urn:<ns>:<type>:<UUID>`.                                              |
+| `jclaim.human-id.template`                | `????-????-?`      | Human-id format template; eagerly validated — a malformed template fails context startup.        |
 | `jclaim.storage.type`                     | `auto`             | One of `auto`, `in-memory`, `mongo`, `postgres`.                                                  |
 | `jclaim.storage.mongo.database`           | `jclaim`           | Mongo database name.                                                                              |
 | `jclaim.storage.mongo.collection-name`    | `jclaim_entities`  | Mongo collection name.                                                                            |
@@ -151,6 +153,60 @@ All properties live under the `jclaim.*` prefix.
 | `jclaim.match-sink.type`                  | `spring-events`    | One of `spring-events`, `logging`, `noop`.                                                        |
 | `jclaim.metrics.enabled`                  | `true`             | Wraps the resolver with a Micrometer-instrumented decorator when a `MeterRegistry` bean exists.   |
 | `jclaim.health.enabled`                   | `true`             | Registers an Actuator `HealthIndicator` for the configured storage.                               |
+
+### Entity type & namespace
+
+The starter configures a **single entity type** — the kind of entity this
+resolver reconciles, surfaced as the `<type>` segment of
+`urn:<namespace>:<type>:<UUID>`. One resolver reconciles exactly one entity
+type. The two URN coordinates play different roles:
+
+- `jclaim.urn.namespace` — the organisation/tenant. A shared value for the
+  whole application; every entity type lives under it. Default `codery`.
+- `jclaim.urn.type` — the entity type itself (e.g. `customer`, `vehicle`).
+  Default `entity` (generic/unclassified).
+
+`jclaim.human-id.template`, `jclaim.matching.*` and `jclaim.storage.*`
+describe the format, matching policy and storage that belong to this entity
+type.
+
+> **Roadmap.** These top-level keys define a single, default entity type.
+> Reconciling **multiple entity types in one application** is planned: a
+> `jclaim.entity-types.<type>` map where each key is a URN `<type>` segment
+> overriding these same keys, with `jclaim.urn.namespace` /
+> `jclaim.human-id.*` / `jclaim.matching.*` serving as the inherited defaults.
+> The current keys are forward-compatible — the map is purely additive;
+> nothing here changes when it lands. See
+> `docs/plans/2026-06-04-multi-entity-type-direction.md`.
+
+### humanId template
+
+`jclaim.human-id.template` drives the shape of every minted humanId. The
+template is compiled once into a `HumanIdFormat` at startup and is
+eagerly validated — a malformed template fails context startup.
+
+Grammar (one template character → one output character):
+
+- `?` is a **placeholder**. The **last `?`** renders the Damm check
+  digit; every **other `?`** renders a random Crockford Base32 data
+  symbol.
+- Any other character is a **literal**, emitted verbatim.
+
+Because the last placeholder is always the check digit, every
+well-formed template yields a self-validating ID. There must be **2–13
+`?` total** (1–12 data placeholders); the 12-data ceiling keeps the
+value within a 60-bit `long`. A literal cannot itself be `?` (no
+escaping in v1).
+
+Examples (sample data `K7M2 9X4P`, check digit `3` — the Damm digit is
+always 0–9, so the check character always renders as a digit):
+
+| Template        | Breakdown                    | Renders         | Data bits |
+|-----------------|------------------------------|-----------------|-----------|
+| `????-????-?`   | 8 data + check (**default**) | `K7M2-9X4P-3`   | 40        |
+| `#?????`        | literal `#` + 4 data + check | `#K7M23`        | 20        |
+| `JG??????`      | `JG` + 5 data + check        | `JGK7M293`      | 25        |
+| `ID????-????-?` | `ID` + 8 data + check        | `IDK7M2-9X4P-3` | 40        |
 
 ## Listening to match events
 

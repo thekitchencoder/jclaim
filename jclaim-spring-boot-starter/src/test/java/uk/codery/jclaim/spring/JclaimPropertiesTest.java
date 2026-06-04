@@ -13,7 +13,7 @@ class JclaimPropertiesTest {
     @Test
     void bindsDefaults() {
         JclaimProperties props = bind(Map.of());
-        assertThat(props.namespace()).isEqualTo("codery");
+        assertThat(props.urn().namespace()).isEqualTo("codery");
         assertThat(props.storage().type()).isEqualTo(JclaimProperties.StorageType.AUTO);
         assertThat(props.storage().mongo().database()).isEqualTo("jclaim");
         assertThat(props.storage().mongo().collectionName()).isEqualTo("jclaim_entities");
@@ -27,7 +27,7 @@ class JclaimPropertiesTest {
     @Test
     void bindsOverrides() {
         JclaimProperties props = bind(Map.of(
-                "jclaim.namespace", "acme",
+                "jclaim.urn.namespace", "acme",
                 "jclaim.storage.type", "mongo",
                 "jclaim.storage.mongo.database", "acme_db",
                 "jclaim.storage.mongo.collection-name", "entities",
@@ -36,7 +36,7 @@ class JclaimPropertiesTest {
                 "jclaim.metrics.enabled", "false",
                 "jclaim.health.enabled", "false"
         ));
-        assertThat(props.namespace()).isEqualTo("acme");
+        assertThat(props.urn().namespace()).isEqualTo("acme");
         assertThat(props.storage().type()).isEqualTo(JclaimProperties.StorageType.MONGO);
         assertThat(props.storage().mongo().database()).isEqualTo("acme_db");
         assertThat(props.storage().mongo().collectionName()).isEqualTo("entities");
@@ -44,6 +44,25 @@ class JclaimPropertiesTest {
         assertThat(props.matchSink().type()).isEqualTo(JclaimProperties.MatchSinkType.LOGGING);
         assertThat(props.metrics().enabled()).isFalse();
         assertThat(props.health().enabled()).isFalse();
+    }
+
+    @Test
+    void bindsUrnAndHumanIdProperties() {
+        JclaimProperties p = bind(Map.of(
+                "jclaim.urn.namespace", "acme",
+                "jclaim.urn.type", "customer",
+                "jclaim.human-id.template", "JG??????"));
+        assertThat(p.urn().namespace()).isEqualTo("acme");
+        assertThat(p.urn().type()).isEqualTo("customer");
+        assertThat(p.humanId().template()).isEqualTo("JG??????");
+    }
+
+    @Test
+    void urnAndHumanIdDefaults() {
+        JclaimProperties p = JclaimProperties.defaults();
+        assertThat(p.urn().namespace()).isEqualTo("codery");
+        assertThat(p.urn().type()).isEqualTo("entity");
+        assertThat(p.humanId().template()).isEqualTo("????-????-?");
     }
 
     private static JclaimProperties bind(Map<String, String> map) {

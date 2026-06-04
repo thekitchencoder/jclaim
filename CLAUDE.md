@@ -55,7 +55,7 @@ jclaim/
         │   ├── id/                                 # Identifier generation
         │   │   ├── CrockfordBase32.java            # 32-symbol alphabet, ambiguous chars dropped
         │   │   ├── Damm.java                       # Single-digit checksum, totally anti-symmetric quasigroup
-        │   │   ├── HumanIdGenerator.java           # K7M2-9X4P-N style human-friendly IDs
+        │   │   ├── HumanIdGenerator.java           # K7M2-9X4P-3 style human-friendly IDs
         │   │   └── UuidV7.java                     # RFC 9562 time-ordered UUID
         │   ├── model/                              # Domain model (immutable records)
         │   │   ├── Alias.java                      # (source, sourceId) pair
@@ -119,20 +119,48 @@ The aggregator centralises:
 Every reconciled entity carries a URN of the form:
 
 ```
-urn:<namespace>:entity:<UUID v7>
+urn:<namespace>:<type>:<UUID v7>
 ```
 
-The namespace is caller-configurable. The example shape `urn:codery:entity:<UUID>`
-is documented in the README. UUIDs are RFC 9562 version 7 (time-ordered,
-B-tree friendly) generated via `com.github.f4b6a3:uuid-creator`.
+Both the namespace and the `type` segment are caller-configurable per
+resolver. The `type` segment defaults to `entity`
+(`EntityId.DEFAULT_TYPE`) and is set via
+`DefaultEntityResolver.Builder.entityType(...)` or the Spring property
+`jclaim.urn.type`; the namespace is set via the builder or
+`jclaim.urn.namespace` (renamed from the former `jclaim.namespace`,
+default `codery`). `EntityId.of(namespace, type, uuid)` constructs a
+URN; the two-arg `EntityId.of(namespace, uuid)` defaults `type` to
+`entity`. The example shape `urn:codery:entity:<UUID>` is the default.
+UUIDs are RFC 9562 version 7 (time-ordered, B-tree friendly) generated
+via `com.github.f4b6a3:uuid-creator`.
+
+Conceptually the namespace is the **tenant/organisation** (one shared value
+per application) and the `type` is the **entity type** a resolver reconciles —
+one resolver reconciles exactly one entity type. An application today
+configures a single (default) entity type via these top-level keys;
+reconciling multiple entity types in one application — a
+`jclaim.entity-types.<type>` map inheriting these as defaults — is a planned,
+additive extension (see
+`docs/plans/2026-06-04-multi-entity-type-direction.md`).
 
 ### 2. Human-friendly IDs
 
 Each entity has a separate `humanId` minted at registration:
 
-- 8 random Crockford Base32 characters (40 bits of entropy)
+- random Crockford Base32 data characters (default 8 → 40 bits of entropy)
 - 1 Damm check digit
-- Display format: `XXXX-XXXX-X` (e.g. `K7M2-9X4P-N`)
+- Default display format: `XXXX-XXXX-X` (e.g. `K7M2-9X4P-3`)
+
+The format is configurable per resolver via a template compiled into
+`HumanIdFormat` — `HumanIdFormat.ofTemplate(...)`,
+`DefaultEntityResolver.Builder.humanIdTemplate(...)` /
+`.humanIdFormat(...)`, or the Spring property `jclaim.human-id.template`
+(eagerly validated — a malformed template fails context startup).
+Grammar: `?` is a placeholder (the **last** `?` renders the Damm check
+digit, every other `?` a random data symbol) and any other character is
+a literal emitted verbatim; 1–12 data placeholders (2–13 `?` total) keep
+the value within the ≤60-bit `long` ceiling. The default template
+`????-????-?` reproduces the historic `XXXX-XXXX-X` shape exactly.
 
 Crockford Base32 drops the ambiguous symbols `I`, `L`, `O`, `U` and accepts
 case-insensitive input with the swap aliases `i/l → 1`, `o → 0`. The Damm

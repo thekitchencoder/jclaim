@@ -38,9 +38,46 @@ class EntityIdTest {
     void constructor_rejectsMalformedUrn() {
         assertThatThrownBy(() -> new EntityId("not a urn"))
                 .isInstanceOf(IllegalArgumentException.class);
-        assertThatThrownBy(() -> new EntityId("urn:codery:something:01900000-0000-7000-8000-000000000004"))
-                .isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(() -> new EntityId("urn:codery:entity:not-a-uuid"))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void of_buildsUrnWithExplicitType() {
+        UUID id = UUID.fromString("018f0000-0000-7000-8000-000000000000");
+        EntityId e = EntityId.of("acme", "customer", id);
+        assertThat(e.urn()).isEqualTo("urn:acme:customer:" + id);
+        assertThat(e.namespace()).isEqualTo("acme");
+        assertThat(e.type()).isEqualTo("customer");
+        assertThat(e.uuid()).isEqualTo(id);
+    }
+
+    @Test
+    void of_twoArgFactoryDefaultsTypeToEntity() {
+        UUID id = UUID.fromString("018f0000-0000-7000-8000-000000000000");
+        EntityId e = EntityId.of("acme", id);
+        assertThat(e.urn()).isEqualTo("urn:acme:entity:" + id);
+        assertThat(e.type()).isEqualTo("entity");
+    }
+
+    @Test
+    void constructor_acceptsExistingEntityUrn() {
+        EntityId e = new EntityId("urn:codery:entity:018f0000-0000-7000-8000-000000000000");
+        assertThat(e.namespace()).isEqualTo("codery");
+        assertThat(e.type()).isEqualTo("entity");
+    }
+
+    @Test
+    void of_rejectsBlankType() {
+        UUID id = UUID.fromString("018f0000-0000-7000-8000-000000000000");
+        assertThatThrownBy(() -> EntityId.of("acme", "  ", id))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void of_rejectsTypeWithIllegalCharacter() {
+        assertThatThrownBy(() -> new EntityId(
+                "urn:acme:bad type:018f0000-0000-7000-8000-000000000000"))
                 .isInstanceOf(IllegalArgumentException.class);
     }
 

@@ -36,6 +36,16 @@ public final class CrockfordBase32 {
     private CrockfordBase32() {
     }
 
+    /**
+     * Decodes a single character to its 0–31 Crockford value, honouring the
+     * documented O/I/L aliases; returns -1 for any non-Crockford character.
+     * Allocation-free and exception-free — preferred over {@link #decode(String)}
+     * for single-character validation on hot paths.
+     */
+    public static int decodeChar(char c) {
+        return c < DECODE.length && DECODE[c] >= 0 ? DECODE[c] : -1;
+    }
+
     /** Encodes the lower {@code bits} of {@code value} as Crockford Base32. */
     public static String encode(long value, int bits) {
         if (bits <= 0 || bits > 64) {
