@@ -61,4 +61,42 @@ class HumanIdFormatTest {
         assertThat(f.dataBits()).isEqualTo(5);
         assertThat(f.format(0L)).isEqualTo("00"); // data '0' + check '0' (Damm(0)=0)
     }
+
+    @Test
+    void validatesRoundTrip() {
+        String id = HumanIdFormat.DEFAULT.format(0x9ABCDEF012L);
+        assertThat(HumanIdFormat.DEFAULT.isValid(id)).isTrue();
+    }
+
+    @Test
+    void forgivesCrockfordAliasesInDataAndCheck() {
+        // "0000-0000-0": swap every '0' for letter 'O' (incl. the check digit) — still valid.
+        String id = HumanIdFormat.DEFAULT.format(0L);
+        String aliased = id.replace('0', 'O');
+        assertThat(HumanIdFormat.DEFAULT.isValid(aliased)).isTrue();
+    }
+
+    @Test
+    void rejectsWrongCheckDigit() {
+        String id = HumanIdFormat.DEFAULT.format(0L);       // "0000-0000-0"
+        String bad = id.substring(0, id.length() - 1) + "1"; // flip check 0 -> 1
+        assertThat(HumanIdFormat.DEFAULT.isValid(bad)).isFalse();
+    }
+
+    @Test
+    void rejectsLiteralMismatchAndWrongLength() {
+        HumanIdFormat f = HumanIdFormat.ofTemplate("ID????-????-?");
+        String id = f.format(0L);
+        assertThat(f.isValid("XX" + id.substring(2))).isFalse(); // literal "ID" broken
+        assertThat(f.isValid(id + "Z")).isFalse();               // too long
+        assertThat(f.isValid(null)).isFalse();
+    }
+
+    @Test
+    void damm0and1RenderAsDigits() {
+        assertThat(HumanIdFormat.DEFAULT.format(0L)).endsWith("0"); // Damm(0)=0
+        long v = 0L;
+        while (uk.codery.jclaim.id.Damm.checkDigit(v) != 1) v++;
+        assertThat(HumanIdFormat.DEFAULT.format(v)).endsWith("1");
+    }
 }

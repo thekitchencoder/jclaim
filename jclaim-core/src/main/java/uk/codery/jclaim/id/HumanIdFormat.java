@@ -67,6 +67,42 @@ public final class HumanIdFormat {
         return dataBits;
     }
 
+    /** True iff {@code candidate} fits this template and its Damm check digit holds. */
+    public boolean isValid(String candidate) {
+        if (candidate == null || candidate.length() != plan.length) {
+            return false;
+        }
+        long acc = 0L;
+        int check = -1;
+        for (int i = 0; i < plan.length; i++) {
+            char c = candidate.charAt(i);
+            Slot slot = plan[i];
+            switch (slot.type()) {
+                case LITERAL -> { if (c != slot.literal()) return false; }
+                case DATA -> {
+                    int d = decodeSymbol(c);
+                    if (d < 0) return false;
+                    acc = (acc << 5) | d;
+                }
+                case CHECK -> {
+                    int d = decodeSymbol(c);
+                    if (d < 0 || d > 9) return false;
+                    check = d;
+                }
+            }
+        }
+        return Damm.verify(acc, check);
+    }
+
+    /** Decodes one Crockford symbol (honouring O/I/L aliases); -1 if invalid. */
+    private static int decodeSymbol(char c) {
+        try {
+            return (int) CrockfordBase32.decode(String.valueOf(c));
+        } catch (IllegalArgumentException ex) {
+            return -1;
+        }
+    }
+
     /** Formats the low {@code dataBits} of {@code value} per this template. */
     public String format(long value) {
         long v = value & mask;
