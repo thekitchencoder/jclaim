@@ -170,7 +170,8 @@ class JclaimAutoConfigurationTest {
         new ApplicationContextRunner()
             .withConfiguration(AutoConfigurations.of(JclaimAutoConfiguration.class))
             .withPropertyValues("jclaim.human-id.template=AB") // < 2 placeholders
-            .run(ctx -> assertThat(ctx).hasFailed());
+            .run(ctx -> assertThat(ctx).getFailure()
+                    .rootCause().isInstanceOf(IllegalArgumentException.class));
     }
 
     @Configuration(proxyBeanMethods = false)
