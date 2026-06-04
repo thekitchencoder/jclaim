@@ -387,6 +387,8 @@ public final class DefaultEntityResolver implements EntityResolver {
         }
 
         public DefaultEntityResolver build() {
+            EntityId.requireValidSegment("namespace", namespace);
+            EntityId.requireValidSegment("type", entityType);
             return new DefaultEntityResolver(this);
         }
     }

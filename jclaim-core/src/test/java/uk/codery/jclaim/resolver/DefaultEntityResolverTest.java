@@ -139,6 +139,21 @@ class DefaultEntityResolverTest {
     }
 
     @Test
+    void build_rejectsBlankEntityType() {
+        assertThatThrownBy(() -> DefaultEntityResolver.builder(new InMemoryEntityStorage())
+                .entityType("  ").build())
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("type");
+    }
+
+    @Test
+    void build_rejectsIllegalNamespace() {
+        assertThatThrownBy(() -> DefaultEntityResolver.builder(new InMemoryEntityStorage())
+                .namespace("bad namespace").build())
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
     void builder_defaultPolicyIsAliasOnly_soBehaviourIsUnchanged() {
         // With no policy configured the resolver uses aliasOnly(); a second
         // claim for the same alias short-circuits to Matched with no events.
