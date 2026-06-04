@@ -6,6 +6,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Conditional;
 import org.springframework.context.annotation.Import;
 import uk.codery.jclaim.event.MatchEventSink;
 import uk.codery.jclaim.matching.MatchingPolicy;
@@ -54,8 +55,12 @@ public class JclaimAutoConfiguration {
 
     // Named "jclaimResolver" (not @Primary) so a v2 multi-resolver setup can wire
     // additional named resolvers without colliding with the starter's default.
+    // Suppressed in multi-type mode (any jclaim.entity-types.<type> present) —
+    // single- and multi-type modes are mutually exclusive; the per-type
+    // resolvers land in Phase 5.
     @Bean("jclaimResolver")
     @ConditionalOnMissingBean
+    @Conditional(NoEntityTypesCondition.class)
     public EntityResolver jclaimEntityResolver(
             EntityStorage storage,
             MatchEventSink matchSink,
