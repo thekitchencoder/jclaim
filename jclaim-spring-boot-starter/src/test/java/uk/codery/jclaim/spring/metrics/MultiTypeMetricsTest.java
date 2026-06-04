@@ -98,6 +98,35 @@ class MultiTypeMetricsTest {
         });
     }
 
+    /**
+     * Covers the {@link MultiTypeMetricsBeanPostProcessor} no-{@link MeterRegistry}
+     * fallback: metrics are enabled and the BPP is registered, but NO
+     * {@code MeterRegistry} bean is present in the context, so
+     * {@code registryProvider.getIfAvailable()} returns {@code null} and the
+     * per-type resolvers are returned undecorated. Context still starts.
+     */
+    @Test
+    void noMeterRegistryLeavesResolversUnmetered() {
+        new ApplicationContextRunner()
+                .withConfiguration(AutoConfigurations.of(
+                        JclaimAutoConfiguration.class,
+                        JclaimMetricsAutoConfiguration.class,
+                        JclaimMultiTypeMetricsAutoConfiguration.class))
+                // Deliberately NO MeterRegistry bean.
+                .withPropertyValues(
+                        "jclaim.storage.type=in-memory",
+                        "jclaim.entity-types.customer.human-id.template=????-?",
+                        "jclaim.entity-types.vehicle.human-id.template=????-?")
+                .run(ctx -> {
+                    assertThat(ctx).hasNotFailed();
+                    assertThat(ctx).hasBean("jclaimMultiTypeMetricsBeanPostProcessor");
+                    assertThat(ctx.getBean("jclaimEntityResolver_customer", EntityResolver.class))
+                            .isNotInstanceOf(MeteredEntityResolver.class);
+                    assertThat(ctx.getBean("jclaimEntityResolver_vehicle", EntityResolver.class))
+                            .isNotInstanceOf(MeteredEntityResolver.class);
+                });
+    }
+
     @Test
     void typeOfStripsResolverPrefix() {
         assertThat(EntityTypeResolverRegistrar.typeOf("jclaimEntityResolver_customer"))
