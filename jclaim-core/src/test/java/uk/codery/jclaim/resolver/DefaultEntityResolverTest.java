@@ -6,6 +6,7 @@ import uk.codery.jclaim.event.AttributeDiff;
 import uk.codery.jclaim.event.EntityAttributesConflicted;
 import uk.codery.jclaim.event.MatchEvent;
 import uk.codery.jclaim.event.MatchEventSink;
+import uk.codery.jclaim.id.HumanIdFormat;
 import uk.codery.jclaim.id.HumanIdGenerator;
 import uk.codery.jclaim.model.Claim;
 import uk.codery.jclaim.model.EntityId;
@@ -60,7 +61,7 @@ class DefaultEntityResolverTest {
         assertThat(result.entity().aliases()).containsExactly(claim.asAlias());
         assertThat(result.entity().attributes()).containsExactly(
                 MatchingAttribute.of("email", "alice@example.com"));
-        assertThat(HumanIdGenerator.isValid(result.entity().humanId())).isTrue();
+        assertThat(HumanIdFormat.DEFAULT.isValid(result.entity().humanId())).isTrue();
         assertThat(sink.events).isEmpty();
     }
 
