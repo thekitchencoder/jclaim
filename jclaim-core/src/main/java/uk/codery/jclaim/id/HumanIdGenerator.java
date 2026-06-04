@@ -15,6 +15,10 @@ import java.util.function.Supplier;
  * an independently minted lookup attribute, stored alongside the entity.
  * Uniqueness is enforced by the storage adapter; on collision the resolver
  * re-mints.
+ *
+ * <p>This generator and its {@link HumanIdFormat} are immutable, so an instance
+ * is thread-safe <em>iff</em> the injected entropy {@link Supplier} is. The
+ * default {@link SecureRandom} is; a bare {@link Random} (used in tests) is not.
  */
 public final class HumanIdGenerator {
 
@@ -38,6 +42,7 @@ public final class HumanIdGenerator {
 
     /** Generator for {@code format} drawing bits from {@code random}. */
     public HumanIdGenerator(HumanIdFormat format, Random random) {
+        // Cast disambiguates the overload — bind to the (HumanIdFormat, Supplier) ctor.
         this(format, (Supplier<Long>) random::nextLong);
     }
 
@@ -52,7 +57,7 @@ public final class HumanIdGenerator {
         this.entropy = Objects.requireNonNull(entropy, "entropy");
     }
 
-    /** Mints a fresh human ID. {@link HumanIdFormat#format} masks the entropy. */
+    /** Mints a fresh human ID. {@link HumanIdFormat#format(long)} masks the entropy. */
     public String generate() {
         return format.format(entropy.get());
     }
