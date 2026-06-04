@@ -55,7 +55,7 @@ jclaim/
         │   ├── id/                                 # Identifier generation
         │   │   ├── CrockfordBase32.java            # 32-symbol alphabet, ambiguous chars dropped
         │   │   ├── Damm.java                       # Single-digit checksum, totally anti-symmetric quasigroup
-        │   │   ├── HumanIdGenerator.java           # K7M2-9X4P-N style human-friendly IDs
+        │   │   ├── HumanIdGenerator.java           # K7M2-9X4P-3 style human-friendly IDs
         │   │   └── UuidV7.java                     # RFC 9562 time-ordered UUID
         │   ├── model/                              # Domain model (immutable records)
         │   │   ├── Alias.java                      # (source, sourceId) pair
@@ -140,7 +140,7 @@ Each entity has a separate `humanId` minted at registration:
 
 - random Crockford Base32 data characters (default 8 → 40 bits of entropy)
 - 1 Damm check digit
-- Default display format: `XXXX-XXXX-X` (e.g. `K7M2-9X4P-N`)
+- Default display format: `XXXX-XXXX-X` (e.g. `K7M2-9X4P-3`)
 
 The format is configurable per resolver via a template compiled into
 `HumanIdFormat` — `HumanIdFormat.ofTemplate(...)`,

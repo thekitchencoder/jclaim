@@ -14,7 +14,7 @@ The MDM (Master Data Management) entity-matching pattern, packaged as a library 
 ## Features
 
 - **Canonical identity** — One stable URN per entity, minted as UUID v7. Source-system IDs become aliases on the canonical entity.
-- **Human-friendly IDs** — Crockford Base32 with Damm check digit (`K7M2-9X4P-N`). Phone-readable, OCR-friendly, transcription-error-resistant.
+- **Human-friendly IDs** — Crockford Base32 with Damm check digit (`K7M2-9X4P-3`). Phone-readable, OCR-friendly, transcription-error-resistant.
 - **Match-or-mint as one operation** — `resolveOrMint(claim)` returns a `Matched` or `Minted` result. Callers know which path was taken.
 - **Matching policy as data** — Express your matching logic as a [JSPEC](https://github.com/thekitchencoder/jspec) specification via the optional `jclaim-matching-jspec` module. Tri-state evaluation surfaces `MATCHED`, `NOT_MATCHED`, and `UNDETERMINED` candidates naturally; the default policy is alias-only, so behaviour is unchanged until you opt in. See [Matching policy](#matching-policy).
 - **Alias graph from day one** — Records the mapping from canonical identity to source IDs, with the data shape ready for merge, split, and federation correlation.

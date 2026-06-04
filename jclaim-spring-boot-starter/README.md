@@ -173,14 +173,15 @@ well-formed template yields a self-validating ID. There must be **2–13
 value within a 60-bit `long`. A literal cannot itself be `?` (no
 escaping in v1).
 
-Examples (sample data `K7M2 9X4P`, check digit `N`):
+Examples (sample data `K7M2 9X4P`, check digit `3` — the Damm digit is
+always 0–9, so the check character always renders as a digit):
 
 | Template        | Breakdown                    | Renders         | Data bits |
 |-----------------|------------------------------|-----------------|-----------|
-| `????-????-?`   | 8 data + check (**default**) | `K7M2-9X4P-N`   | 40        |
-| `#?????`        | literal `#` + 4 data + check | `#K7M2N`        | 20        |
-| `JG??????`      | `JG` + 5 data + check        | `JGK7M29N`      | 25        |
-| `ID????-????-?` | `ID` + 4 data + check        | `IDK7M2-9X4P-N` | 40        |
+| `????-????-?`   | 8 data + check (**default**) | `K7M2-9X4P-3`   | 40        |
+| `#?????`        | literal `#` + 4 data + check | `#K7M23`        | 20        |
+| `JG??????`      | `JG` + 5 data + check        | `JGK7M293`      | 25        |
+| `ID????-????-?` | `ID` + 8 data + check        | `IDK7M2-9X4P-3` | 40        |
 
 ## Listening to match events
 
