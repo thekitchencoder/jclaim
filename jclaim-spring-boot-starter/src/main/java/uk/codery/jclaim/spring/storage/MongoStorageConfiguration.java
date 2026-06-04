@@ -9,8 +9,10 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Conditional;
 import org.springframework.context.annotation.Configuration;
 import uk.codery.jclaim.spring.JclaimProperties;
+import uk.codery.jclaim.spring.NoEntityTypesCondition;
 import uk.codery.jclaim.storage.EntityStorage;
 import uk.codery.jclaim.storage.mongo.MongoEntityStorage;
 
@@ -30,6 +32,7 @@ import uk.codery.jclaim.storage.mongo.MongoEntityStorage;
  */
 @Configuration(proxyBeanMethods = false)
 @ConditionalOnClass({MongoEntityStorage.class, MongoClient.class})
+@Conditional(NoEntityTypesCondition.class)
 public class MongoStorageConfiguration {
 
     private static MongoCollection<Document> buildCollection(
