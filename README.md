@@ -159,7 +159,7 @@ cust-002 -- 3 source record(s)
 
 cust-001
   urn      = urn:codery:entity:019e17f8-...
-  humanId  = null                       (no humanId — example sets no template)
+  humanId  = K7M2-9X4P-3                (example opts in via humanIdTemplate)
   aliases  :
       ecommerce/ec-12345
       pos/pos-78910

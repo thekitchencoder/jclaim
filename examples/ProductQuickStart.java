@@ -59,6 +59,8 @@ public final class ProductQuickStart {
     /** Runs the demo, writing the entity graph to {@code out}. Returns the graph for inspection. */
     public static Map<String, Entity> run(PrintStream out) {
         ProductFixtures fixtures = ProductFixtures.load();
+        // Products are machine-keyed (GTIN, SKU), so this resolver opts out of
+        // humanIds: no humanIdTemplate is set, so no humanId is minted.
         EntityResolver resolver = DefaultEntityResolver.builder(new InMemoryEntityStorage())
                 .namespace("codery")
                 .matchEventSink(loggingMatchSink(out))
@@ -113,7 +115,8 @@ public final class ProductQuickStart {
     private static void printEntity(PrintStream out, String productId, Entity entity) {
         out.println(productId);
         out.println("  urn      = " + entity.id().urn());
-        out.println("  humanId  = " + entity.humanId());
+        out.println("  humanId  = " + (entity.humanId() == null
+                ? "(none — this resolver opts out of humanIds)" : entity.humanId()));
         out.println("  aliases  :");
         for (Alias alias : entity.aliases()) {
             out.println("      " + alias.source().name() + "/" + alias.sourceId());
