@@ -48,4 +48,17 @@ class HumanIdFormatTest {
         assertThatThrownBy(() -> HumanIdFormat.ofTemplate("?".repeat(14)))
                 .isInstanceOf(IllegalArgumentException.class);
     }
+
+    @Test
+    void acceptsTwelveDataCharsAtCeiling() {
+        HumanIdFormat f = HumanIdFormat.ofTemplate("?".repeat(13)); // 12 data + 1 check
+        assertThat(f.dataBits()).isEqualTo(60);
+    }
+
+    @Test
+    void acceptsSingleDataChar() {
+        HumanIdFormat f = HumanIdFormat.ofTemplate("??"); // 1 data + 1 check
+        assertThat(f.dataBits()).isEqualTo(5);
+        assertThat(f.format(0L)).isEqualTo("00"); // data '0' + check '0' (Damm(0)=0)
+    }
 }

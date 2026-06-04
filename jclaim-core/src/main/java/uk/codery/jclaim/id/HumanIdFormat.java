@@ -20,14 +20,14 @@ public final class HumanIdFormat {
     private record Slot(SlotType type, char literal) {}
 
     private final Slot[] plan;
-    private final int dataChars;
     private final int dataBits;
     private final long mask;
 
-    private HumanIdFormat(Slot[] plan, int dataChars) {
+    private HumanIdFormat(Slot[] plan, int dataBits) {
         this.plan = plan;
-        this.dataChars = dataChars;
-        this.dataBits = dataChars * 5;
+        this.dataBits = dataBits;
+        // Safe only because MAX_DATA_CHARS caps dataBits at 60; 1L << 65 would wrap
+        // (Java shift distance is mod 64). Raising the cap requires BigInteger, not a bigger shift.
         this.mask = (1L << dataBits) - 1L;
     }
 
@@ -59,7 +59,8 @@ public final class HumanIdFormat {
                 plan[i] = new Slot(SlotType.LITERAL, c);
             }
         }
-        return new HumanIdFormat(plan, dataChars);
+        int dataBits = dataChars * 5;
+        return new HumanIdFormat(plan, dataBits);
     }
 
     public int dataBits() {
