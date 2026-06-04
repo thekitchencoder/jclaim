@@ -29,10 +29,31 @@ public record EntityId(String urn) {
             + "([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})$"
     );
 
+    private static final Pattern SEGMENT_PATTERN = Pattern.compile("^" + SEGMENT + "$");
+
     public EntityId {
         Objects.requireNonNull(urn, "urn");
         if (!URN_PATTERN.matcher(urn).matches()) {
             throw new IllegalArgumentException("Invalid entity URN: '" + urn + "'");
+        }
+    }
+
+    /**
+     * Validates that {@code value} is a well-formed URN segment (the same
+     * grammar the namespace and type components must satisfy): non-null,
+     * non-blank, and matching {@value #SEGMENT}. Throws
+     * {@link IllegalArgumentException} otherwise, naming {@code label} (e.g.
+     * {@code "namespace"} or {@code "type"}) in the message so callers can
+     * fail fast at configuration time.
+     */
+    public static void requireValidSegment(String label, String value) {
+        Objects.requireNonNull(value, label);
+        if (value.isBlank()) {
+            throw new IllegalArgumentException(label + " must not be blank");
+        }
+        if (!SEGMENT_PATTERN.matcher(value).matches()) {
+            throw new IllegalArgumentException(
+                    "Invalid " + label + " segment: '" + value + "' (must match " + SEGMENT + ")");
         }
     }
 
