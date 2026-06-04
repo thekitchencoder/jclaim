@@ -152,6 +152,24 @@ class MultiTypeWiringTest {
                 });
     }
 
+    // -- I2: config inheritance --------------------------------------------
+
+    /**
+     * A per-type entry that OMITS {@code urn.namespace} inherits the top-level
+     * {@code jclaim.urn.namespace}. Here the top-level namespace is {@code acme}
+     * and neither type sets a per-type namespace, so a minted URN carries
+     * {@code acme}.
+     */
+    @Test
+    void perTypeNamespaceInheritsTopLevelDefault() {
+        twoTypes().run(ctx -> {
+            assertThat(ctx).hasNotFailed();
+            Entity e = mint(ctx.getBean("jclaimEntityResolver_vehicle", EntityResolver.class),
+                    "dvla", "v1");
+            assertThat(e.id().namespace()).isEqualTo("acme");
+        });
+    }
+
     @Test
     void urnTypeDisagreeingWithKeyFailsStartup() {
         runner.withPropertyValues(
