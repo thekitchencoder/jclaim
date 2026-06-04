@@ -19,7 +19,7 @@ class JclaimPropertiesTest {
         assertThat(props.storage().mongo().collectionName()).isEqualTo("jclaim_entities");
         assertThat(props.storage().mongo().createIndexes()).isTrue();
         assertThat(props.storage().postgres().applySchema()).isTrue();
-        assertThat(props.conflictSink().type()).isEqualTo(JclaimProperties.ConflictSinkType.SPRING_EVENT);
+        assertThat(props.matchSink().type()).isEqualTo(JclaimProperties.MatchSinkType.SPRING_EVENTS);
         assertThat(props.metrics().enabled()).isTrue();
         assertThat(props.health().enabled()).isTrue();
     }
@@ -32,7 +32,7 @@ class JclaimPropertiesTest {
                 "jclaim.storage.mongo.database", "acme_db",
                 "jclaim.storage.mongo.collection-name", "entities",
                 "jclaim.storage.postgres.apply-schema", "false",
-                "jclaim.conflict-sink.type", "log",
+                "jclaim.match-sink.type", "logging",
                 "jclaim.metrics.enabled", "false",
                 "jclaim.health.enabled", "false"
         ));
@@ -41,7 +41,7 @@ class JclaimPropertiesTest {
         assertThat(props.storage().mongo().database()).isEqualTo("acme_db");
         assertThat(props.storage().mongo().collectionName()).isEqualTo("entities");
         assertThat(props.storage().postgres().applySchema()).isFalse();
-        assertThat(props.conflictSink().type()).isEqualTo(JclaimProperties.ConflictSinkType.LOG);
+        assertThat(props.matchSink().type()).isEqualTo(JclaimProperties.MatchSinkType.LOGGING);
         assertThat(props.metrics().enabled()).isFalse();
         assertThat(props.health().enabled()).isFalse();
     }

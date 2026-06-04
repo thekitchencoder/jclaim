@@ -6,7 +6,7 @@ import uk.codery.jclaim.event.AttributeDiff;
 import uk.codery.jclaim.event.EntityAttributesConflicted;
 import uk.codery.jclaim.fixtures.DeterministicUuids;
 import uk.codery.jclaim.fixtures.GroundTruthIngester;
-import uk.codery.jclaim.fixtures.RecordingConflictSink;
+import uk.codery.jclaim.fixtures.RecordingMatchSink;
 import uk.codery.jclaim.id.HumanIdGenerator;
 import uk.codery.jclaim.model.Alias;
 import uk.codery.jclaim.model.Claim;
@@ -44,7 +44,7 @@ public abstract class AbstractPropertyReconciliationTest {
 
     protected PropertyFixtures fixtures;
     protected EntityStorage storage;
-    protected RecordingConflictSink conflictSink;
+    protected RecordingMatchSink matchSink;
     protected EntityResolver resolver;
 
     /** Returns a fresh, empty {@link EntityStorage} for the test about to run. */
@@ -54,13 +54,13 @@ public abstract class AbstractPropertyReconciliationTest {
     final void setUp() {
         fixtures = PropertyFixtures.load();
         storage = newStorage();
-        conflictSink = new RecordingConflictSink();
+        matchSink = new RecordingMatchSink();
         resolver = DefaultEntityResolver.builder(storage)
                 .namespace("codery")
                 .uuidSupplier(DeterministicUuids.supplier())
                 .humanIdGenerator(new HumanIdGenerator(new Random(44)))
                 .clock(Clock.fixed(Instant.parse("2026-05-11T10:00:00Z"), ZoneOffset.UTC))
-                .conflictSink(conflictSink)
+                .matchEventSink(matchSink)
                 .build();
     }
 
@@ -88,7 +88,7 @@ public abstract class AbstractPropertyReconciliationTest {
         assertThat(second).isInstanceOf(ResolutionResult.Matched.class);
         assertThat(second.entity()).isEqualTo(first.entity());
         assertThat(countEntitiesReachableVia(List.of(paf))).isEqualTo(1);
-        assertThat(conflictSink.events()).isEmpty();
+        assertThat(matchSink.events()).isEmpty();
     }
 
     @Test
@@ -130,18 +130,19 @@ public abstract class AbstractPropertyReconciliationTest {
         assertThat(result.entity().attributes())
                 .containsExactlyElementsOf(baseline.attributes());
 
-        assertThat(conflictSink.events()).hasSize(1);
-        EntityAttributesConflicted event = conflictSink.events().get(0);
+        assertThat(matchSink.events()).hasSize(1);
+        EntityAttributesConflicted event = matchSink.events().get(0);
         assertThat(event.stored()).isEqualTo(result.entity());
-        assertThat(event.incoming()).isEqualTo(mutated);
-        assertThat(event.differences()).contains(
+        assertThat(event.claim()).isEqualTo(mutated);
+        assertThat(event.differingValues()).contains(
                 new AttributeDiff("postcode", "EC2A 4DP", "EC2A 5DP"));
     }
 
     @Test
     void conflictEvent_emittedWhenNewBuildReceivesUprnAssignment() {
         // prop-009 — provisional new build, originally no UPRN; updates.yaml
-        // re-asserts the same PAF alias with the freshly-assigned UPRN.
+        // re-asserts the same PAF alias with the freshly-assigned UPRN plus a
+        // tidied-up address line.
         Claim baseline = sourceClaim("prop-009", "royal_mail_paf");
         Claim withUprn = fixtures.updateClaims().stream()
                 .filter(c -> c.source().name().equals("royal_mail_paf")
@@ -153,11 +154,15 @@ public abstract class AbstractPropertyReconciliationTest {
         ResolutionResult result = resolver.resolveOrMint(withUprn);
 
         assertThat(result).isInstanceOf(ResolutionResult.Matched.class);
-        assertThat(conflictSink.events()).hasSize(1);
-        // A new attribute that was not asserted before (uprn) shows up as
-        // a diff with stored=null.
-        assertThat(conflictSink.events().get(0).differences()).contains(
-                new AttributeDiff("uprn", null, "100099000099"));
+        assertThat(matchSink.events()).hasSize(1);
+        // The freshly-assigned uprn is an attribute the entity never carried —
+        // additive, not a conflict — so it must NOT appear as a diff.
+        assertThat(matchSink.events().get(0).differingValues())
+                .noneMatch(d -> d.name().equals("uprn"));
+        // The address line, however, exists on both sides with a changed
+        // value, so it is a genuine conflict.
+        assertThat(matchSink.events().get(0).differingValues()).contains(
+                new AttributeDiff("address_line_1", "Plot 9, Hanover Place", "9 Hanover Place"));
     }
 
     @Test
@@ -259,18 +264,23 @@ public abstract class AbstractPropertyReconciliationTest {
     void updateClaimsBatch_emitsConflictEventsAgainstStoredAttributes() {
         // Stage 1 — full baseline ingestion, no conflicts expected.
         GroundTruthIngester.ingest(resolver, fixtures.allClaims(), fixtures.claimsByProperty());
-        assertThat(conflictSink.events())
+        assertThat(matchSink.events())
                 .as("baseline ingest must not emit conflicts")
                 .isEmpty();
 
-        // Stage 2 — apply updates and assert each produces a Matched result
-        // plus a conflict event. Stored attributes must remain untouched.
+        // Stage 2 — apply updates and assert each produces a Matched result.
+        // Update claims that change a shared attribute value emit a conflict;
+        // claims that only add previously-unseen attributes are additive and
+        // emit nothing. Stored attributes must remain untouched throughout.
         Map<Alias, List<MatchingAttribute>> storedBefore = snapshotAttributesByAlias();
         for (Claim update : fixtures.updateClaims()) {
             ResolutionResult result = resolver.resolveOrMint(update);
             assertThat(result).isInstanceOf(ResolutionResult.Matched.class);
         }
-        assertThat(conflictSink.events()).hasSize(fixtures.updateClaims().size());
+        assertThat(matchSink.events())
+                .as("at least one update diverges on a shared attribute")
+                .isNotEmpty()
+                .hasSizeLessThanOrEqualTo(fixtures.updateClaims().size());
         assertThat(snapshotAttributesByAlias()).isEqualTo(storedBefore);
     }
 

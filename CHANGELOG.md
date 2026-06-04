@@ -9,6 +9,58 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Configurable matching policy.** `resolveOrMint` no longer mints
+  blindly when an exact `(source, sourceId)` alias owner is absent. It
+  blocks a candidate pool sharing an attribute with the claim and scores
+  each candidate with a `MatchingPolicy`, returning a
+  `TriState` (`MATCHED` / `NOT_MATCHED` / `UNDETERMINED`). The resolver
+  always returns an identity; ambiguity surfaces as typed stewardship
+  events. An exact alias owner still short-circuits to `Matched`,
+  preserving the alias-atomic concurrency guarantee.
+  - **`uk.codery.jclaim.matching` (in `jclaim-core`).** The
+    `MatchingPolicy` port, the `TriState` enum, and the default
+    `AliasOnlyMatchingPolicy` (`MatchingPolicy.aliasOnly()` — a
+    stateless singleton matching iff the candidate already owns the
+    claim's alias). Carries **no** jspec dependency. With the default
+    policy, behaviour is identical to the previous alias-only matching.
+  - **`jclaim-matching-jspec` — new (fifth) Maven module.** JSPEC-backed
+    `MatchingPolicy` provider in package
+    `uk.codery.jclaim.matching.jspec`, depending on `jclaim-core` +
+    `uk.codery:jspec:0.6.0` (managed centrally in the parent POM).
+    `JspecMatchingPolicy.fromResource(path)` / `.fromString(text)` /
+    `.builder()` build a policy from a YAML or JSON spec. Each
+    `(Claim, candidate)` pair is projected into a target document
+    (`claim.*`) and context document (`candidate.*`) by a
+    `DocumentProjection`; the spec evaluates via jspec's two-arg
+    `evaluate(target, context)`, with operands late-binding candidate
+    values through the **`$contextPath`** sentinel
+    (`$eq: { $contextPath: candidate.email }`); the `EvaluationOutcome`
+    collapses to a `TriState` via an `OutcomeAggregator` (default
+    conjunctive). `jclaim-core` and the storage adapters keep zero jspec
+    dependency — the provider isolates it, mirroring the storage
+    port/adapter split.
+  - **Candidate cap.** `EntityStorage.findCandidates(Claim, int limit)`
+    bounds the candidate IO; the one-arg `findCandidates(Claim)`
+    overload delegates to `Integer.MAX_VALUE`. Resolver builder slot
+    `.maxCandidates(int)` (default 100); starter property
+    `jclaim.matching.max-candidates`. Pool truncation logs at WARN and
+    increments the Micrometer counter
+    `jclaim.matching.pool_truncated_total`.
+  - **Resolver builder slots.**
+    `DefaultEntityResolver.builder(storage).namespace(...).matchingPolicy(...).matchEventSink(...).maxCandidates(...).build()`.
+  - **Stewardship events for deferred resolution.** `MatchUndecided`
+    (a fresh mint had only `UNDETERMINED` candidates) and
+    `MatchAmbiguous` (multiple candidates `MATCHED`; winner is the
+    oldest by `createdAt`, tiebreak urn — alternatives surfaced). Both
+    carry `TriState` outcomes only — never jspec types, so core stays
+    jspec-free.
+  - **Starter matching auto-configuration.** New `jclaim.matching.spec`
+    (classpath spec resource; eager-validated — a bad path fails context
+    startup; requires `jclaim-matching-jspec` on the classpath) and
+    `jclaim.matching.max-candidates`. With no `spec`, the policy is
+    `MatchingPolicy.aliasOnly()`. Add `jclaim-matching-jspec` as an
+    (optional) dependency to use a spec. The resolver bean is named
+    `jclaimResolver`.
 - **`jclaim-spring-boot-starter`.** Fourth Maven module — Spring Boot 3.x
   auto-configuration that wires the resolver, selects a storage adapter by
   classpath + bean presence (in-memory default, plus opt-in Mongo / Postgres),
@@ -77,6 +129,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Centralised dependency versions in the parent POM for
   `mongodb-driver-sync` (5.2.0), `postgresql` (42.7.4), and the
   `testcontainers-bom` (1.21.3, imported as scope=import).
+
+### Changed (breaking, pre-1.0)
+
+- **`ConflictEventSink` → `MatchEventSink`.** The event sink interface
+  is renamed; its single method now accepts the new sealed `MatchEvent`
+  supertype. Default factory `MatchEventSink.noop()`. Resolver builder
+  slot renamed `conflictSink(...)` → `matchEventSink(...)`.
+- **Sealed `MatchEvent` hierarchy.** `MatchEvent permits
+  EntityAttributesConflicted, MatchUndecided, MatchAmbiguous`.
+  `EntityAttributesConflicted` was previously the only event type and a
+  standalone record.
+- **`EntityAttributesConflicted` reshaped** to
+  `(Entity stored, Claim claim, List<AttributeDiff> differingValues)`.
+  `occurredAt` is dropped (events are fire-and-forget; a sink stamps a
+  time if it needs one); `incoming` is renamed `claim`; `differences`
+  is renamed `differingValues`.
+- **Conflict semantics narrowed.** Only **differing values for shared
+  attribute names** raise an `EntityAttributesConflicted`. A claim that
+  carries a new, claim-only attribute is now **additive — no longer a
+  conflict**.
+- **`EntityStorage.findCandidates(Claim)` → `findCandidates(Claim, int
+  limit)`.** The capped two-arg form is the primary port method;
+  `findCandidates(Claim)` remains as a convenience default delegating to
+  `Integer.MAX_VALUE`. Adapter implementors must honour the limit.
+- **Starter: `jclaim.conflict-sink.*` → `jclaim.match-sink.*`** with a
+  new type enum `noop | logging | spring-events` (was `none | log |
+  spring-event`). The bridged event type `JclaimConflictEvent` →
+  `JclaimMatchEvent` (now wrapping the sealed `MatchEvent`).
+  `LoggingConflictSink` → `LoggingMatchSink`,
+  `SpringEventConflictSink` → `SpringEventMatchSink`.
 
 ### Changed
 

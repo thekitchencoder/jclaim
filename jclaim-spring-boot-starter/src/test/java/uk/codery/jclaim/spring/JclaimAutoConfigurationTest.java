@@ -5,7 +5,7 @@ import org.springframework.boot.autoconfigure.AutoConfigurations;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import uk.codery.jclaim.event.ConflictEventSink;
+import uk.codery.jclaim.event.MatchEventSink;
 import uk.codery.jclaim.model.Alias;
 import uk.codery.jclaim.model.Claim;
 import uk.codery.jclaim.model.Entity;
@@ -32,7 +32,7 @@ class JclaimAutoConfigurationTest {
             assertThat(ctx).hasSingleBean(EntityResolver.class);
             assertThat(ctx).hasSingleBean(EntityStorage.class);
             assertThat(ctx.getBean(EntityStorage.class)).isInstanceOf(InMemoryEntityStorage.class);
-            assertThat(ctx).hasSingleBean(ConflictEventSink.class);
+            assertThat(ctx).hasSingleBean(MatchEventSink.class);
         });
     }
 
@@ -132,21 +132,21 @@ class JclaimAutoConfigurationTest {
     }
 
     @Test
-    void loggingConflictSinkSwapsInOnProperty() {
-        runner.withPropertyValues("jclaim.conflict-sink.type=log").run(ctx -> {
-            assertThat(ctx.getBean(uk.codery.jclaim.event.ConflictEventSink.class))
-                    .isInstanceOf(uk.codery.jclaim.spring.conflict.LoggingConflictSink.class);
+    void loggingMatchSinkSwapsInOnProperty() {
+        runner.withPropertyValues("jclaim.match-sink.type=logging").run(ctx -> {
+            assertThat(ctx.getBean(uk.codery.jclaim.event.MatchEventSink.class))
+                    .isInstanceOf(uk.codery.jclaim.spring.match.LoggingMatchSink.class);
         });
     }
 
     @Test
-    void noneConflictSinkDoesNotPublishOrLog() {
-        runner.withPropertyValues("jclaim.conflict-sink.type=none").run(ctx -> {
-            uk.codery.jclaim.event.ConflictEventSink sink =
-                    ctx.getBean(uk.codery.jclaim.event.ConflictEventSink.class);
+    void noopMatchSinkDoesNotPublishOrLog() {
+        runner.withPropertyValues("jclaim.match-sink.type=noop").run(ctx -> {
+            uk.codery.jclaim.event.MatchEventSink sink =
+                    ctx.getBean(uk.codery.jclaim.event.MatchEventSink.class);
             assertThat(sink)
-                    .isNotInstanceOf(uk.codery.jclaim.spring.conflict.SpringEventConflictSink.class)
-                    .isNotInstanceOf(uk.codery.jclaim.spring.conflict.LoggingConflictSink.class);
+                    .isNotInstanceOf(uk.codery.jclaim.spring.match.SpringEventMatchSink.class)
+                    .isNotInstanceOf(uk.codery.jclaim.spring.match.LoggingMatchSink.class);
         });
     }
 

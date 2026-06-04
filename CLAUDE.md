@@ -33,9 +33,9 @@ library rather than an enterprise platform. Sibling library to
 
 JClaim is a multi-module Maven project. The repository root holds the
 aggregator POM (`packaging=pom`) and each capability lives in its own
-module: `jclaim-core` holds the port + in-memory adapter + abstract
-conformance suite, and the two storage adapters ship as sibling
-modules.
+module: `jclaim-core` holds the storage + matching ports, the
+in-memory adapter, and the abstract conformance suite; the two storage
+adapters and the JSPEC matching provider ship as sibling modules.
 
 ```
 jclaim/
@@ -44,9 +44,10 @@ jclaim/
 │   ├── RetailQuickStart.java                       # registered on jclaim-core's test classpath
 │   ├── ProductQuickStart.java                      # via build-helper-maven-plugin
 │   └── PropertyQuickStart.java
+├── jclaim-matching-jspec/                          # JSPEC-backed MatchingPolicy provider — uk.codery.jclaim.matching.jspec; depends on jclaim-core + uk.codery:jspec
 ├── jclaim-storage-postgres/                        # PostgreSQL adapter — plain JDBC, normalised 3-table schema
 ├── jclaim-storage-mongo/                           # MongoDB adapter — single-collection, unique compound index
-├── jclaim-spring-boot-starter/                     # Spring Boot 3.x auto-configuration; consumes core + storage adapters
+├── jclaim-spring-boot-starter/                     # Spring Boot 3.x auto-configuration; consumes core + storage adapters + (optional) matching provider
 └── jclaim-core/
     ├── pom.xml                                     # Inherits parent; declares own deps
     └── src/
@@ -64,10 +65,18 @@ jclaim/
         │   │   ├── MatchingAttribute.java          # Typed attribute (name, value)
         │   │   ├── ResolutionResult.java           # sealed: Matched | Minted
         │   │   └── SourceSystem.java               # Named source-system reference
-        │   ├── event/                              # Conflict event surface
+        │   ├── matching/                           # Matching policy port (no jspec dependency)
+        │   │   ├── MatchingPolicy.java             # Port: TriState evaluate(Claim, Entity); aliasOnly() default
+        │   │   ├── TriState.java                   # MATCHED | NOT_MATCHED | UNDETERMINED
+        │   │   └── AliasOnlyMatchingPolicy.java    # Stateless singleton default — alias membership only
+        │   ├── event/                              # Stewardship event surface
         │   │   ├── AttributeDiff.java              # Per-attribute divergence record
-        │   │   ├── ConflictEventSink.java          # Pluggable consumer (default no-op)
-        │   │   └── EntityAttributesConflicted.java # Emitted when matched entity differs from claim
+        │   │   ├── CandidateOutcome.java           # (candidate, TriState) pair carried on deferred-resolution events
+        │   │   ├── MatchEvent.java                 # sealed: EntityAttributesConflicted | MatchUndecided | MatchAmbiguous
+        │   │   ├── MatchEventSink.java             # Pluggable consumer (default no-op)
+        │   │   ├── EntityAttributesConflicted.java # (Entity stored, Claim claim, List<AttributeDiff> differingValues)
+        │   │   ├── MatchUndecided.java             # Mint left at least one candidate UNDETERMINED
+        │   │   └── MatchAmbiguous.java             # Multiple candidates MATCHED; winner = oldest, tiebreak urn
         │   ├── storage/                            # Storage port + in-memory adapter
         │   │   ├── EntityStorage.java              # Port interface
         │   │   ├── StorageOutcome.java             # sealed: Existing | Created
@@ -98,8 +107,10 @@ The aggregator centralises:
   execution config (compiler release level, JaCoCo coverage rules,
   Surefire defaults, source/javadoc jar generation, GPG signing under
   the `release` profile).
-- **Modules list** — currently `jclaim-core`; storage adapter modules
-  drop in alongside it.
+- **Modules list** — `jclaim-core`, `jclaim-matching-jspec`, the two
+  storage adapters, and `jclaim-spring-boot-starter`. The
+  `jspec.version` (0.6.0) is managed centrally but added as a real
+  dependency only by `jclaim-matching-jspec` — never by `jclaim-core`.
 
 ## Core Concepts
 
@@ -140,17 +151,37 @@ The single resolver operation `resolveOrMint(Claim)` returns a
 - `Minted(entity)` — no existing alias; a new entity is created with the claim
   alias attached
 
-The match is **alias-only in v0**. A future session will layer a configurable
-matching policy expressed in JSpec on top of this baseline.
+An exact `(source, sourceId)` alias owner short-circuits straight to
+`Matched` (preserving alias atomicity). When no exact owner exists, the
+resolver blocks a candidate pool (`findCandidates`, capped by
+`maxCandidates`, default 100) and scores each candidate with the
+configured `MatchingPolicy`, which returns a `TriState`. Exactly one
+`MATCHED` → `Matched` (alias linked); several `MATCHED` → `Matched`
+(oldest by `createdAt`, tiebreak urn) plus a `MatchAmbiguous` event; no
+`MATCHED` → `Minted`, plus a `MatchUndecided` event if any candidate was
+`UNDETERMINED`. The resolver always returns an identity; ambiguity
+surfaces as stewardship events. The **default policy is
+`MatchingPolicy.aliasOnly()`** — behaviour identical to the historic
+alias-only baseline.
 
-### 4. Conflict events
+### 4. Stewardship events
 
-When `resolveOrMint` matches a stored entity but the incoming claim's attributes
-differ from the stored attributes, an `EntityAttributesConflicted` event is
-delivered to the configured `ConflictEventSink`. Stored attributes are **not**
-silently updated — evidence is preserved for stewardship. The default sink is a
+Stewardship events are delivered to the configured `MatchEventSink` (default
 no-op; integrators wire it to SLF4J, Spring's `ApplicationEventPublisher`,
-Kafka, etc.
+Kafka, etc.). The sealed `MatchEvent` permits three variants:
+
+- `EntityAttributesConflicted(Entity stored, Claim claim, List<AttributeDiff>
+  differingValues)` — a matched entity's stored attributes disagree with the
+  claim. Only **differing values for shared attribute names** count; a
+  claim-only (new) attribute is **additive, not a conflict**. (`occurredAt` was
+  dropped — events are fire-and-forget; a sink stamps a time if it needs one.)
+- `MatchUndecided` — a fresh mint had only `UNDETERMINED` candidates.
+- `MatchAmbiguous` — multiple candidates `MATCHED`; the winner (oldest by
+  `createdAt`, tiebreak urn) is linked and the alternatives surfaced.
+
+Events carry `TriState` outcomes only — never jspec types, so core stays
+jspec-free. Stored attributes are **not** silently updated; evidence is
+preserved for stewardship.
 
 ### 5. Storage as a port
 
@@ -159,6 +190,8 @@ Kafka, etc.
 - `findByUrn(EntityId)`
 - `findByHumanId(String)`
 - `findByAlias(Alias)`
+- `findCandidates(Claim, int limit)` — capped candidate pool for the
+  matching policy (one-arg overload delegates to `Integer.MAX_VALUE`)
 - `resolveOrCreate(Alias, Supplier<Entity>) -> StorageOutcome` — atomic against
   the alias index
 - `addAlias(EntityId, Alias) -> Entity` — atomic on the alias index
@@ -190,12 +223,17 @@ Adding a new adapter is: implement `EntityStorage`, extend
   sourceId, attributes)`.
 - **Alias** — the `(source, sourceId)` pair after it has been linked to a
   canonical entity.
-- **Match** vs **Mint** — the two outcomes of `resolveOrMint`. Match is
-  alias-driven in v0.
+- **Match** vs **Mint** — the two outcomes of `resolveOrMint`. An exact alias
+  owner matches directly; otherwise the `MatchingPolicy` scores a candidate
+  pool to a `TriState` and the resolver matches or mints accordingly.
 - **Source system** — a named origin of claims (`ecommerce`, `pos`, `crm`).
   Represented by `SourceSystem(String name)`.
 - **Matching attribute** — a typed `(name, value)` pair carried on claims and
-  entities. Will be referenced by the future matching policy DSL.
+  entities. Projected into the target/context documents the JSPEC matching
+  policy queries.
+- **TriState** — the matching-policy verdict for one candidate: `MATCHED` /
+  `NOT_MATCHED` / `UNDETERMINED`. Lives in `jclaim-core`; carries no jspec
+  coupling.
 - **humanId** — the Crockford+Damm display ID. Lower case to avoid clashing
   with a hypothetical `HumanId` value type if one is added later.
 
@@ -288,12 +326,22 @@ Designed for extension; not yet implemented:
 - **Spring Boot starter** — **Delivered** as `jclaim-spring-boot-starter`
   — auto-configures the resolver, selects a storage adapter from the
   classpath (in-memory by default, opt-in Mongo / Postgres), bridges
-  conflict events to Spring's `ApplicationEventPublisher` as
-  `JclaimConflictEvent`, and ships optional Actuator health +
-  Micrometer metrics.
-- **Matching policy DSL** — separate session. JSpec specifications
-  express the matching policy; tri-state evaluation maps to `MATCHED`
-  / `NOT_MATCHED` / `UNDETERMINED`.
+  stewardship events to Spring's `ApplicationEventPublisher` as
+  `JclaimMatchEvent`, and ships optional Actuator health + Micrometer
+  metrics. Matching is configured via `jclaim.matching.spec` (classpath
+  spec; eager-validated, requires `jclaim-matching-jspec`) and
+  `jclaim.matching.max-candidates`; sink wiring lives under
+  `jclaim.match-sink.*` (`noop|logging|spring-events`).
+- **Matching policy DSL** — **Delivered**. The `MatchingPolicy` port +
+  `aliasOnly()` default live in `jclaim-core`; the JSPEC-backed
+  implementation ships in `jclaim-matching-jspec`
+  (`JspecMatchingPolicy.fromResource(...)` / `.fromString(...)` /
+  builder), depending on `uk.codery:jspec:0.6.0`. Each `(Claim,
+  candidate)` pair projects to target/context documents; spec operands
+  late-bind candidate values via the `$contextPath` sentinel; the
+  `EvaluationOutcome` collapses to a `TriState` via the (default
+  conjunctive) `OutcomeAggregator`. Tri-state maps to `MATCHED` /
+  `NOT_MATCHED` / `UNDETERMINED`.
 - **Additional storage adapters** — third-party adapters depend on
   `jclaim-core` (compile) and `jclaim-core` tests-classifier (test),
   implement `EntityStorage`, and extend `EntityStorageContract` to
@@ -312,7 +360,7 @@ When working with this codebase, consider:
 
 1. **Is this change preserving immutability?**
 2. **Does this maintain alias-uniqueness atomicity?**
-3. **Are conflict events emitted rather than silent updates?**
+3. **Are stewardship events emitted rather than silent updates?**
 4. **Is the change Spring-independent in core packages?**
 5. **Are there tests for this change?**
 6. **Is logging using SLF4J, not `System.out` / `System.err`?**
@@ -322,18 +370,26 @@ When working with this codebase, consider:
 - **Version**: 0.1.0-SNAPSHOT (held across the multi-module split
   because no Maven Central artefact has been published yet)
 - **Java Version**: 21
-- **Layout**: Multi-module Maven; four published modules
-  (`jclaim-core`, `jclaim-storage-mongo`, `jclaim-storage-postgres`,
-  `jclaim-spring-boot-starter`).
-- **In scope this milestone**: domain model, resolver, conflict
+- **Layout**: Multi-module Maven; five published modules
+  (`jclaim-core`, `jclaim-matching-jspec`, `jclaim-storage-mongo`,
+  `jclaim-storage-postgres`, `jclaim-spring-boot-starter`).
+- **In scope this milestone**: domain model, resolver, stewardship
   events, in-memory storage, MongoDB + PostgreSQL adapters, abstract
   `EntityStorageContract` suite pinning every adapter to identical
   behaviour, corpus reconciliation contracts shared across all three
   backends, build + workflow scaffolding, FOSSA + Codecov CI
   integrations.
-- **Also in scope this milestone**: `jclaim-spring-boot-starter` —
+- **Also delivered this milestone**: `jclaim-spring-boot-starter` —
   Spring Boot 3.x auto-configuration wiring the resolver, selecting a
-  storage adapter from the classpath, bridging conflict events to
+  storage adapter from the classpath, bridging stewardship events to
   `ApplicationEventPublisher`, plus optional Actuator health +
   Micrometer metrics.
-- **Next session**: matching policy DSL via JSpec composition.
+- **Matching policy DSL — delivered**: `MatchingPolicy` port +
+  `aliasOnly()` default in `jclaim-core`; JSPEC-backed
+  `JspecMatchingPolicy` in `jclaim-matching-jspec` (jspec 0.6.0,
+  `$contextPath` operands); capped candidate pool
+  (`findCandidates(Claim, int)`, `maxCandidates`); sealed `MatchEvent`
+  (`EntityAttributesConflicted` / `MatchUndecided` / `MatchAmbiguous`)
+  on the renamed `MatchEventSink`; starter `jclaim.matching.*`
+  auto-configuration.
+- **Next session**: merge / split operations.

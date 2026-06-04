@@ -6,7 +6,7 @@ import uk.codery.jclaim.event.AttributeDiff;
 import uk.codery.jclaim.event.EntityAttributesConflicted;
 import uk.codery.jclaim.fixtures.DeterministicUuids;
 import uk.codery.jclaim.fixtures.GroundTruthIngester;
-import uk.codery.jclaim.fixtures.RecordingConflictSink;
+import uk.codery.jclaim.fixtures.RecordingMatchSink;
 import uk.codery.jclaim.id.HumanIdGenerator;
 import uk.codery.jclaim.model.Alias;
 import uk.codery.jclaim.model.Claim;
@@ -51,7 +51,7 @@ public abstract class AbstractRetailReconciliationTest {
 
     protected RetailFixtures fixtures;
     protected EntityStorage storage;
-    protected RecordingConflictSink conflictSink;
+    protected RecordingMatchSink matchSink;
     protected EntityResolver resolver;
 
     /** Returns a fresh, empty {@link EntityStorage} for the test about to run. */
@@ -61,13 +61,13 @@ public abstract class AbstractRetailReconciliationTest {
     final void setUp() {
         fixtures = RetailFixtures.load();
         storage = newStorage();
-        conflictSink = new RecordingConflictSink();
+        matchSink = new RecordingMatchSink();
         resolver = DefaultEntityResolver.builder(storage)
                 .namespace("codery")
                 .uuidSupplier(DeterministicUuids.supplier())
                 .humanIdGenerator(new HumanIdGenerator(new Random(42)))
                 .clock(Clock.fixed(Instant.parse("2026-05-11T10:00:00Z"), ZoneOffset.UTC))
-                .conflictSink(conflictSink)
+                .matchEventSink(matchSink)
                 .build();
     }
 
@@ -94,7 +94,7 @@ public abstract class AbstractRetailReconciliationTest {
         assertThat(second).isInstanceOf(ResolutionResult.Matched.class);
         assertThat(second.entity()).isEqualTo(first.entity());
         assertThat(countEntitiesReachableVia(List.of(ecom))).isEqualTo(1);
-        assertThat(conflictSink.events()).isEmpty();
+        assertThat(matchSink.events()).isEmpty();
     }
 
     @Test
@@ -134,11 +134,11 @@ public abstract class AbstractRetailReconciliationTest {
         assertThat(result.entity().attributes())
                 .containsExactlyElementsOf(baseline.attributes());
 
-        assertThat(conflictSink.events()).hasSize(1);
-        EntityAttributesConflicted event = conflictSink.events().get(0);
+        assertThat(matchSink.events()).hasSize(1);
+        EntityAttributesConflicted event = matchSink.events().get(0);
         assertThat(event.stored()).isEqualTo(result.entity());
-        assertThat(event.incoming()).isEqualTo(mutated);
-        assertThat(event.differences()).contains(
+        assertThat(event.claim()).isEqualTo(mutated);
+        assertThat(event.differingValues()).contains(
                 new AttributeDiff("phone", "+44 7700 900110", "+44 7700 900911"));
     }
 
@@ -227,18 +227,23 @@ public abstract class AbstractRetailReconciliationTest {
     void updateClaimsBatch_emitsConflictEventsAgainstStoredAttributes() {
         // Stage 1 — full baseline ingestion, no conflicts expected.
         GroundTruthIngester.ingest(resolver, fixtures.allClaims(), fixtures.claimsByCustomer());
-        assertThat(conflictSink.events())
+        assertThat(matchSink.events())
                 .as("baseline ingest must not emit conflicts")
                 .isEmpty();
 
-        // Stage 2 — apply updates and assert each produces a Matched result
-        // plus a conflict event. Stored attributes must remain untouched.
+        // Stage 2 — apply updates and assert each produces a Matched result.
+        // Update claims that change a shared attribute value emit a conflict;
+        // claims that only add previously-unseen attributes are additive and
+        // emit nothing. Stored attributes must remain untouched throughout.
         Map<Alias, List<MatchingAttribute>> storedBefore = snapshotAttributesByAlias();
         for (Claim update : fixtures.updateClaims()) {
             ResolutionResult result = resolver.resolveOrMint(update);
             assertThat(result).isInstanceOf(ResolutionResult.Matched.class);
         }
-        assertThat(conflictSink.events()).hasSize(fixtures.updateClaims().size());
+        assertThat(matchSink.events())
+                .as("at least one update diverges on a shared attribute")
+                .isNotEmpty()
+                .hasSizeLessThanOrEqualTo(fixtures.updateClaims().size());
         assertThat(snapshotAttributesByAlias()).isEqualTo(storedBefore);
     }
 

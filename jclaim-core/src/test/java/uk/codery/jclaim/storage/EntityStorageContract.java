@@ -436,6 +436,46 @@ public abstract class EntityStorageContract {
         assertThat(idsOf(storage.findCandidates(claimNoAttrs))).containsExactly(alice.id());
     }
 
+    @Test
+    void findCandidates_respectsLimit() {
+        // Store five entities that all share the same attribute value as the
+        // claim, plus an unrelated entity that the claim does not touch.
+        String sharedPhone = "+44 7700 900100";
+        int total = 5;
+        for (int i = 0; i < total; i++) {
+            Alias alias = Alias.of(ECOM, "cust-shared-" + i);
+            int seed = 100 + i;
+            storage.resolveOrCreate(alias,
+                    () -> entityWith(seed, List.of(alias), List.of(attr("phone", sharedPhone))));
+        }
+
+        Claim claim = claim(Alias.of(ECOM, "cust-claimant"), attr("phone", sharedPhone));
+
+        int limit = 3;
+        Set<Entity> capped = storage.findCandidates(claim, limit);
+        assertThat(capped).hasSizeLessThanOrEqualTo(limit);
+
+        // Without a cap, all five overlap and are returned.
+        assertThat(storage.findCandidates(claim)).hasSize(total);
+    }
+
+    @Test
+    void findCandidates_zeroLimit_returnsEmpty() {
+        storage.resolveOrCreate(ALICE_ECOM,
+                () -> entityWith(0, List.of(ALICE_ECOM),
+                        List.of(attr("email", "alice@example.com"))));
+
+        Claim claim = claim(ALICE_ECOM, attr("email", "alice@example.com"));
+        assertThat(storage.findCandidates(claim, 0)).isEmpty();
+    }
+
+    @Test
+    void findCandidates_negativeLimit_isRejected() {
+        Claim claim = claim(ALICE_ECOM, attr("email", "alice@example.com"));
+        assertThatThrownBy(() -> storage.findCandidates(claim, -1))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
     // ── Concurrency ────────────────────────────────────────────────────────
 
     @Test

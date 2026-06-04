@@ -1,0 +1,7 @@
+id: starter-email-match
+criteria:
+  - id: same-email
+    query:
+      claim.email:
+        $eq:
+          $contextPath: candidate.email

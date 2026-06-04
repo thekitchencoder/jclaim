@@ -135,22 +135,31 @@ public final class InMemoryEntityStorage implements EntityStorage {
     }
 
     @Override
-    public Set<Entity> findCandidates(Claim claim) {
+    public Set<Entity> findCandidates(Claim claim, int limit) {
         Objects.requireNonNull(claim, "claim");
+        if (limit < 0) {
+            throw new IllegalArgumentException("limit must not be negative: " + limit);
+        }
+        Set<Entity> candidates = new LinkedHashSet<>();
+        if (limit == 0) {
+            return candidates;
+        }
         Alias claimAlias = claim.asAlias();
         Set<MatchingAttribute> claimAttrs = new HashSet<>(claim.attributes());
 
-        Set<Entity> candidates = new LinkedHashSet<>();
         for (Entity entity : byUrn.values()) {
             if (entity.aliases().contains(claimAlias)) {
                 candidates.add(entity);
-                continue;
-            }
-            for (MatchingAttribute attr : entity.attributes()) {
-                if (claimAttrs.contains(attr)) {
-                    candidates.add(entity);
-                    break;
+            } else {
+                for (MatchingAttribute attr : entity.attributes()) {
+                    if (claimAttrs.contains(attr)) {
+                        candidates.add(entity);
+                        break;
+                    }
                 }
+            }
+            if (candidates.size() == limit) {
+                break;
             }
         }
         return candidates;

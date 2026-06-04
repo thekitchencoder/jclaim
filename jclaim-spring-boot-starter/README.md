@@ -7,9 +7,13 @@ Spring Boot 3.x auto-configuration for [JCLAIM](../README.md).
 - Auto-wires an `EntityResolver` bean (in-memory by default; opt-in
   Mongo or Postgres when the corresponding adapter and client are on
   the classpath).
-- Bridges `EntityAttributesConflicted` events to Spring's
-  `ApplicationEventPublisher` as `JclaimConflictEvent`, so application
-  code reacts via ordinary `@EventListener` methods.
+- Selects the `MatchingPolicy`: `aliasOnly()` by default, or a
+  jspec-backed `JspecMatchingPolicy` when `jclaim.matching.spec` points
+  at a spec resource and `jclaim-matching-jspec` is on the classpath.
+- Bridges `MatchEvent`s (`EntityAttributesConflicted`, `MatchUndecided`,
+  `MatchAmbiguous`) to Spring's `ApplicationEventPublisher` as
+  `JclaimMatchEvent`, so application code reacts via ordinary
+  `@EventListener` methods.
 - Registers optional Spring Boot Actuator `HealthIndicator` and
   Micrometer metrics (`MeterRegistry`-driven) when those facilities
   are on the classpath.
@@ -142,44 +146,55 @@ All properties live under the `jclaim.*` prefix.
 | `jclaim.storage.mongo.collection-name`    | `jclaim_entities`  | Mongo collection name.                                                                            |
 | `jclaim.storage.mongo.create-indexes`     | `true`             | Auto-create the unique alias + humanId indexes on startup.                                        |
 | `jclaim.storage.postgres.apply-schema`    | `true`             | Auto-apply the bundled `schema.sql` on startup.                                                   |
-| `jclaim.conflict-sink.type`               | `spring-event`     | One of `spring-event`, `log`, `none`.                                                             |
+| `jclaim.matching.spec`                    | _(none)_           | Classpath spec resource for a `JspecMatchingPolicy`; absent → `aliasOnly()`. Requires `jclaim-matching-jspec`. Eagerly validated — a missing resource fails context startup. |
+| `jclaim.matching.max-candidates`          | `100`              | Cap on attribute-blocked candidates the policy scores per claim. Truncation → WARN + `jclaim.matching.pool_truncated_total`. |
+| `jclaim.match-sink.type`                  | `spring-events`    | One of `spring-events`, `logging`, `noop`.                                                        |
 | `jclaim.metrics.enabled`                  | `true`             | Wraps the resolver with a Micrometer-instrumented decorator when a `MeterRegistry` bean exists.   |
 | `jclaim.health.enabled`                   | `true`             | Registers an Actuator `HealthIndicator` for the configured storage.                               |
 
-## Listening to conflict events
+## Listening to match events
 
-The default `ConflictEventSink` republishes every conflict as a
-`JclaimConflictEvent` on the application context. Consume it with a
-plain `@EventListener`:
+The default `MatchEventSink` republishes every `MatchEvent` as a
+`JclaimMatchEvent` on the application context. The payload is the sealed
+`MatchEvent` — pattern-match it to react per type:
 
 ```java
 @Component
-class ConflictAuditor {
+class StewardshipListener {
 
     @EventListener
-    public void onConflict(JclaimConflictEvent event) {
-        var diff = event.payload().differences();
-        log.warn("conflict on {}: {}", event.payload().stored().id(), diff);
+    public void onMatchEvent(JclaimMatchEvent event) {
+        switch (event.payload()) {
+            case EntityAttributesConflicted c ->
+                log.warn("conflict on {}: {}", c.stored().id(), c.differingValues());
+            case MatchUndecided u ->
+                log.info("minted {} with undetermined candidates", u.minted().id());
+            case MatchAmbiguous a ->
+                log.warn("ambiguous match; chose {}, {} runners-up",
+                        a.winner().id(), a.otherMatched().size());
+        }
     }
 }
 ```
 
-The stored entity is **not** silently updated — the event preserves
-evidence for stewardship.
+The stored entity is **not** silently updated — events preserve evidence
+for stewardship. Note: a claim that only *adds* a new attribute is
+additive, not a conflict; only differing values on shared attribute names
+fire `EntityAttributesConflicted`.
 
 ## Overriding beans
 
 Every bean the starter registers is `@ConditionalOnMissingBean`.
-Define your own `EntityResolver`, `EntityStorage`, or
-`ConflictEventSink` and the starter steps aside:
+Define your own `EntityResolver`, `EntityStorage`, `MatchingPolicy`, or
+`MatchEventSink` and the starter steps aside:
 
 ```java
 @Configuration
 class JclaimOverrides {
 
     @Bean
-    ConflictEventSink myConflictSink() {
-        return event -> kafkaTemplate.send("jclaim.conflicts", event);
+    MatchEventSink myMatchSink() {
+        return event -> kafkaTemplate.send("jclaim.match-events", event);
     }
 }
 ```

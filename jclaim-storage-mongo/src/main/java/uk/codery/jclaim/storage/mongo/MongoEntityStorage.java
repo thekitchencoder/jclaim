@@ -207,8 +207,15 @@ public final class MongoEntityStorage implements EntityStorage {
     }
 
     @Override
-    public Set<Entity> findCandidates(Claim claim) {
+    public Set<Entity> findCandidates(Claim claim, int limit) {
         Objects.requireNonNull(claim, "claim");
+        if (limit < 0) {
+            throw new IllegalArgumentException("limit must not be negative: " + limit);
+        }
+        Set<Entity> candidates = new LinkedHashSet<>();
+        if (limit == 0) {
+            return candidates;
+        }
         List<Bson> clauses = new ArrayList<>(1 + claim.attributes().size());
         clauses.add(aliasFilter(claim.asAlias()));
         for (MatchingAttribute attr : claim.attributes()) {
@@ -219,8 +226,7 @@ public final class MongoEntityStorage implements EntityStorage {
         }
         Bson query = clauses.size() == 1 ? clauses.get(0) : Filters.or(clauses);
 
-        Set<Entity> candidates = new LinkedHashSet<>();
-        for (Document doc : collection.find(query)) {
+        for (Document doc : collection.find(query).limit(limit)) {
             candidates.add(toEntity(doc));
         }
         return candidates;

@@ -2,13 +2,12 @@ package uk.codery.jclaim.event;
 
 /**
  * One axis of divergence between a stored entity and an incoming claim's
- * attributes. Carries the attribute name plus the conflicting values:
+ * attributes. A diff is only produced for attribute names present on
+ * <em>both</em> sides with differing values:
  *
  * <ul>
- *   <li>{@code stored} — what the entity records (may be {@code null} if the
- *       claim introduces a new attribute that the entity has never carried),</li>
- *   <li>{@code incoming} — what the claim asserts (may be {@code null} if the
- *       claim drops an attribute the entity previously carried).</li>
+ *   <li>{@code stored} — what the entity records for this attribute,</li>
+ *   <li>{@code incoming} — what the claim asserts for this attribute.</li>
  * </ul>
  *
  * <p>Stewardship logic typically iterates over a list of these when handling

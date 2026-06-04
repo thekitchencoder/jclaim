@@ -3,8 +3,9 @@ package uk.codery.jclaim.resolver;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import uk.codery.jclaim.event.AttributeDiff;
-import uk.codery.jclaim.event.ConflictEventSink;
 import uk.codery.jclaim.event.EntityAttributesConflicted;
+import uk.codery.jclaim.event.MatchEvent;
+import uk.codery.jclaim.event.MatchEventSink;
 import uk.codery.jclaim.id.HumanIdGenerator;
 import uk.codery.jclaim.model.Claim;
 import uk.codery.jclaim.model.EntityId;
@@ -43,7 +44,7 @@ class DefaultEntityResolverTest {
                 .uuidSupplier(deterministicUuids())
                 .humanIdGenerator(new HumanIdGenerator(new Random(7)))
                 .clock(Clock.fixed(Instant.parse("2026-05-10T12:00:00Z"), ZoneOffset.UTC))
-                .conflictSink(sink)
+                .matchEventSink(sink)
                 .build();
     }
 
@@ -97,13 +98,61 @@ class DefaultEntityResolverTest {
                 MatchingAttribute.of("phone", "+44 1234 567890"));
 
         assertThat(sink.events).hasSize(1);
-        EntityAttributesConflicted event = sink.events.get(0);
+        EntityAttributesConflicted event = (EntityAttributesConflicted) sink.events.get(0);
         assertThat(event.stored()).isEqualTo(result.entity());
-        assertThat(event.incoming()).isEqualTo(updated);
-        assertThat(event.differences()).containsExactlyInAnyOrder(
-                new AttributeDiff("email", "alice@example.com", "alice.new@example.com"),
-                new AttributeDiff("preferredName", null, "Ali")
+        assertThat(event.claim()).isEqualTo(updated);
+        // preferredName is claim-only — additive, not a conflict — so it is
+        // intentionally absent from differingValues.
+        assertThat(event.differingValues()).containsExactly(
+                new AttributeDiff("email", "alice@example.com", "alice.new@example.com")
         );
+    }
+
+    @Test
+    void resolveOrMint_claimAddsNewAttribute_doesNotEmitConflict() {
+        Claim original = new Claim(ECOMMERCE, "cust-1", List.of(
+                MatchingAttribute.of("email", "alice@example.com")));
+        Claim withExtra = new Claim(ECOMMERCE, "cust-1", List.of(
+                MatchingAttribute.of("email", "alice@example.com"),
+                MatchingAttribute.of("preferredName", "Ali")));
+
+        resolver.resolveOrMint(original);
+        ResolutionResult result = resolver.resolveOrMint(withExtra);
+
+        assertThat(result).isInstanceOf(ResolutionResult.Matched.class);
+        // A claim that only adds a previously-unseen attribute is additive, not
+        // a conflict — no stewardship event is emitted.
+        assertThat(sink.events).isEmpty();
+    }
+
+    @Test
+    void builder_rejectsNonPositiveMaxCandidates() {
+        assertThatThrownBy(() ->
+                DefaultEntityResolver.builder(storage).maxCandidates(0))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() ->
+                DefaultEntityResolver.builder(storage).maxCandidates(-1))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void builder_defaultPolicyIsAliasOnly_soBehaviourIsUnchanged() {
+        // With no policy configured the resolver uses aliasOnly(); a second
+        // claim for the same alias short-circuits to Matched with no events.
+        DefaultEntityResolver defaults = DefaultEntityResolver.builder(storage)
+                .namespace("codery")
+                .uuidSupplier(deterministicUuids())
+                .humanIdGenerator(new HumanIdGenerator(new Random(7)))
+                .matchEventSink(sink)
+                .build();
+
+        Claim claim = new Claim(ECOMMERCE, "cust-1", List.of(
+                MatchingAttribute.of("email", "alice@example.com")));
+        assertThat(defaults.resolveOrMint(claim))
+                .isInstanceOf(ResolutionResult.Minted.class);
+        assertThat(defaults.resolveOrMint(claim))
+                .isInstanceOf(ResolutionResult.Matched.class);
+        assertThat(sink.events).isEmpty();
     }
 
     @Test
@@ -157,11 +206,11 @@ class DefaultEntityResolverTest {
         };
     }
 
-    private static final class RecordingSink implements ConflictEventSink {
-        final List<EntityAttributesConflicted> events = new ArrayList<>();
+    private static final class RecordingSink implements MatchEventSink {
+        final List<MatchEvent> events = new ArrayList<>();
 
         @Override
-        public void accept(EntityAttributesConflicted event) {
+        public void accept(MatchEvent event) {
             events.add(event);
         }
     }

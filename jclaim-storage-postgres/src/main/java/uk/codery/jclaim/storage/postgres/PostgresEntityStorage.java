@@ -257,30 +257,41 @@ public final class PostgresEntityStorage implements EntityStorage {
     }
 
     @Override
-    public Set<Entity> findCandidates(Claim claim) {
+    public Set<Entity> findCandidates(Claim claim, int limit) {
         Objects.requireNonNull(claim, "claim");
+        if (limit < 0) {
+            throw new IllegalArgumentException("limit must not be negative: " + limit);
+        }
+        Set<Entity> candidates = new LinkedHashSet<>();
+        if (limit == 0) {
+            return candidates;
+        }
         Set<String> candidateUrns = new LinkedHashSet<>();
         try (Connection conn = dataSource.getConnection()) {
             String aliasOwner = findEntityUrnForAlias(conn, claim.asAlias());
             if (aliasOwner != null) {
                 candidateUrns.add(aliasOwner);
             }
-            if (!claim.attributes().isEmpty()) {
+            if (candidateUrns.size() < limit && !claim.attributes().isEmpty()) {
                 try (PreparedStatement ps = conn.prepareStatement(
                         "SELECT DISTINCT entity_urn FROM entity_attributes "
-                                + "WHERE name = ? AND value = ?::jsonb")) {
+                                + "WHERE name = ? AND value = ?::jsonb LIMIT ?")) {
+                    attributeLoop:
                     for (MatchingAttribute attr : claim.attributes()) {
                         ps.setString(1, attr.name());
                         ps.setString(2, objectMapper.writeValueAsString(attr.value()));
+                        ps.setInt(3, limit);
                         try (ResultSet rs = ps.executeQuery()) {
                             while (rs.next()) {
                                 candidateUrns.add(rs.getString(1));
+                                if (candidateUrns.size() == limit) {
+                                    break attributeLoop;
+                                }
                             }
                         }
                     }
                 }
             }
-            Set<Entity> candidates = new LinkedHashSet<>();
             for (String urn : candidateUrns) {
                 loadEntity(conn, urn).ifPresent(candidates::add);
             }

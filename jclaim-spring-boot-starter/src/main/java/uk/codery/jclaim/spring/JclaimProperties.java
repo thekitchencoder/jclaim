@@ -5,7 +5,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 /**
  * Tunables exposed by the JClaim Spring Boot starter under the {@code jclaim}
  * property namespace. Covers the URN namespace, storage selection and per-adapter
- * settings, conflict-sink wiring, and the optional metrics and health indicators.
+ * settings, match-sink wiring, and the optional metrics and health indicators.
  * Defaults yield a working in-memory setup with no required overrides.
  */
 @ConfigurationProperties("jclaim")
@@ -13,7 +13,8 @@ public class JclaimProperties {
 
     private String namespace = "codery";
     private Storage storage = new Storage();
-    private ConflictSink conflictSink = new ConflictSink();
+    private MatchSink matchSink = new MatchSink();
+    private Matching matching = new Matching();
     private Metrics metrics = new Metrics();
     private Health health = new Health();
 
@@ -38,12 +39,20 @@ public class JclaimProperties {
         this.storage = storage;
     }
 
-    public ConflictSink conflictSink() {
-        return conflictSink;
+    public MatchSink matchSink() {
+        return matchSink;
     }
 
-    public void setConflictSink(ConflictSink conflictSink) {
-        this.conflictSink = conflictSink;
+    public void setMatchSink(MatchSink matchSink) {
+        this.matchSink = matchSink;
+    }
+
+    public Matching matching() {
+        return matching;
+    }
+
+    public void setMatching(Matching matching) {
+        this.matching = matching;
     }
 
     public Metrics metrics() {
@@ -67,9 +76,9 @@ public class JclaimProperties {
         AUTO, IN_MEMORY, MONGO, POSTGRES
     }
 
-    /** Selects how {@code EntityAttributesConflicted} events are delivered. */
-    public enum ConflictSinkType {
-        SPRING_EVENT, LOG, NONE
+    /** Selects how {@code MatchEvent} stewardship events are delivered. */
+    public enum MatchSinkType {
+        SPRING_EVENTS, LOGGING, NOOP
     }
 
     /** Storage adapter selection and per-adapter settings. */
@@ -147,16 +156,44 @@ public class JclaimProperties {
         }
     }
 
-    /** Conflict-event sink wiring. */
-    public static class ConflictSink {
-        private ConflictSinkType type = ConflictSinkType.SPRING_EVENT;
+    /** Match-event sink wiring. */
+    public static class MatchSink {
+        private MatchSinkType type = MatchSinkType.SPRING_EVENTS;
 
-        public ConflictSinkType type() {
+        public MatchSinkType type() {
             return type;
         }
 
-        public void setType(ConflictSinkType type) {
+        public void setType(MatchSinkType type) {
             this.type = type;
+        }
+    }
+
+    /**
+     * Matching-policy configuration. When {@code spec} is set the starter builds
+     * a jspec-backed {@code MatchingPolicy} from the named classpath resource
+     * (requiring {@code jclaim-matching-jspec} on the classpath); otherwise the
+     * alias-only default policy is used.
+     */
+    public static class Matching {
+        private String spec;
+        private int maxCandidates = 100;
+
+        /** Classpath path to the jspec matching spec (e.g. {@code matching/policy.yaml}); null/blank means alias-only. */
+        public String spec() {
+            return spec;
+        }
+
+        public void setSpec(String spec) {
+            this.spec = spec;
+        }
+
+        public int maxCandidates() {
+            return maxCandidates;
+        }
+
+        public void setMaxCandidates(int maxCandidates) {
+            this.maxCandidates = maxCandidates;
         }
     }
 

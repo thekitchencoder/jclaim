@@ -16,9 +16,9 @@ The MDM (Master Data Management) entity-matching pattern, packaged as a library 
 - **Canonical identity** — One stable URN per entity, minted as UUID v7. Source-system IDs become aliases on the canonical entity.
 - **Human-friendly IDs** — Crockford Base32 with Damm check digit (`K7M2-9X4P-N`). Phone-readable, OCR-friendly, transcription-error-resistant.
 - **Match-or-mint as one operation** — `resolveOrMint(claim)` returns a `Matched` or `Minted` result. Callers know which path was taken.
-- **Matching policy as data** *(roadmap)* — Express your matching logic as a JSPEC specification. Tri-state evaluation surfaces `MATCHED`, `NOT_MATCHED`, and `UNDETERMINED` claims naturally.
+- **Matching policy as data** — Express your matching logic as a [JSPEC](https://github.com/thekitchencoder/jspec) specification via the optional `jclaim-matching-jspec` module. Tri-state evaluation surfaces `MATCHED`, `NOT_MATCHED`, and `UNDETERMINED` candidates naturally; the default policy is alias-only, so behaviour is unchanged until you opt in. See [Matching policy](#matching-policy).
 - **Alias graph from day one** — Records the mapping from canonical identity to source IDs, with the data shape ready for merge, split, and federation correlation.
-- **Conflict-aware** — When a match succeeds but stored attributes differ from the new claim, JCLAIM emits an event rather than silently updating. Evidence is preserved for stewardship.
+- **Stewardship events** — When a match succeeds but stored attributes differ from the new claim, when a mint leaves candidates undetermined, or when several candidates match at once, JCLAIM emits a typed `MatchEvent` rather than silently updating or guessing. Evidence is preserved for stewardship; stored attributes are never overwritten.
 - **Storage adapters** — In-memory in `jclaim-core` for tests and evaluation; production adapters for MongoDB (`jclaim-storage-mongo`) and PostgreSQL (`jclaim-storage-postgres`) ship as separate modules. All three back the same conformance suite, so behaviour is identical across paradigms.
 - **Spring-independent core, optional Boot integration** — `jclaim-core` and the storage adapters never import Spring. `jclaim-spring-boot-starter` provides idiomatic auto-configuration for Boot users without compromising that independence.
 - **Java 21 foundation** — Records, sealed interfaces, switch expressions, immutable collections throughout.
@@ -54,6 +54,13 @@ The MDM (Master Data Management) entity-matching pattern, packaged as a library 
 <dependency>
     <groupId>uk.codery</groupId>
     <artifactId>jclaim-spring-boot-starter</artifactId>
+    <version>0.1.0-SNAPSHOT</version>
+</dependency>
+
+<!-- JSPEC-backed matching policy (optional) -->
+<dependency>
+    <groupId>uk.codery</groupId>
+    <artifactId>jclaim-matching-jspec</artifactId>
     <version>0.1.0-SNAPSHOT</version>
 </dependency>
 ```
@@ -103,18 +110,23 @@ assert found.isPresent();
 assert found.get().equals(first.entity());
 ```
 
-### Reacting to conflicts
+### Reacting to stewardship events
 
-When a matching claim asserts attributes that disagree with the stored entity, JCLAIM emits an event:
+The resolver delivers every stewardship event to a `MatchEventSink`. Wire one to observe attribute conflicts, undecided mints, and ambiguous matches:
 
 ```java
+import uk.codery.jclaim.event.EntityAttributesConflicted;
+
 var resolver = DefaultEntityResolver.builder(new InMemoryEntityStorage())
-        .conflictSink(event -> log.warn(
-                "conflict on {}: {}", event.stored().id(), event.differences()))
+        .matchEventSink(event -> {
+            if (event instanceof EntityAttributesConflicted c) {
+                log.warn("conflict on {}: {}", c.stored().id(), c.differingValues());
+            }
+        })
         .build();
 ```
 
-The stored entity is **not** updated — silent overwrites are explicitly avoided. Stewardship logic decides whether to overwrite, merge, branch, or escalate.
+The sealed `MatchEvent` hierarchy is `EntityAttributesConflicted`, `MatchUndecided`, and `MatchAmbiguous`. Only **differing values for shared attribute names** raise a conflict — a claim that merely adds a new attribute is additive, not a conflict. The stored entity is **not** updated; silent overwrites are explicitly avoided. Stewardship logic decides whether to overwrite, merge, branch, or escalate.
 
 ### Runnable example: retail customer reconciliation
 
@@ -189,12 +201,47 @@ events, similar-looking-but-distinct entities). The library and the
 test scaffolding are shared between them — only the YAML data and a
 thin domain-named loader wrapper differ.
 
+## Matching policy
+
+`resolveOrMint` first looks for the exact `(source, sourceId)` alias owner. When none exists, instead of minting blindly it blocks a pool of candidates that share an attribute with the claim and scores each with a **matching policy**. The policy returns a `TriState` — `MATCHED`, `NOT_MATCHED`, or `UNDETERMINED` — and the resolver always returns an identity: a single match links the alias, multiple matches link the oldest and emit `MatchAmbiguous`, no match mints (emitting `MatchUndecided` if any candidate was undetermined).
+
+The default policy is `MatchingPolicy.aliasOnly()` — a candidate matches iff it already owns the claim's alias. With the default in place, behaviour is **identical to alias-only matching**; nothing changes until you supply a policy.
+
+Richer policies are expressed as [JSPEC](https://github.com/thekitchencoder/jspec) specifications and supplied by the optional `jclaim-matching-jspec` module. The provider projects each `(claim, candidate)` pair into a target document (`claim.*`) and a context document (`candidate.*`); spec operands late-bind candidate values through the `$contextPath` sentinel:
+
+```yaml
+id: customer-match
+criteria:
+  - id: same-email
+    query:
+      claim.email:
+        $eq: { $contextPath: candidate.email }
+  - id: same-postcode
+    query:
+      claim.postcode:
+        $eq: { $contextPath: candidate.postcode }
+```
+
+Wire it into the resolver:
+
+```java
+import uk.codery.jclaim.matching.jspec.JspecMatchingPolicy;
+
+var resolver = DefaultEntityResolver.builder(new InMemoryEntityStorage())
+        .namespace("codery")
+        .matchingPolicy(JspecMatchingPolicy.fromResource("/matching/customer-match.yaml"))
+        .maxCandidates(100)   // cap the candidate pool (default 100)
+        .build();
+```
+
+The default aggregation is conjunctive — all criteria `MATCHED` yields `MATCHED`, any `NOT_MATCHED` yields `NOT_MATCHED`, otherwise `UNDETERMINED`. The candidate pool is capped (`maxCandidates`, default 100); truncation is logged at WARN. See the [`jclaim-matching-jspec` module README](./jclaim-matching-jspec/README.md) for projection and aggregator customisation.
+
 ## Design
 
 - **URN scheme** — `urn:<namespace>:entity:<UUID v7>`. The namespace is caller-configurable; the UUID is RFC 9562 v7 (time-ordered, B-tree-friendly) generated via [`uuid-creator`](https://github.com/f4b6a3/uuid-creator).
 - **Human ID** — Eight Crockford Base32 characters plus a Damm check digit, displayed as `XXXX-XXXX-X`. Independently minted, never derived from the URN. Storage enforces uniqueness; the resolver re-rolls on collision.
 - **Storage as a port** — `EntityStorage` exposes five operations: three reads, one atomic `resolveOrCreate` primitive (Mongo-shaped, maps to `findOneAndUpdate` upsert), and one atomic `addAlias`. The MongoDB and PostgreSQL adapters fit this port without any service-code change, and an abstract `EntityStorageContract` suite pins every adapter to identical behaviour across paradigms.
-- **Alias-only match in this release** — `resolveOrMint` matches solely on the `(source, sourceId)` alias. A future release adds attribute-based matching driven by a [JSPEC](https://github.com/thekitchencoder/jspec) specification.
+- **Pluggable matching policy** — an exact `(source, sourceId)` alias owner short-circuits to `Matched`, preserving the alias-atomic concurrency guarantee. Otherwise `resolveOrMint` scores a capped candidate pool with the configured `MatchingPolicy` (port in `jclaim-core`, default `aliasOnly()`). Attribute-based matching is driven by a [JSPEC](https://github.com/thekitchencoder/jspec) specification through the optional `jclaim-matching-jspec` provider — see [Matching policy](#matching-policy).
 
 ## Documentation
 
@@ -221,7 +268,8 @@ JCLAIM is a multi-module Maven project. The repository root holds the aggregator
 
 | Module                        | Purpose                                                                          | Status      |
 |-------------------------------|----------------------------------------------------------------------------------|-------------|
-| `jclaim-core`                 | Domain model, resolver service, in-memory storage adapter, conflict events       | available   |
+| `jclaim-core`                 | Domain model, resolver service, in-memory storage adapter, `MatchingPolicy` port + alias-only default, stewardship events | available   |
+| `jclaim-matching-jspec`       | JSPEC-backed `MatchingPolicy` provider — `$contextPath` specs scoring `(claim, candidate)` pairs to a `TriState` — see [module README](jclaim-matching-jspec/README.md) | available |
 | `jclaim-storage-mongo`        | MongoDB storage adapter for the `EntityStorage` port — see [module README](jclaim-storage-mongo/README.md) | available |
 | `jclaim-storage-postgres`     | PostgreSQL storage adapter for the `EntityStorage` port — see [module README](jclaim-storage-postgres/README.md) | available |
 | `jclaim-spring-boot-starter`  | Spring Boot 3.x auto-configuration — wires the resolver, selects a storage adapter, bridges conflict events, adds Actuator health + Micrometer metrics — see [module README](jclaim-spring-boot-starter/README.md) | available |
@@ -232,7 +280,7 @@ Consumers depend only on the modules they need. The in-memory adapter is shipped
 
 JCLAIM is one of a family of small Java libraries developed under the `uk.codery` namespace:
 
-- [JSPEC](https://github.com/thekitchencoder/jspec) — declarative criteria evaluation against JSON / YAML documents.
+- [JSPEC](https://github.com/thekitchencoder/jspec) — declarative criteria evaluation against JSON / YAML documents. JCLAIM composes it for matching policy via `jclaim-matching-jspec`.
 - JCLAIM — entity identity reconciliation (this project).
 
 ## License
