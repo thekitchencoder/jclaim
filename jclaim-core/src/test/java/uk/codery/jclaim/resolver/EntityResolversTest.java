@@ -55,6 +55,27 @@ class EntityResolversTest {
     }
 
     @Test
+    void forType_returnsResolver() {
+        EntityResolver customer = resolverFor("customer");
+        EntityResolvers resolvers = EntityResolvers.of(Map.of("customer", customer));
+
+        assertThat(resolvers.forType("customer")).isSameAs(customer);
+    }
+
+    @Test
+    void forType_unknownThrowsListingKnownTypes() {
+        EntityResolvers resolvers = EntityResolvers.of(Map.of(
+                "customer", resolverFor("customer"),
+                "vehicle", resolverFor("vehicle")));
+
+        assertThatThrownBy(() -> resolvers.forType("supplier"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("supplier")
+                .hasMessageContaining("customer")
+                .hasMessageContaining("vehicle");
+    }
+
+    @Test
     void of_isDefensivelyCopied() {
         Map<String, EntityResolver> source = new HashMap<>();
         source.put("customer", resolverFor("customer"));

@@ -48,6 +48,20 @@ public final class EntityResolvers {
         return Optional.ofNullable(byType.get(type));
     }
 
+    /**
+     * Returns the resolver registered for {@code type}, or throws
+     * {@link IllegalArgumentException} listing the known types if none is
+     * registered.
+     */
+    public EntityResolver forType(String type) {
+        EntityResolver resolver = byType.get(type);
+        if (resolver == null) {
+            throw new IllegalArgumentException(
+                    "No resolver for entity type '" + type + "'. Known types: " + byType.keySet());
+        }
+        return resolver;
+    }
+
     /** Returns the set of registered entity types. */
     public Set<String> types() {
         return byType.keySet();
