@@ -193,7 +193,7 @@ class DefaultEntityResolverTest {
     }
 
     @Test
-    void unconfiguredResolverMintsLegacyDefaults() {
+    void unconfiguredResolverMintsDefaultUrnAndNoHumanId() {
         EntityStorage storage = new InMemoryEntityStorage();
         EntityResolver resolver = DefaultEntityResolver.builder(storage).build();
         ResolutionResult r = resolver.resolveOrMint(
@@ -201,7 +201,26 @@ class DefaultEntityResolverTest {
         Entity e = ((ResolutionResult.Minted) r).entity();
         assertThat(e.id().urn()).startsWith("urn:codery:entity:");
         assertThat(e.id().type()).isEqualTo("entity");
-        assertThat(e.humanId()).matches("[0-9A-Z]{4}-[0-9A-Z]{4}-[0-9]");
+        assertThat(e.humanId()).isNull();
+    }
+
+    @Test
+    void noTemplate_mintsEntityWithNullHumanId() {
+        EntityStorage storage = new InMemoryEntityStorage();
+        EntityResolver resolver = DefaultEntityResolver.builder(storage).build(); // no template
+        Entity e = ((ResolutionResult.Minted) resolver.resolveOrMint(
+                new Claim(SourceSystem.of("crm"), "u-1", List.of()))).entity();
+        assertThat(e.humanId()).isNull();
+    }
+
+    @Test
+    void blankTemplate_mintsNoHumanId() {
+        EntityStorage storage = new InMemoryEntityStorage();
+        EntityResolver resolver = DefaultEntityResolver.builder(storage)
+                .humanIdTemplate("  ").build();
+        Entity e = ((ResolutionResult.Minted) resolver.resolveOrMint(
+                new Claim(SourceSystem.of("crm"), "u-2", List.of()))).entity();
+        assertThat(e.humanId()).isNull();
     }
 
     @Test

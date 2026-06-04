@@ -85,7 +85,7 @@ public final class InMemoryEntityStorage implements EntityStorage {
             if (byUrn.containsKey(minted.id())) {
                 throw new IllegalStateException("URN collision on mint: " + minted.id());
             }
-            if (byHumanId.containsKey(minted.humanId())) {
+            if (minted.humanId() != null && byHumanId.containsKey(minted.humanId())) {
                 throw new IllegalStateException(
                         "humanId collision on mint: " + minted.humanId());
             }
@@ -96,7 +96,9 @@ public final class InMemoryEntityStorage implements EntityStorage {
             }
 
             byUrn.put(minted.id(), minted);
-            byHumanId.put(minted.humanId(), minted.id());
+            if (minted.humanId() != null) {
+                byHumanId.put(minted.humanId(), minted.id());
+            }
             for (Alias other : minted.aliases()) {
                 byAlias.put(other, minted.id());
             }
