@@ -257,7 +257,12 @@ public final class MongoEntityStorage implements EntityStorage {
     static Document toDocument(Entity entity) {
         Document doc = new Document();
         doc.put(FIELD_ID, entity.id().urn());
-        doc.put(FIELD_HUMAN_ID, entity.humanId());
+        // Omit humanId entirely when absent: a present-but-null value would
+        // still satisfy the partial index's {$exists:true} filter and collide
+        // with every other humanId-less entity on null.
+        if (entity.humanId() != null) {
+            doc.put(FIELD_HUMAN_ID, entity.humanId());
+        }
         doc.put(FIELD_SUPERSEDED_BY, entity.supersededBy() == null ? null : entity.supersededBy().urn());
         doc.put(FIELD_CREATED_AT, Date.from(entity.createdAt()));
         doc.put(FIELD_UPDATED_AT, Date.from(entity.updatedAt()));
@@ -329,9 +334,14 @@ public final class MongoEntityStorage implements EntityStorage {
     // ── Index management ──────────────────────────────────────────────────
 
     private void createIndexes() {
+        // Partial unique index: humanId is opt-in, so only documents that
+        // carry the field participate. Entities minted without a humanId omit
+        // the field entirely (see toDocument) and never collide on null.
         collection.createIndex(
                 Indexes.ascending(FIELD_HUMAN_ID),
-                new IndexOptions().unique(true).name(INDEX_HUMAN_ID));
+                new IndexOptions().unique(true)
+                        .partialFilterExpression(Filters.exists(FIELD_HUMAN_ID, true))
+                        .name(INDEX_HUMAN_ID));
         collection.createIndex(
                 Indexes.ascending(FIELD_ALIASES + "." + FIELD_ALIAS_SOURCE,
                         FIELD_ALIASES + "." + FIELD_ALIAS_SOURCE_ID),

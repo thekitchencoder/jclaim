@@ -29,7 +29,10 @@ final class MongoIndexesTest {
 
         assertThat(indexes)
                 .anyMatch(idx -> MongoEntityStorage.INDEX_HUMAN_ID.equals(idx.getString("name"))
-                        && Boolean.TRUE.equals(idx.getBoolean("unique")))
+                        && Boolean.TRUE.equals(idx.getBoolean("unique"))
+                        // humanId is opt-in: the unique index is partial so that
+                        // documents without the field don't collide on null.
+                        && idx.containsKey("partialFilterExpression"))
                 .anyMatch(idx -> MongoEntityStorage.INDEX_ALIASES.equals(idx.getString("name"))
                         && Boolean.TRUE.equals(idx.getBoolean("unique"))
                         && idx.get("key", Document.class).containsKey("aliases.source")
