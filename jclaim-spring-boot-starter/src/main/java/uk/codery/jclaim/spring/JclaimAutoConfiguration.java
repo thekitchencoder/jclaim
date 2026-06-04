@@ -1,5 +1,9 @@
 package uk.codery.jclaim.spring;
 
+import java.util.LinkedHashMap;
+import java.util.Map;
+
+import org.springframework.beans.factory.ListableBeanFactory;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -12,6 +16,7 @@ import uk.codery.jclaim.event.MatchEventSink;
 import uk.codery.jclaim.matching.MatchingPolicy;
 import uk.codery.jclaim.resolver.DefaultEntityResolver;
 import uk.codery.jclaim.resolver.EntityResolver;
+import uk.codery.jclaim.resolver.EntityResolvers;
 import uk.codery.jclaim.spring.match.LoggingMatchSink;
 import uk.codery.jclaim.spring.match.SpringEventMatchSink;
 import uk.codery.jclaim.spring.matching.JclaimMatchingConfiguration;
@@ -74,5 +79,38 @@ public class JclaimAutoConfiguration {
                 .matchingPolicy(matchingPolicy)
                 .maxCandidates(properties.matching().maxCandidates())
                 .build();
+    }
+
+    /**
+     * Multi-type mode: registers one {@link EntityResolver} bean per
+     * {@code jclaim.entity-types.<type>} entry. Must be {@code static} so this
+     * {@link org.springframework.beans.factory.support.BeanDefinitionRegistryPostProcessor}
+     * is instantiated early (before regular bean post-processing) without forcing
+     * premature initialisation of the enclosing configuration.
+     */
+    @Bean
+    @Conditional(EntityTypesConfiguredCondition.class)
+    static EntityTypeResolverRegistrar jclaimEntityTypeResolverRegistrar() {
+        return new EntityTypeResolverRegistrar();
+    }
+
+    /**
+     * Multi-type facade: aggregates every {@code jclaimEntityResolver_<type>} bean
+     * into an {@link EntityResolvers} registry keyed by the bare type. Resolves the
+     * per-type beans by name prefix from the bean factory so the registrar's
+     * dynamically-registered definitions are picked up.
+     */
+    @Bean
+    @ConditionalOnMissingBean
+    @Conditional(EntityTypesConfiguredCondition.class)
+    public EntityResolvers jclaimEntityResolvers(ListableBeanFactory beanFactory) {
+        Map<String, EntityResolver> byType = new LinkedHashMap<>();
+        for (String beanName : beanFactory.getBeanNamesForType(EntityResolver.class)) {
+            String type = EntityTypeResolverRegistrar.typeOf(beanName);
+            if (type != null) {
+                byType.put(type, beanFactory.getBean(beanName, EntityResolver.class));
+            }
+        }
+        return EntityResolvers.of(byType);
     }
 }
