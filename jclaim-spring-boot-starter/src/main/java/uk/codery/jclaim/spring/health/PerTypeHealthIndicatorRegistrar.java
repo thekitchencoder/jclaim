@@ -62,6 +62,9 @@ public class PerTypeHealthIndicatorRegistrar
     public void postProcessBeanDefinitionRegistry(BeanDefinitionRegistry registry)
             throws BeansException {
         if (!(registry instanceof ConfigurableListableBeanFactory beanFactory)) {
+            log.warn("Bean registry is not a ConfigurableListableBeanFactory ({}); "
+                            + "skipping per-type health indicator registration.",
+                    registry.getClass().getName());
             return;
         }
         for (String storageBeanName : registry.getBeanDefinitionNames()) {

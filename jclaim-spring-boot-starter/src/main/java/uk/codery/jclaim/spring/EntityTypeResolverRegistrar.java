@@ -143,6 +143,18 @@ public class EntityTypeResolverRegistrar
         if (entityTypes.isEmpty()) {
             return;
         }
+        // The per-type bean instance suppliers cast the registry to
+        // ConfigurableListableBeanFactory to resolve collaborators lazily. Guard it
+        // once here (rather than risk a confusing ClassCastException at bean-creation
+        // time) — Spring always passes a DefaultListableBeanFactory, so this only
+        // trips in a non-standard embedding.
+        if (!(registry instanceof ConfigurableListableBeanFactory)) {
+            log.warn("jclaim.entity-types is configured but the bean registry is not a "
+                            + "ConfigurableListableBeanFactory ({}); skipping per-type resolver "
+                            + "registration.",
+                    registry.getClass().getName());
+            return;
+        }
 
         StorageType kind = resolveStorageKind(registry, props);
 

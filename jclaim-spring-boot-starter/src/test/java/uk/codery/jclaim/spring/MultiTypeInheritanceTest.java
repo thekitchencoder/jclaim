@@ -58,8 +58,11 @@ class MultiTypeInheritanceTest {
     void perTypeMaxCandidatesOverrideTakesEffect() {
         // A per-type max-candidates differing from the default (100) selects the
         // override branch in resolveMaxCandidates; the resolver still mints/matches.
-        // Note: this asserts the override branch is taken, not that the value 7
-        // itself is threaded through to the resolver's cap (that is unverified here).
+        // The two halves of the thread-through are each covered elsewhere:
+        // resolveMaxCandidates returning the configured value is unit-tested in
+        // MultiTypeRegistrarBranchTest, and the builder's maxCandidates actually
+        // capping the candidate pool is proven behaviourally in core's
+        // PolicyDrivenResolveOrMintTest#candidatePoolTruncated_flagsTruncationInEvent.
         runner.withPropertyValues(
                         "jclaim.storage.type=in-memory",
                         "jclaim.entity-types.customer.matching.max-candidates=7")

@@ -105,6 +105,12 @@ public class JclaimAutoConfiguration {
     @Conditional(EntityTypesConfiguredCondition.class)
     public EntityResolvers jclaimEntityResolvers(ListableBeanFactory beanFactory) {
         Map<String, EntityResolver> byType = new LinkedHashMap<>();
+        // getBean(...) here eagerly instantiates each per-type resolver (and thus its
+        // scoped storage: Postgres schema provisioning, Mongo index creation) at
+        // context refresh. This is deliberate — it surfaces misconfiguration at
+        // startup rather than on first request — but means startup cost scales with
+        // the number of entity types. (EntityResolvers itself is not an
+        // EntityResolver, so the facade never enumerates itself here.)
         for (String beanName : beanFactory.getBeanNamesForType(EntityResolver.class)) {
             String type = EntityTypeResolverRegistrar.typeOf(beanName);
             if (type != null) {
