@@ -486,26 +486,49 @@ public final class PostgresEntityStorage implements EntityStorage {
 
     private void applySchema() {
         String ddl = loadSchemaSql();
-        try (Connection conn = dataSource.getConnection();
-             Statement stmt = conn.createStatement()) {
-            if (schema != null) {
-                // Provision the target schema, then steer the shipped (unqualified)
-                // schema.sql DDL into it via search_path. This search_path is safe:
-                // this is a dedicated, short-lived, one-shot DDL connection that is
-                // closed immediately — none of the pooled/transactional runtime
-                // hazards (rollback clearing SET LOCAL, re-query after rollback)
-                // apply here. The runtime queries are schema-qualified and do NOT
-                // depend on search_path. The schema name is validated in the ctor.
-                stmt.execute("CREATE SCHEMA IF NOT EXISTS \"" + schema + "\"");
-                stmt.execute("SET search_path TO \"" + schema + "\"");
+        try (Connection conn = dataSource.getConnection()) {
+            if (schema == null) {
+                applyDdl(conn, ddl);
+                return;
             }
+            // Provision the target schema, then steer the shipped (unqualified)
+            // schema.sql DDL into it. We use SET LOCAL inside an explicit
+            // transaction rather than a plain SET, because dataSource may be a
+            // connection pool: a plain SET search_path would persist on the
+            // physical connection after close() returns it to the pool, silently
+            // affecting other (non-jclaim, unqualified) queries that later borrow
+            // it. SET LOCAL is discarded at commit, so nothing leaks. jclaim's own
+            // runtime queries are schema-qualified and never rely on search_path.
+            // The schema name is validated in the ctor.
+            boolean previousAutoCommit = conn.getAutoCommit();
+            conn.setAutoCommit(false);
+            try (Statement stmt = conn.createStatement()) {
+                stmt.execute("CREATE SCHEMA IF NOT EXISTS \"" + schema + "\"");
+                stmt.execute("SET LOCAL search_path TO \"" + schema + "\"");
+                for (String statement : splitStatements(ddl)) {
+                    if (!statement.isBlank()) {
+                        stmt.execute(statement);
+                    }
+                }
+                conn.commit();
+            } catch (SQLException ex) {
+                conn.rollback();
+                throw ex;
+            } finally {
+                conn.setAutoCommit(previousAutoCommit);
+            }
+        } catch (SQLException ex) {
+            throw new PostgresStorageException("Failed to apply schema.sql", ex);
+        }
+    }
+
+    private void applyDdl(Connection conn, String ddl) throws SQLException {
+        try (Statement stmt = conn.createStatement()) {
             for (String statement : splitStatements(ddl)) {
                 if (!statement.isBlank()) {
                     stmt.execute(statement);
                 }
             }
-        } catch (SQLException ex) {
-            throw new PostgresStorageException("Failed to apply schema.sql", ex);
         }
     }
 

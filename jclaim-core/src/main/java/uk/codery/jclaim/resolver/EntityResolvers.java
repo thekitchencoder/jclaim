@@ -7,6 +7,8 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
+import uk.codery.jclaim.model.EntityId;
+
 /**
  * Immutable, Spring-free registry of {@link EntityResolver}s keyed by entity
  * type. Serves as the selection facade when an application reconciles more
@@ -41,10 +43,12 @@ public final class EntityResolvers {
         Objects.requireNonNull(byType, "byType");
         Map<String, EntityResolver> copy = new LinkedHashMap<>();
         for (Map.Entry<String, EntityResolver> entry : byType.entrySet()) {
-            String type = Objects.requireNonNull(entry.getKey(), "type");
-            if (type.isBlank()) {
-                throw new IllegalArgumentException("entity type key must not be blank");
-            }
+            String type = entry.getKey();
+            // Validate the key against the URN segment grammar (non-null, non-blank,
+            // [A-Za-z0-9][A-Za-z0-9-]*) — the same validator the resolver builder and
+            // Postgres schema use. Keeps this Spring-free public factory from accepting
+            // a key that would later fail confusingly when minting a URN.
+            EntityId.requireValidSegment("entity type key", type);
             copy.put(type, Objects.requireNonNull(entry.getValue(), "resolver for type " + type));
         }
         // Wrap an order-preserving LinkedHashMap, NOT Map.copyOf: the latter
@@ -56,6 +60,7 @@ public final class EntityResolvers {
 
     /** Returns the resolver registered for {@code type}, if any. */
     public Optional<EntityResolver> find(String type) {
+        Objects.requireNonNull(type, "type");
         return Optional.ofNullable(byType.get(type));
     }
 
@@ -65,6 +70,7 @@ public final class EntityResolvers {
      * registered.
      */
     public EntityResolver forType(String type) {
+        Objects.requireNonNull(type, "type");
         EntityResolver resolver = byType.get(type);
         if (resolver == null) {
             throw new IllegalArgumentException(

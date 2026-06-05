@@ -72,6 +72,27 @@ class EntityResolversTest {
     }
 
     @Test
+    void of_rejectsKeyViolatingUrnSegmentGrammar() {
+        assertThatThrownBy(() -> EntityResolvers.of(Map.of("my type", resolverFor("x"))))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("my type");
+        assertThatThrownBy(() -> EntityResolvers.of(Map.of("under_score", resolverFor("x"))))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void forType_nullTypeThrows() {
+        EntityResolvers resolvers = EntityResolvers.of(Map.of("customer", resolverFor("customer")));
+        assertThatThrownBy(() -> resolvers.forType(null)).isInstanceOf(NullPointerException.class);
+    }
+
+    @Test
+    void find_nullTypeThrows() {
+        EntityResolvers resolvers = EntityResolvers.of(Map.of("customer", resolverFor("customer")));
+        assertThatThrownBy(() -> resolvers.find(null)).isInstanceOf(NullPointerException.class);
+    }
+
+    @Test
     void forType_returnsResolver() {
         EntityResolver customer = resolverFor("customer");
         EntityResolvers resolvers = EntityResolvers.of(Map.of("customer", customer));

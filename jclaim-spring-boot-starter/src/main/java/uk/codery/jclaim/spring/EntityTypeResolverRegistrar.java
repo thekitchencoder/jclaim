@@ -108,6 +108,17 @@ public class EntityTypeResolverRegistrar
     private static final String JSPEC_POLICY_CLASS =
             "uk.codery.jclaim.matching.jspec.JspecMatchingPolicy";
 
+    // Class names referenced reflectively for AUTO storage-kind detection. The
+    // storage adapters and the Mongo driver are optional dependencies, so a hard
+    // class reference here would NoClassDefFoundError in a deployment that omits
+    // one of them (e.g. a Postgres-only or in-memory app without the Mongo driver).
+    private static final String DATASOURCE_CLASS = "javax.sql.DataSource";
+    private static final String MONGO_CLIENT_CLASS = "com.mongodb.client.MongoClient";
+    private static final String POSTGRES_STORAGE_CLASS =
+            "uk.codery.jclaim.storage.postgres.PostgresEntityStorage";
+    private static final String MONGO_STORAGE_CLASS =
+            "uk.codery.jclaim.storage.mongo.MongoEntityStorage";
+
     private Environment environment;
 
     @Override
@@ -181,21 +192,33 @@ public class EntityTypeResolverRegistrar
         if (configured != StorageType.AUTO) {
             return configured;
         }
-        if (registry instanceof ConfigurableListableBeanFactory bf) {
-            if (bf.getBeanNamesForType(DataSource.class, false, false).length > 0) {
-                return StorageType.POSTGRES;
-            }
-            if (bf.getBeanNamesForType(MongoClient.class, false, false).length > 0) {
-                return StorageType.MONGO;
-            }
-        } else {
+        if (!(registry instanceof ConfigurableListableBeanFactory bf)) {
             log.warn("Cannot auto-detect storage kind: bean registry is not a "
-                            + "ConfigurableListableBeanFactory ({}) so DataSource/MongoClient beans "
-                            + "cannot be probed; falling back to in-memory storage. Set "
-                            + "jclaim.storage.type explicitly to choose a backend.",
+                            + "ConfigurableListableBeanFactory ({}) so connection beans cannot be "
+                            + "probed; falling back to in-memory storage. Set jclaim.storage.type "
+                            + "explicitly to choose a backend.",
                     registry.getClass().getName());
+            return StorageType.IN_MEMORY;
+        }
+        ClassLoader cl = getClass().getClassLoader();
+        // Probe only for a backend whose adapter (and driver) is actually present.
+        // Gating on the adapter class avoids choosing a kind whose buildXxxStorage
+        // would NoClassDefFoundError, and keeps the MongoClient reference reflective.
+        if (ClassUtils.isPresent(POSTGRES_STORAGE_CLASS, cl) && hasBeanOfType(bf, DATASOURCE_CLASS, cl)) {
+            return StorageType.POSTGRES;
+        }
+        if (ClassUtils.isPresent(MONGO_STORAGE_CLASS, cl)
+                && ClassUtils.isPresent(MONGO_CLIENT_CLASS, cl)
+                && hasBeanOfType(bf, MONGO_CLIENT_CLASS, cl)) {
+            return StorageType.MONGO;
         }
         return StorageType.IN_MEMORY;
+    }
+
+    private static boolean hasBeanOfType(
+            ConfigurableListableBeanFactory bf, String className, ClassLoader cl) {
+        return bf.getBeanNamesForType(
+                ClassUtils.resolveClassName(className, cl), false, false).length > 0;
     }
 
     /**
