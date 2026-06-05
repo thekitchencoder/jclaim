@@ -378,7 +378,13 @@ public class JclaimProperties {
             this.spec = spec;
         }
 
-        /** Per-type candidate-pool cap; {@code null} inherits the top-level value. */
+        /**
+         * Per-type candidate-pool cap. {@code null} (unset) inherits the top-level
+         * value; any non-null value overrides. Being a nullable {@code Integer},
+         * there is no blank form to consider (unlike the {@code String} namespace
+         * override, where blank is also treated as "inherit"); a non-positive value
+         * is rejected by the resolver builder.
+         */
         public Integer maxCandidates() {
             return maxCandidates;
         }

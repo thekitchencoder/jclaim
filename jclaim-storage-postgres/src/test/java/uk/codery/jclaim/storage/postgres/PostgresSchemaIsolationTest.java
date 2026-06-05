@@ -3,8 +3,10 @@ package uk.codery.jclaim.storage.postgres;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import uk.codery.jclaim.model.Alias;
+import uk.codery.jclaim.model.Claim;
 import uk.codery.jclaim.model.Entity;
 import uk.codery.jclaim.model.EntityId;
+import uk.codery.jclaim.model.MatchingAttribute;
 import uk.codery.jclaim.model.SourceSystem;
 import uk.codery.jclaim.storage.StorageOutcome;
 import uk.codery.jclaim.storage.postgres.support.PostgresTestSupport;
@@ -71,13 +73,51 @@ final class PostgresSchemaIsolationTest {
         assertThat(vehicle.findByUrn(customerEntity.id())).isEmpty();
     }
 
+    /**
+     * {@code findCandidates} must also be schema-scoped — both its alias pass
+     * ({@code findEntityUrnForAlias} → {@code tAliases}) and its attribute pass
+     * ({@code tAttributes}). The SAME alias and the SAME attribute are persisted
+     * under two schemas; a claim carrying both must return ONLY the owning
+     * schema's entity, never the other's.
+     */
+    @Test
+    void findCandidates_isSchemaScoped() {
+        DataSource shared = PostgresTestSupport.sharedDataSource();
+        String run = Long.toHexString(System.nanoTime());
+        PostgresEntityStorage customer = PostgresEntityStorage.builder(shared)
+                .schema("custcand-" + run).build();
+        PostgresEntityStorage vehicle = PostgresEntityStorage.builder(shared)
+                .schema("vehcand-" + run).build();
+
+        Alias alias = Alias.of(SourceSystem.of("crm"), "shared-key");
+        MatchingAttribute email = MatchingAttribute.of("email", "a@b.com");
+
+        Entity customerEntity = mintWith(alias, email, "00000000-0000-7000-8000-0000000000a1");
+        Entity vehicleEntity = mintWith(alias, email, "00000000-0000-7000-8000-0000000000a2");
+        customer.resolveOrCreate(alias, () -> customerEntity);
+        vehicle.resolveOrCreate(alias, () -> vehicleEntity);
+
+        // Claim carries both the shared alias and the shared attribute, exercising
+        // both passes of findCandidates.
+        Claim claim = new Claim(SourceSystem.of("crm"), "shared-key", List.of(email));
+
+        assertThat(customer.findCandidates(claim))
+                .extracting(Entity::id).containsExactly(customerEntity.id());
+        assertThat(vehicle.findCandidates(claim))
+                .extracting(Entity::id).containsExactly(vehicleEntity.id());
+    }
+
     private static Entity mint(Alias alias, String uuid) {
+        return mintWith(alias, null, uuid);
+    }
+
+    private static Entity mintWith(Alias alias, MatchingAttribute attr, String uuid) {
         Instant now = Instant.now();
         return new Entity(
                 EntityId.of(UUID.fromString(uuid)),
                 null,
                 List.of(alias),
-                List.of(),
+                attr == null ? List.of() : List.of(attr),
                 null,
                 now,
                 now);
