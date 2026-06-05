@@ -102,14 +102,20 @@ class MultiTypePostgresIntegrationTest {
         assertThat(vehicles.findByAlias(source, sharedSourceId))
                 .map(e -> e.id().urn()).contains(vehicle.id().urn());
 
-        // Cross-type URN lookup is isolated: the customer resolver cannot see the
-        // vehicle entity (its row lives in the `vehicle` schema, not `customer`).
+        // Cross-type URN lookup is rejected by the resolver's URN-ownership
+        // guard: getByUrn calls requireOwnUrn first, so a foreign-type URN
+        // (whose type segment differs from the resolver's) throws
+        // IllegalArgumentException BEFORE any storage query — proving the guard,
+        // not schema isolation (the row-count + findByAlias assertions below
+        // prove the physical schema isolation).
         EntityId vehicleUrn = vehicle.id();
         assertThatThrownBy(() -> customers.getByUrn(vehicleUrn))
-                .isInstanceOf(RuntimeException.class);
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("belongs to");
         EntityId customerUrn = customer.id();
         assertThatThrownBy(() -> vehicles.getByUrn(customerUrn))
-                .isInstanceOf(RuntimeException.class);
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("belongs to");
 
         // Each resolver CAN see its own entity by URN.
         assertThat(customers.getByUrn(customerUrn).id().urn()).isEqualTo(customer.id().urn());
