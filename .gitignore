@@ -20,3 +20,6 @@ target/
 # Examples
 /examples/*/target/
 /examples/*/.idea/
+
+# Git worktrees for isolated feature work
+.worktrees/

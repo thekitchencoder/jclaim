@@ -136,12 +136,22 @@ via `com.github.f4b6a3:uuid-creator`.
 
 Conceptually the namespace is the **tenant/organisation** (one shared value
 per application) and the `type` is the **entity type** a resolver reconciles —
-one resolver reconciles exactly one entity type. An application today
-configures a single (default) entity type via these top-level keys;
-reconciling multiple entity types in one application — a
-`jclaim.entity-types.<type>` map inheriting these as defaults — is a planned,
-additive extension (see
-`docs/plans/2026-06-04-multi-entity-type-direction.md`).
+one resolver reconciles exactly one entity type. An application configures a
+single (default) entity type via these top-level keys.
+
+Reconciling **multiple entity types in one application is now delivered**.
+Adding a `jclaim.entity-types.<type>` map (Spring starter) switches the
+application into multi-type mode: each key is a URN `<type>` segment and mints
+its own resolver, inheriting `urn.namespace` + `matching.max-candidates` from
+the top-level keys (`human-id.template` and `matching.spec` are per-type only,
+no global default). Isolation is **physical per type** — Postgres
+schema-per-type, Mongo collection-per-type, in-memory instance-per-type — with
+an optional per-type own-connection escape hatch. The Spring-free
+`EntityResolvers` registry (`uk.codery.jclaim.resolver`; `of(Map)`, `forType`,
+`find`, `types`) is the selection facade, alongside per-type qualified beans
+(`@Qualifier("<type>")`). Per-type scope names follow the URN-segment grammar
+`[A-Za-z0-9][A-Za-z0-9-]*` (**no underscores**) — a known limitation (see
+Extension Points).
 
 ### 2. Human-friendly IDs
 
@@ -382,6 +392,25 @@ Designed for extension; not yet implemented:
   `jclaim-core` (compile) and `jclaim-core` tests-classifier (test),
   implement `EntityStorage`, and extend `EntityStorageContract` to
   prove conformance. DynamoDB, Cassandra, etc. drop in this way.
+- **Multiple entity types** — **Delivered**. A `jclaim.entity-types.<type>`
+  starter map switches the application into multi-type mode: per-type
+  resolvers (`jclaimEntityResolver_<type>`, `@Qualifier("<type>")`) plus
+  the Spring-free `EntityResolvers` facade (`forType` / `find` / `types`)
+  in `jclaim-core`. Isolation is **physical per type** (Postgres
+  schema-per-type with auto `CREATE SCHEMA`, Mongo collection-per-type,
+  in-memory instance-per-type), with an optional per-type own-connection
+  escape hatch (`storage.datasource` / `storage.mongo-client`).
+  `urn.namespace` + `matching.max-candidates` inherit from the top-level
+  keys; `human-id.template` + `matching.spec` are per-type only.
+  Observability is per type (metric tag `type=<type>`, per-type
+  `jclaimHealthIndicator_<type>`). Startup fails fast on bad keys, scope
+  collisions, missing connection beans, or a per-type `urn.type`
+  disagreeing with the map key. **Known limitation:** per-type scope names
+  (schema/collection) and type keys follow the URN-segment grammar
+  `[A-Za-z0-9][A-Za-z0-9-]*` — **no underscores**; a dedicated relaxed
+  scope-name validator is a noted follow-up. Only physical per-type
+  isolation shipped — the logical shared store (folding `type` into the
+  alias key in one store) remains deferred.
 - **Merge / split operations** — deferred per the design effort note.
 
 ## Design References
@@ -428,4 +457,14 @@ When working with this codebase, consider:
   (`EntityAttributesConflicted` / `MatchUndecided` / `MatchAmbiguous`)
   on the renamed `MatchEventSink`; starter `jclaim.matching.*`
   auto-configuration.
+- **Multiple entity types — delivered**: `jclaim.entity-types.<type>`
+  starter map (multi-type mode) with per-type resolvers
+  (`@Qualifier("<type>")`) + the Spring-free `EntityResolvers` facade in
+  `jclaim-core`; **physical per-type** storage isolation across all three
+  backends (Postgres schema-per-type, Mongo collection-per-type, in-memory
+  instance-per-type) plus a per-type own-connection escape hatch; per-type
+  metrics (`type` tag) and health. `urn.namespace` + `matching.max-candidates`
+  inherit; `human-id.template` + `matching.spec` are per-type. Known
+  limitation: per-type scope names follow the URN-segment grammar (no
+  underscores); logical/shared-store isolation stays deferred.
 - **Next session**: merge / split operations.

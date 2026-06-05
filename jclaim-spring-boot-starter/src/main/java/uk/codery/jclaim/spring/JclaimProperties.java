@@ -1,5 +1,8 @@
 package uk.codery.jclaim.spring;
 
+import java.util.LinkedHashMap;
+import java.util.Map;
+
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 /**
@@ -19,6 +22,14 @@ public class JclaimProperties {
     private Matching matching = new Matching();
     private Metrics metrics = new Metrics();
     private Health health = new Health();
+
+    /**
+     * Per-entity-type definitions, keyed by entity type (the URN {@code type}
+     * segment). When non-empty the application runs in multi-type mode and the
+     * single (default) top-level resolver is suppressed (see Phase 5). The
+     * top-level keys serve as inherited defaults for each entry.
+     */
+    private Map<String, EntityType> entityTypes = new LinkedHashMap<>();
 
     /** Factory used as the {@code orElseGet} fallback when binding finds no properties. */
     public static JclaimProperties defaults() {
@@ -79,6 +90,14 @@ public class JclaimProperties {
 
     public void setHealth(Health health) {
         this.health = health;
+    }
+
+    public Map<String, EntityType> entityTypes() {
+        return entityTypes;
+    }
+
+    public void setEntityTypes(Map<String, EntityType> entityTypes) {
+        this.entityTypes = entityTypes;
     }
 
     /** Selects which {@code EntityStorage} adapter the starter wires. */
@@ -258,6 +277,168 @@ public class JclaimProperties {
 
         public void setEnabled(boolean enabled) {
             this.enabled = enabled;
+        }
+    }
+
+    /**
+     * One entity-type definition under {@code jclaim.entity-types.<type>}.
+     * The map key is the entity type (the URN {@code type} segment), so this
+     * class carries no {@code type} field. The top-level {@code jclaim.*} keys
+     * act as inherited defaults for any value omitted here.
+     */
+    public static class EntityType {
+        /**
+         * Per-type URN overrides. {@code namespace} overrides the inherited
+         * top-level namespace when set; {@code type} is normally supplied by the
+         * map key and left unset (a non-null value disagreeing with the key fails
+         * fast at startup). Fields are nullable so "unset" (→ inherit) is distinct
+         * from any concrete value, including one equal to a default.
+         */
+        private EntityTypeUrn urn = new EntityTypeUrn();
+        private HumanId humanId = new HumanId();
+        private EntityTypeMatching matching = new EntityTypeMatching();
+        private EntityTypeStorage storage = new EntityTypeStorage();
+
+        public EntityTypeUrn urn() {
+            return urn;
+        }
+
+        public void setUrn(EntityTypeUrn urn) {
+            this.urn = urn;
+        }
+
+        public HumanId humanId() {
+            return humanId;
+        }
+
+        public void setHumanId(HumanId humanId) {
+            this.humanId = humanId;
+        }
+
+        public EntityTypeMatching matching() {
+            return matching;
+        }
+
+        public void setMatching(EntityTypeMatching matching) {
+            this.matching = matching;
+        }
+
+        public EntityTypeStorage storage() {
+            return storage;
+        }
+
+        public void setStorage(EntityTypeStorage storage) {
+            this.storage = storage;
+        }
+    }
+
+    /**
+     * Per-type URN overrides. All fields nullable: {@code null} means "not set"
+     * (inherit the top-level value), distinct from any concrete value. Reusing the
+     * top-level {@link Urn} here would be wrong — its non-null defaults
+     * ({@code codery}/{@code entity}) make an explicit value equal to the default
+     * indistinguishable from omission.
+     */
+    public static class EntityTypeUrn {
+        private String namespace;
+        private String type;
+
+        public String namespace() {
+            return namespace;
+        }
+
+        public void setNamespace(String namespace) {
+            this.namespace = namespace;
+        }
+
+        public String type() {
+            return type;
+        }
+
+        public void setType(String type) {
+            this.type = type;
+        }
+    }
+
+    /**
+     * Per-type matching overrides. {@code maxCandidates} is nullable so {@code null}
+     * (inherit the top-level value) is distinct from an explicit value — including
+     * one equal to the default. {@code spec} is per-type only (never inherited).
+     */
+    public static class EntityTypeMatching {
+        private String spec;
+        private Integer maxCandidates;
+
+        /** Classpath path to the jspec matching spec; null/blank means alias-only. Per-type only. */
+        public String spec() {
+            return spec;
+        }
+
+        public void setSpec(String spec) {
+            this.spec = spec;
+        }
+
+        /**
+         * Per-type candidate-pool cap. {@code null} (unset) inherits the top-level
+         * value; any non-null value overrides. Being a nullable {@code Integer},
+         * there is no blank form to consider (unlike the {@code String} namespace
+         * override, where blank is also treated as "inherit"); a non-positive value
+         * is rejected by the resolver builder.
+         */
+        public Integer maxCandidates() {
+            return maxCandidates;
+        }
+
+        public void setMaxCandidates(Integer maxCandidates) {
+            this.maxCandidates = maxCandidates;
+        }
+    }
+
+    /**
+     * Per-entity-type storage scoping. Lets a single application route each
+     * entity type to its own schema / collection and its own connection bean
+     * (DataSource or MongoClient) so types can live in separate stores.
+     */
+    public static class EntityTypeStorage {
+        /** Per-type Postgres schema (scope-name override). */
+        private String schema;
+        /** Per-type Mongo collection name (scope-name override). */
+        private String collectionName;
+        /** Bean name of the per-type JDBC {@code DataSource}. */
+        private String datasource;
+        /** Bean name of the per-type {@code MongoClient}. */
+        private String mongoClient;
+
+        public String schema() {
+            return schema;
+        }
+
+        public void setSchema(String schema) {
+            this.schema = schema;
+        }
+
+        public String collectionName() {
+            return collectionName;
+        }
+
+        public void setCollectionName(String collectionName) {
+            this.collectionName = collectionName;
+        }
+
+        public String datasource() {
+            return datasource;
+        }
+
+        public void setDatasource(String datasource) {
+            this.datasource = datasource;
+        }
+
+        public String mongoClient() {
+            return mongoClient;
+        }
+
+        public void setMongoClient(String mongoClient) {
+            this.mongoClient = mongoClient;
         }
     }
 

@@ -65,10 +65,33 @@ public final class PostgresEntityStorage implements EntityStorage {
 
     private final DataSource dataSource;
     private final ObjectMapper objectMapper;
+    /** Target Postgres schema, or {@code null} when unscoped (today's behaviour). */
+    private final String schema;
+    /** Schema-qualifying table prefix: {@code ""} when unscoped, else {@code "\"<schema>\"."}. */
+    private final String tablePrefix;
+    /** Schema-qualified table tokens, derived from {@link #tablePrefix}. */
+    private final String tEntities;
+    private final String tAliases;
+    private final String tAttributes;
 
-    private PostgresEntityStorage(DataSource dataSource, ObjectMapper objectMapper) {
+    private PostgresEntityStorage(DataSource dataSource, ObjectMapper objectMapper, String schema) {
         this.dataSource = dataSource;
         this.objectMapper = objectMapper;
+        if (schema != null && !schema.isBlank()) {
+            // Validate before the name is ever interpolated into SQL — identifier-safe
+            // and injection-safe (same grammar as URN namespace/type segments).
+            EntityId.requireValidSegment("schema", schema);
+            this.schema = schema;
+            this.tablePrefix = "\"" + schema + "\".";
+        } else {
+            this.schema = null;
+            this.tablePrefix = "";
+        }
+        // When unscoped (prefix ""), these are the bare table names — SQL is
+        // textually identical to today's single-type path.
+        this.tEntities = tablePrefix + "entities";
+        this.tAliases = tablePrefix + "entity_aliases";
+        this.tAttributes = tablePrefix + "entity_attributes";
     }
 
     /** Builder for {@link PostgresEntityStorage}. */
@@ -96,7 +119,7 @@ public final class PostgresEntityStorage implements EntityStorage {
         Objects.requireNonNull(humanId, "humanId");
         try (Connection conn = dataSource.getConnection();
              PreparedStatement ps = conn.prepareStatement(
-                     "SELECT urn FROM entities WHERE human_id = ?")) {
+                     "SELECT urn FROM " + tEntities + " WHERE human_id = ?")) {
             ps.setString(1, humanId);
             try (ResultSet rs = ps.executeQuery()) {
                 if (!rs.next()) {
@@ -274,7 +297,7 @@ public final class PostgresEntityStorage implements EntityStorage {
             }
             if (candidateUrns.size() < limit && !claim.attributes().isEmpty()) {
                 try (PreparedStatement ps = conn.prepareStatement(
-                        "SELECT DISTINCT entity_urn FROM entity_attributes "
+                        "SELECT DISTINCT entity_urn FROM " + tAttributes + " "
                                 + "WHERE name = ? AND value = ?::jsonb LIMIT ?")) {
                     attributeLoop:
                     for (MatchingAttribute attr : claim.attributes()) {
@@ -305,7 +328,7 @@ public final class PostgresEntityStorage implements EntityStorage {
 
     private boolean entityExists(Connection conn, String urn) throws SQLException {
         try (PreparedStatement ps = conn.prepareStatement(
-                "SELECT 1 FROM entities WHERE urn = ?")) {
+                "SELECT 1 FROM " + tEntities + " WHERE urn = ?")) {
             ps.setString(1, urn);
             try (ResultSet rs = ps.executeQuery()) {
                 return rs.next();
@@ -315,7 +338,7 @@ public final class PostgresEntityStorage implements EntityStorage {
 
     private String findEntityUrnForAlias(Connection conn, Alias alias) throws SQLException {
         try (PreparedStatement ps = conn.prepareStatement(
-                "SELECT entity_urn FROM entity_aliases WHERE source = ? AND source_id = ?")) {
+                "SELECT entity_urn FROM " + tAliases + " WHERE source = ? AND source_id = ?")) {
             ps.setString(1, alias.source().name());
             ps.setString(2, alias.sourceId());
             try (ResultSet rs = ps.executeQuery()) {
@@ -330,7 +353,7 @@ public final class PostgresEntityStorage implements EntityStorage {
         java.time.Instant createdAt;
         java.time.Instant updatedAt;
         try (PreparedStatement ps = conn.prepareStatement(
-                "SELECT human_id, superseded_by, created_at, updated_at FROM entities WHERE urn = ?")) {
+                "SELECT human_id, superseded_by, created_at, updated_at FROM " + tEntities + " WHERE urn = ?")) {
             ps.setString(1, urn);
             try (ResultSet rs = ps.executeQuery()) {
                 if (!rs.next()) {
@@ -345,7 +368,7 @@ public final class PostgresEntityStorage implements EntityStorage {
 
         List<Alias> aliases = new ArrayList<>();
         try (PreparedStatement ps = conn.prepareStatement(
-                "SELECT source, source_id FROM entity_aliases "
+                "SELECT source, source_id FROM " + tAliases + " "
                         + "WHERE entity_urn = ? ORDER BY position")) {
             ps.setString(1, urn);
             try (ResultSet rs = ps.executeQuery()) {
@@ -357,7 +380,7 @@ public final class PostgresEntityStorage implements EntityStorage {
 
         List<MatchingAttribute> attributes = new ArrayList<>();
         try (PreparedStatement ps = conn.prepareStatement(
-                "SELECT name, value FROM entity_attributes "
+                "SELECT name, value FROM " + tAttributes + " "
                         + "WHERE entity_urn = ? ORDER BY position")) {
             ps.setString(1, urn);
             try (ResultSet rs = ps.executeQuery()) {
@@ -381,7 +404,7 @@ public final class PostgresEntityStorage implements EntityStorage {
 
     private void insertEntityRow(Connection conn, Entity entity) throws SQLException {
         try (PreparedStatement ps = conn.prepareStatement(
-                "INSERT INTO entities (urn, human_id, superseded_by, created_at, updated_at) "
+                "INSERT INTO " + tEntities + " (urn, human_id, superseded_by, created_at, updated_at) "
                         + "VALUES (?, ?, ?, ?, ?)")) {
             ps.setString(1, entity.id().urn());
             ps.setString(2, entity.humanId());
@@ -396,7 +419,7 @@ public final class PostgresEntityStorage implements EntityStorage {
                                 java.time.Instant attachedAt, int position)
             throws SQLException {
         try (PreparedStatement ps = conn.prepareStatement(
-                "INSERT INTO entity_aliases (source, source_id, entity_urn, attached_at, position) "
+                "INSERT INTO " + tAliases + " (source, source_id, entity_urn, attached_at, position) "
                         + "VALUES (?, ?, ?, ?, ?)")) {
             ps.setString(1, alias.source().name());
             ps.setString(2, alias.sourceId());
@@ -409,7 +432,7 @@ public final class PostgresEntityStorage implements EntityStorage {
 
     private int nextAliasPosition(Connection conn, String urn) throws SQLException {
         try (PreparedStatement ps = conn.prepareStatement(
-                "SELECT COALESCE(MAX(position), -1) + 1 FROM entity_aliases WHERE entity_urn = ?")) {
+                "SELECT COALESCE(MAX(position), -1) + 1 FROM " + tAliases + " WHERE entity_urn = ?")) {
             ps.setString(1, urn);
             try (ResultSet rs = ps.executeQuery()) {
                 rs.next();
@@ -423,7 +446,7 @@ public final class PostgresEntityStorage implements EntityStorage {
             return;
         }
         try (PreparedStatement ps = conn.prepareStatement(
-                "INSERT INTO entity_attributes (entity_urn, name, value, position) VALUES (?, ?, ?, ?)")) {
+                "INSERT INTO " + tAttributes + " (entity_urn, name, value, position) VALUES (?, ?, ?, ?)")) {
             int position = 0;
             for (MatchingAttribute attr : entity.attributes()) {
                 ps.setString(1, entity.id().urn());
@@ -463,15 +486,49 @@ public final class PostgresEntityStorage implements EntityStorage {
 
     private void applySchema() {
         String ddl = loadSchemaSql();
-        try (Connection conn = dataSource.getConnection();
-             Statement stmt = conn.createStatement()) {
+        try (Connection conn = dataSource.getConnection()) {
+            if (schema == null) {
+                applyDdl(conn, ddl);
+                return;
+            }
+            // Provision the target schema, then steer the shipped (unqualified)
+            // schema.sql DDL into it. We use SET LOCAL inside an explicit
+            // transaction rather than a plain SET, because dataSource may be a
+            // connection pool: a plain SET search_path would persist on the
+            // physical connection after close() returns it to the pool, silently
+            // affecting other (non-jclaim, unqualified) queries that later borrow
+            // it. SET LOCAL is discarded at commit, so nothing leaks. jclaim's own
+            // runtime queries are schema-qualified and never rely on search_path.
+            // The schema name is validated in the ctor.
+            boolean previousAutoCommit = conn.getAutoCommit();
+            conn.setAutoCommit(false);
+            try (Statement stmt = conn.createStatement()) {
+                stmt.execute("CREATE SCHEMA IF NOT EXISTS \"" + schema + "\"");
+                stmt.execute("SET LOCAL search_path TO \"" + schema + "\"");
+                for (String statement : splitStatements(ddl)) {
+                    if (!statement.isBlank()) {
+                        stmt.execute(statement);
+                    }
+                }
+                conn.commit();
+            } catch (SQLException ex) {
+                conn.rollback();
+                throw ex;
+            } finally {
+                conn.setAutoCommit(previousAutoCommit);
+            }
+        } catch (SQLException ex) {
+            throw new PostgresStorageException("Failed to apply schema.sql", ex);
+        }
+    }
+
+    private void applyDdl(Connection conn, String ddl) throws SQLException {
+        try (Statement stmt = conn.createStatement()) {
             for (String statement : splitStatements(ddl)) {
                 if (!statement.isBlank()) {
                     stmt.execute(statement);
                 }
             }
-        } catch (SQLException ex) {
-            throw new PostgresStorageException("Failed to apply schema.sql", ex);
         }
     }
 
@@ -521,6 +578,7 @@ public final class PostgresEntityStorage implements EntityStorage {
         private final DataSource dataSource;
         private boolean applySchema = true;
         private ObjectMapper objectMapper = new ObjectMapper();
+        private String schema;
 
         private Builder(DataSource dataSource) {
             this.dataSource = Objects.requireNonNull(dataSource, "dataSource");
@@ -545,8 +603,22 @@ public final class PostgresEntityStorage implements EntityStorage {
             return this;
         }
 
+        /**
+         * Scopes the adapter to a dedicated Postgres schema so each entity type
+         * can live in its own fully-isolated schema. {@code null} or blank (the
+         * default) leaves the adapter unscoped — today's single-type behaviour
+         * with unqualified table names. A non-blank value is validated as an
+         * identifier-safe URN segment and used to schema-qualify every table
+         * reference; with {@code applySchema(true)} the schema is created on
+         * construction.
+         */
+        public Builder schema(String schema) {
+            this.schema = schema;
+            return this;
+        }
+
         public PostgresEntityStorage build() {
-            PostgresEntityStorage storage = new PostgresEntityStorage(dataSource, objectMapper);
+            PostgresEntityStorage storage = new PostgresEntityStorage(dataSource, objectMapper, schema);
             if (applySchema) {
                 storage.applySchema();
             }

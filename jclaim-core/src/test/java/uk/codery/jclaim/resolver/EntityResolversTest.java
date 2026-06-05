@@ -1,0 +1,152 @@
+package uk.codery.jclaim.resolver;
+
+import org.junit.jupiter.api.Test;
+import uk.codery.jclaim.storage.memory.InMemoryEntityStorage;
+
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.Map;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
+class EntityResolversTest {
+
+    private static EntityResolver resolverFor(String type) {
+        return DefaultEntityResolver.builder(new InMemoryEntityStorage())
+                .namespace("acme").entityType(type).build();
+    }
+
+    @Test
+    void types_preservesInsertionOrder() {
+        Map<String, EntityResolver> byType = new LinkedHashMap<>();
+        byType.put("customer", resolverFor("customer"));
+        byType.put("vehicle", resolverFor("vehicle"));
+
+        EntityResolvers resolvers = EntityResolvers.of(byType);
+
+        assertThat(resolvers.types()).containsExactly("customer", "vehicle");
+    }
+
+    @Test
+    void types_preservesInsertionOrder_reversed() {
+        // A different insertion order yields types() in THAT order — proving the
+        // ordering is genuinely preserved, not coincidental. This would fail
+        // under the old Map.copyOf (JVM-randomized) backing map.
+        Map<String, EntityResolver> byType = new LinkedHashMap<>();
+        byType.put("vehicle", resolverFor("vehicle"));
+        byType.put("customer", resolverFor("customer"));
+
+        EntityResolvers resolvers = EntityResolvers.of(byType);
+
+        assertThat(resolvers.types()).containsExactly("vehicle", "customer");
+    }
+
+    @Test
+    void find_returnsResolverWhenPresent() {
+        EntityResolver customer = resolverFor("customer");
+        EntityResolvers resolvers = EntityResolvers.of(Map.of("customer", customer));
+
+        assertThat(resolvers.find("customer")).contains(customer);
+    }
+
+    @Test
+    void find_returnsEmptyWhenAbsent() {
+        EntityResolvers resolvers = EntityResolvers.of(Map.of("customer", resolverFor("customer")));
+
+        assertThat(resolvers.find("vehicle")).isEmpty();
+    }
+
+    @Test
+    void of_rejectsBlankKey() {
+        assertThatThrownBy(() -> EntityResolvers.of(Map.of("  ", resolverFor("customer"))))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void of_rejectsNullResolver() {
+        Map<String, EntityResolver> source = new HashMap<>();
+        source.put("customer", null);
+        assertThatThrownBy(() -> EntityResolvers.of(source))
+                .isInstanceOf(NullPointerException.class);
+    }
+
+    @Test
+    void of_rejectsKeyViolatingUrnSegmentGrammar() {
+        assertThatThrownBy(() -> EntityResolvers.of(Map.of("my type", resolverFor("x"))))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("my type");
+        assertThatThrownBy(() -> EntityResolvers.of(Map.of("under_score", resolverFor("x"))))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void forType_nullTypeThrows() {
+        EntityResolvers resolvers = EntityResolvers.of(Map.of("customer", resolverFor("customer")));
+        assertThatThrownBy(() -> resolvers.forType(null)).isInstanceOf(NullPointerException.class);
+    }
+
+    @Test
+    void find_nullTypeThrows() {
+        EntityResolvers resolvers = EntityResolvers.of(Map.of("customer", resolverFor("customer")));
+        assertThatThrownBy(() -> resolvers.find(null)).isInstanceOf(NullPointerException.class);
+    }
+
+    @Test
+    void of_emptyMapIsValidAndEmpty() {
+        EntityResolvers resolvers = EntityResolvers.of(Map.of());
+        assertThat(resolvers.types()).isEmpty();
+        assertThat(resolvers.find("customer")).isEmpty();
+        assertThatThrownBy(() -> resolvers.forType("customer"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("[]");
+    }
+
+    @Test
+    void forType_returnsResolver() {
+        EntityResolver customer = resolverFor("customer");
+        EntityResolvers resolvers = EntityResolvers.of(Map.of("customer", customer));
+
+        assertThat(resolvers.forType("customer")).isSameAs(customer);
+    }
+
+    @Test
+    void forType_unknownThrowsListingKnownTypes() {
+        EntityResolvers resolvers = EntityResolvers.of(Map.of(
+                "customer", resolverFor("customer"),
+                "vehicle", resolverFor("vehicle")));
+
+        assertThatThrownBy(() -> resolvers.forType("supplier"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("supplier")
+                .hasMessageContaining("customer")
+                .hasMessageContaining("vehicle");
+    }
+
+    @Test
+    void toString_listsRegisteredTypesInInsertionOrder() {
+        Map<String, EntityResolver> byType = new LinkedHashMap<>();
+        byType.put("customer", resolverFor("customer"));
+        byType.put("vehicle", resolverFor("vehicle"));
+
+        EntityResolvers resolvers = EntityResolvers.of(byType);
+
+        assertThat(resolvers.toString())
+                .startsWith("EntityResolvers")
+                .contains("customer")
+                .contains("vehicle")
+                // the key set renders in insertion order
+                .isEqualTo("EntityResolvers[customer, vehicle]");
+    }
+
+    @Test
+    void of_isDefensivelyCopied() {
+        Map<String, EntityResolver> source = new HashMap<>();
+        source.put("customer", resolverFor("customer"));
+        EntityResolvers resolvers = EntityResolvers.of(source);
+
+        source.put("vehicle", resolverFor("vehicle"));
+
+        assertThat(resolvers.types()).containsExactly("customer");
+    }
+}

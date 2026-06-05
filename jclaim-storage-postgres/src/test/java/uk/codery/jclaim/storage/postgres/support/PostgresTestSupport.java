@@ -52,6 +52,22 @@ public final class PostgresTestSupport {
         return PostgresEntityStorage.create(dataSourceFor(schema));
     }
 
+    /**
+     * Returns a {@link DataSource} bound to the test database with <em>no</em>
+     * {@code currentSchema} set. The schema-isolation test layers two
+     * {@code PostgresEntityStorage} instances — each with its own
+     * {@code .schema(...)} — over this single shared source and relies on the
+     * adapter to create and schema-qualify its own tables.
+     */
+    public static DataSource sharedDataSource() {
+        ensureInitialised();
+        PGSimpleDataSource ds = new PGSimpleDataSource();
+        ds.setUrl(jdbcUrl);
+        ds.setUser(username);
+        ds.setPassword(password);
+        return ds;
+    }
+
     /** Direct DataSource accessor for the schema-assertion test. */
     public static DataSource newDataSourceForFreshSchema() {
         ensureInitialised();

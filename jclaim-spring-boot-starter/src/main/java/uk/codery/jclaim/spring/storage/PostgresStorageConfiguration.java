@@ -7,8 +7,10 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Conditional;
 import org.springframework.context.annotation.Configuration;
 import uk.codery.jclaim.spring.JclaimProperties;
+import uk.codery.jclaim.spring.NoEntityTypesCondition;
 import uk.codery.jclaim.storage.EntityStorage;
 import uk.codery.jclaim.storage.postgres.PostgresEntityStorage;
 
@@ -26,6 +28,7 @@ import uk.codery.jclaim.storage.postgres.PostgresEntityStorage;
  */
 @Configuration(proxyBeanMethods = false)
 @ConditionalOnClass({PostgresEntityStorage.class, DataSource.class})
+@Conditional(NoEntityTypesCondition.class)
 public class PostgresStorageConfiguration {
 
     private static EntityStorage buildStorage(

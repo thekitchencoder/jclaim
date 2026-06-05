@@ -89,6 +89,28 @@ class EntityIdTest {
     }
 
     @Test
+    void requireValidSegment_acceptsWellFormedSegment() {
+        EntityId.requireValidSegment("type", "customer");
+        EntityId.requireValidSegment("namespace", "acme-corp");
+    }
+
+    @Test
+    void requireValidSegment_rejectsBlank() {
+        assertThatThrownBy(() -> EntityId.requireValidSegment("type", "  "))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("type");
+    }
+
+    @Test
+    void requireValidSegment_rejectsIllegalCharacters() {
+        assertThatThrownBy(() -> EntityId.requireValidSegment("type", "cust omer"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("cust omer");
+        assertThatThrownBy(() -> EntityId.requireValidSegment("namespace", "-leading"))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
     void equality_followsRecordSemantics() {
         UUID uuid = UUID.fromString("01900000-0000-7000-8000-000000000006");
         assertThat(EntityId.of(uuid)).isEqualTo(EntityId.of("codery", uuid));

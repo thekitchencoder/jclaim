@@ -2,7 +2,9 @@ package uk.codery.jclaim.spring.storage;
 
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Conditional;
 import org.springframework.context.annotation.Configuration;
+import uk.codery.jclaim.spring.NoEntityTypesCondition;
 import uk.codery.jclaim.storage.EntityStorage;
 import uk.codery.jclaim.storage.memory.InMemoryEntityStorage;
 
@@ -15,6 +17,7 @@ import uk.codery.jclaim.storage.memory.InMemoryEntityStorage;
  * {@code @ConditionalOnMissingBean(EntityStorage.class)}.
  */
 @Configuration(proxyBeanMethods = false)
+@Conditional(NoEntityTypesCondition.class)
 public class InMemoryStorageConfiguration {
 
     @Bean
