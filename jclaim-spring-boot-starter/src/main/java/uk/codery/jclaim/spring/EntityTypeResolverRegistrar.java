@@ -195,6 +195,12 @@ public class EntityTypeResolverRegistrar
             if (bf.getBeanNamesForType(MongoClient.class, false, false).length > 0) {
                 return StorageType.MONGO;
             }
+        } else {
+            log.warn("Cannot auto-detect storage kind: bean registry is not a "
+                            + "ConfigurableListableBeanFactory ({}) so DataSource/MongoClient beans "
+                            + "cannot be probed; falling back to in-memory storage. Set "
+                            + "jclaim.storage.type explicitly to choose a backend.",
+                    registry.getClass().getName());
         }
         return StorageType.IN_MEMORY;
     }
@@ -350,7 +356,8 @@ public class EntityTypeResolverRegistrar
      * {@code maxCandidates} on the shared {@code Matching} class, which is out of
      * scope here (it touches the single-type path).
      */
-    private int resolveMaxCandidates(JclaimProperties props, EntityType entry) {
+    // Package-private for direct unit testing of the sentinel-heuristic limitation.
+    int resolveMaxCandidates(JclaimProperties props, EntityType entry) {
         int entryMax = entry.matching().maxCandidates();
         if (entryMax != DEFAULT_MAX_CANDIDATES) {
             return entryMax;
@@ -365,12 +372,15 @@ public class EntityTypeResolverRegistrar
             EntityType entry,
             JclaimProperties props) {
         return switch (kind) {
-            // AUTO is already resolved to a concrete kind by resolveStorageKind, so it
-            // never reaches here; it shares the in-memory arm only to keep the switch
-            // exhaustive over the StorageType enum.
-            case IN_MEMORY, AUTO -> new InMemoryEntityStorage();
+            case IN_MEMORY -> new InMemoryEntityStorage();
             case POSTGRES -> buildPostgresStorage(beanFactory, type, entry, props);
             case MONGO -> buildMongoStorage(beanFactory, type, entry, props);
+            // AUTO is resolved to a concrete kind by resolveStorageKind before reaching
+            // here; fail loudly rather than silently defaulting to in-memory if a future
+            // code path ever skips that resolution.
+            case AUTO -> throw new IllegalStateException(
+                    "Storage kind AUTO must be resolved to a concrete backend by "
+                            + "resolveStorageKind before buildStorage is called");
         };
     }
 

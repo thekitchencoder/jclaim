@@ -72,6 +72,32 @@ class MultiTypeRegistrarBranchTest {
     }
 
     /**
+     * Documents the sentinel-heuristic limitation on {@code matching.max-candidates}
+     * — symmetric with the {@code urn.namespace} case above, but not behaviourally
+     * observable through the resolver, so it is pinned by a direct unit test.
+     *
+     * <p>A per-type value set <em>explicitly</em> to the record default (100) is
+     * indistinguishable from "omitted", so it inherits the top-level value (50 here)
+     * rather than pinning 100. A genuinely non-default value DOES override. If the
+     * override-detection heuristic is ever changed, this test must be updated
+     * deliberately rather than silently.
+     */
+    @Test
+    void maxCandidatesExplicitDefaultIsTreatedAsUnset_knownLimitation() {
+        EntityTypeResolverRegistrar registrar = new EntityTypeResolverRegistrar();
+
+        JclaimProperties props = new JclaimProperties();
+        props.matching().setMaxCandidates(50); // top-level value differs from the record default
+
+        JclaimProperties.EntityType entry = new JclaimProperties.EntityType();
+        entry.matching().setMaxCandidates(100); // explicitly the record default → looks "unset"
+        assertThat(registrar.resolveMaxCandidates(props, entry)).isEqualTo(50); // inherits, not 100
+
+        entry.matching().setMaxCandidates(7); // genuinely non-default → overrides
+        assertThat(registrar.resolveMaxCandidates(props, entry)).isEqualTo(7);
+    }
+
+    /**
      * A blank {@code matching.spec} falls through to the alias-only default policy
      * (exercises the {@code spec.isBlank()} true arm). The resolver still mints.
      */
