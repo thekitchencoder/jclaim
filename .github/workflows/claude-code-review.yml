@@ -39,11 +39,14 @@ jobs:
           plugin_marketplaces: 'https://github.com/anthropics/claude-code.git'
           plugins: 'code-review@claude-code-plugins'
           prompt: '/code-review:code-review ${{ github.repository }}/pull/${{ github.event.pull_request.number }}'
-          # Post the review summary to the PR (as a single updating comment) so a
-          # clean review is visible rather than silent. Without these, the only
-          # output channel is inline comments — a no-findings run shows nothing.
-          display_report: true
+          # Post the review to the PR as a single updating comment so a clean
+          # review is visible rather than silent. track_progress forces tag mode
+          # with a tracking comment (the PR-comment channel in agent mode);
+          # use_sticky_comment keeps it to one comment; display_report also
+          # mirrors the report into the Actions run summary.
+          track_progress: true
           use_sticky_comment: true
+          display_report: true
           # See https://github.com/anthropics/claude-code-action/blob/main/docs/usage.md
           # or https://code.claude.com/docs/en/cli-reference for available options
 
