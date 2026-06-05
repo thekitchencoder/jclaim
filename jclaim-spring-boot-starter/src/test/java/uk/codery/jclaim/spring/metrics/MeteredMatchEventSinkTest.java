@@ -7,6 +7,11 @@ import org.springframework.boot.autoconfigure.AutoConfigurations;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import uk.codery.jclaim.event.AttributeDiff;
+import uk.codery.jclaim.event.EntityAttributesConflicted;
+import uk.codery.jclaim.event.MatchAmbiguous;
+import uk.codery.jclaim.event.MatchEvent;
+import uk.codery.jclaim.event.MatchUndecided;
 import uk.codery.jclaim.matching.MatchingPolicy;
 import uk.codery.jclaim.matching.TriState;
 import uk.codery.jclaim.model.Alias;
@@ -60,6 +65,46 @@ class MeteredMatchEventSinkTest {
             assertThat(registry.counter("jclaim.matching.pool_truncated_total").count())
                     .isEqualTo(1.0);
         });
+    }
+
+    // -- Direct unit coverage of every switch arm + both truncation flags -----
+
+    @Test
+    void directSinkCoversAllEventArmsAndTruncationFlags() {
+        MeterRegistry registry = new SimpleMeterRegistry();
+        var forwarded = new java.util.concurrent.atomic.AtomicReference<MatchEvent>();
+        MeteredMatchEventSink sink = new MeteredMatchEventSink(forwarded::set, registry);
+
+        Entity e = entity();
+        Claim claim = new Claim(SourceSystem.of("crm"), "u-1", List.of());
+
+        // MatchUndecided, NOT truncated -> counter stays at 0, still forwarded.
+        sink.accept(new MatchUndecided(claim, e, List.of(), 0, 0, false));
+        // MatchAmbiguous, truncated -> counter increments.
+        sink.accept(new MatchAmbiguous(claim, e, List.of(entity()), List.of(), 2, 2, true));
+        // EntityAttributesConflicted -> default arm, never counted.
+        MatchEvent conflicted = new EntityAttributesConflicted(
+                e, claim, List.of(new AttributeDiff("email", "a@x", "b@x")));
+        sink.accept(conflicted);
+
+        assertThat(registry.counter("jclaim.matching.pool_truncated_total").count())
+                .isEqualTo(1.0);
+        // The last event was forwarded to the delegate.
+        assertThat(forwarded.get()).isSameAs(conflicted);
+    }
+
+    @Test
+    void rejectsNullDelegate() {
+        org.assertj.core.api.Assertions.assertThatThrownBy(
+                        () -> new MeteredMatchEventSink(null, new SimpleMeterRegistry()))
+                .isInstanceOf(NullPointerException.class)
+                .hasMessageContaining("delegate");
+    }
+
+    private static Entity entity() {
+        Instant now = Instant.now();
+        return new Entity(EntityId.of("test", UUID.randomUUID()),
+                null, List.of(), List.of(), null, now, now);
     }
 
     private static void seed(EntityStorage storage, SourceSystem source, String sourceId,
