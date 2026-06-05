@@ -1,5 +1,6 @@
 package uk.codery.jclaim.resolver;
 
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
@@ -13,6 +14,11 @@ import java.util.Set;
  *
  * <p>The backing map is defensively copied at construction, so later mutation
  * of the source map does not affect a registry already created.
+ *
+ * <p>{@link #types()} (and {@link #toString()}) preserve the <em>insertion
+ * order</em> of the map passed to {@link #of(Map)} — iterate the registry and
+ * the types come back in the order they were registered, deterministically
+ * across JVM runs.
  */
 public final class EntityResolvers {
 
@@ -25,7 +31,8 @@ public final class EntityResolvers {
     /**
      * Builds a registry from {@code byType}. Keys must be non-null and
      * non-blank; values must be non-null. The map is copied, so the caller may
-     * continue to mutate the argument without affecting the registry.
+     * continue to mutate the argument without affecting the registry. The
+     * insertion order of {@code byType} is preserved by {@link #types()}.
      *
      * @throws IllegalArgumentException if any key is blank
      * @throws NullPointerException     if any key or resolver is null
@@ -40,7 +47,11 @@ public final class EntityResolvers {
             }
             copy.put(type, Objects.requireNonNull(entry.getValue(), "resolver for type " + type));
         }
-        return new EntityResolvers(Map.copyOf(copy));
+        // Wrap an order-preserving LinkedHashMap, NOT Map.copyOf: the latter
+        // returns an immutable map whose iteration order is unspecified and
+        // JVM-randomized (ImmutableCollections.SALT32L), which made types()
+        // non-deterministic across runs.
+        return new EntityResolvers(Collections.unmodifiableMap(copy));
     }
 
     /** Returns the resolver registered for {@code type}, if any. */

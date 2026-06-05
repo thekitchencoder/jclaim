@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Test;
 import uk.codery.jclaim.storage.memory.InMemoryEntityStorage;
 
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -17,12 +18,28 @@ class EntityResolversTest {
     }
 
     @Test
-    void types_returnsAllKeys() {
-        EntityResolvers resolvers = EntityResolvers.of(Map.of(
-                "customer", resolverFor("customer"),
-                "vehicle", resolverFor("vehicle")));
+    void types_preservesInsertionOrder() {
+        Map<String, EntityResolver> byType = new LinkedHashMap<>();
+        byType.put("customer", resolverFor("customer"));
+        byType.put("vehicle", resolverFor("vehicle"));
 
-        assertThat(resolvers.types()).containsExactlyInAnyOrder("customer", "vehicle");
+        EntityResolvers resolvers = EntityResolvers.of(byType);
+
+        assertThat(resolvers.types()).containsExactly("customer", "vehicle");
+    }
+
+    @Test
+    void types_preservesInsertionOrder_reversed() {
+        // A different insertion order yields types() in THAT order — proving the
+        // ordering is genuinely preserved, not coincidental. This would fail
+        // under the old Map.copyOf (JVM-randomized) backing map.
+        Map<String, EntityResolver> byType = new LinkedHashMap<>();
+        byType.put("vehicle", resolverFor("vehicle"));
+        byType.put("customer", resolverFor("customer"));
+
+        EntityResolvers resolvers = EntityResolvers.of(byType);
+
+        assertThat(resolvers.types()).containsExactly("vehicle", "customer");
     }
 
     @Test
