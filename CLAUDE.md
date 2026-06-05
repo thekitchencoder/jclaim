@@ -1,4 +1,6 @@
-# CLAUDE.md — AI Assistant Context
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 <!-- brain -->
 effort: Efforts/entity-reconciliation-library.md
@@ -109,7 +111,7 @@ The aggregator centralises:
   the `release` profile).
 - **Modules list** — `jclaim-core`, `jclaim-matching-jspec`, the two
   storage adapters, and `jclaim-spring-boot-starter`. The
-  `jspec.version` (0.6.0) is managed centrally but added as a real
+  `jspec.version` (0.7.0) is managed centrally but added as a real
   dependency only by `jclaim-matching-jspec` — never by `jclaim-core`.
 
 ## Core Concepts
@@ -382,7 +384,7 @@ Designed for extension; not yet implemented:
   `aliasOnly()` default live in `jclaim-core`; the JSPEC-backed
   implementation ships in `jclaim-matching-jspec`
   (`JspecMatchingPolicy.fromResource(...)` / `.fromString(...)` /
-  builder), depending on `uk.codery:jspec:0.6.0`. Each `(Claim,
+  builder), depending on `uk.codery:jspec:0.7.0`. Each `(Claim,
   candidate)` pair projects to target/context documents; spec operands
   late-bind candidate values via the `$contextPath` sentinel; the
   `EvaluationOutcome` collapses to a `TriState` via the (default
@@ -451,7 +453,7 @@ When working with this codebase, consider:
   Micrometer metrics.
 - **Matching policy DSL — delivered**: `MatchingPolicy` port +
   `aliasOnly()` default in `jclaim-core`; JSPEC-backed
-  `JspecMatchingPolicy` in `jclaim-matching-jspec` (jspec 0.6.0,
+  `JspecMatchingPolicy` in `jclaim-matching-jspec` (jspec 0.7.0,
   `$contextPath` operands); capped candidate pool
   (`findCandidates(Claim, int)`, `maxCandidates`); sealed `MatchEvent`
   (`EntityAttributesConflicted` / `MatchUndecided` / `MatchAmbiguous`)

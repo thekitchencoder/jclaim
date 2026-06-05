@@ -21,17 +21,21 @@ to one if the entity is already known, minting one if not.
     - `org.projectlombok:lombok` — boilerplate reduction (provided scope)
     - `org.slf4j:slf4j-api` — logging
 - **Architecture**:
-  - Multi-module Maven project. Aggregator POM at the repository root;
-    `jclaim-core` is the current implementation module. Storage
-    adapter modules (`jclaim-storage-mongo`, `jclaim-storage-postgres`)
-    follow as siblings.
+  - Multi-module Maven project. Aggregator POM at the repository root
+    centralises versions and the modules list; five published modules:
+    `jclaim-core`, `jclaim-matching-jspec`, `jclaim-storage-postgres`,
+    `jclaim-storage-mongo`, and `jclaim-spring-boot-starter`.
   - Immutable Java records throughout the domain model
   - `EntityResolver` service orchestrates resolve-or-mint against an
     `EntityStorage` port
-  - In-memory storage adapter ships with `jclaim-core` for testing
-    and evaluation; database-backed adapters arrive in their own
-    modules
-  - Conflict events delivered via a pluggable `ConflictEventSink`
+  - In-memory storage adapter ships with `jclaim-core` for testing and
+    evaluation; the MongoDB and PostgreSQL adapters ship as sibling
+    modules. Every adapter passes the abstract `EntityStorageContract`
+    suite published from `jclaim-core`'s `tests`-classifier jar.
+  - Matching is a port (`MatchingPolicy` → `TriState`) with an
+    `aliasOnly()` default in core; the JSPEC-backed implementation
+    ships in `jclaim-matching-jspec`.
+  - Stewardship events delivered via a pluggable `MatchEventSink`
 
 ## Building and Running
 
@@ -70,12 +74,19 @@ narrows the scope.
   enforce alias uniqueness atomically.
 - **Match-or-mint contract**: `resolveOrMint(Claim)` returns a sealed
   `ResolutionResult` (`Matched` or `Minted`). Callers know which path was
-  taken. In v0 the match is alias-driven; a future module will layer
-  attribute-based matching via JSpec.
-- **Conflict-aware**: When `resolveOrMint` matches but the stored attributes
-  differ from the incoming claim, an `EntityAttributesConflicted` event is
-  delivered to the configured `ConflictEventSink`. Stored attributes are not
-  silently updated.
+  taken. An exact `(source, sourceId)` alias owner short-circuits to
+  `Matched`; otherwise a capped candidate pool is scored by the configured
+  `MatchingPolicy` (`aliasOnly()` by default, JSPEC via
+  `jclaim-matching-jspec`) to a `TriState` and the resolver matches or mints
+  accordingly.
+- **Stewardship events**: The resolver always returns an identity; ambiguity
+  surfaces as events on the configured `MatchEventSink`. The sealed
+  `MatchEvent` has three variants — `EntityAttributesConflicted` (a matched
+  entity's stored attributes disagree with the claim), `MatchUndecided` (a
+  mint left a candidate `UNDETERMINED`), and `MatchAmbiguous` (several
+  candidates matched; oldest wins). Stored attributes are never silently
+  updated; evidence is preserved for stewardship. Events carry `TriState`
+  only — never jspec types.
 - **Spring-independent**: Core packages must not import
   `org.springframework.*`. JClaim integrates with Spring Boot without
   depending on it.
@@ -84,26 +95,38 @@ narrows the scope.
   emission).
 - **Logging**: SLF4J for all diagnostics; never `System.out` / `System.err`.
 
-## Key Packages (inside `jclaim-core`)
+## Key Packages
+
+Inside `jclaim-core`:
 
 - `uk.codery.jclaim.id` — Crockford Base32, Damm checksum, UUID v7
   generation, human-friendly ID minting.
 - `uk.codery.jclaim.model` — `Entity`, `EntityId`, `Claim`, `Alias`,
   `SourceSystem`, `MatchingAttribute`, `ResolutionResult`.
-- `uk.codery.jclaim.event` — `EntityAttributesConflicted`,
-  `AttributeDiff`, `ConflictEventSink`.
+- `uk.codery.jclaim.matching` — `MatchingPolicy` port, `TriState`,
+  `AliasOnlyMatchingPolicy` (the stateless `aliasOnly()` default).
+- `uk.codery.jclaim.event` — sealed `MatchEvent`
+  (`EntityAttributesConflicted` / `MatchUndecided` / `MatchAmbiguous`),
+  `AttributeDiff`, `CandidateOutcome`, `MatchEventSink`.
 - `uk.codery.jclaim.storage` — `EntityStorage` port, `StorageOutcome`,
   in-memory adapter under `storage.memory`.
 - `uk.codery.jclaim.resolver` — `EntityResolver` interface,
-  `DefaultEntityResolver` implementation.
+  `DefaultEntityResolver`, and the `EntityResolvers` multi-type registry.
 
-## Roadmap
+Sibling modules:
 
-- **`jclaim-core` (current)**: domain model, resolver, in-memory
-  storage, human ID generation, conflict event sink, three synthetic
-  corpora and integration tests, multi-module scaffolding, FOSSA +
-  Codecov CI.
-- **Next**: `jclaim-storage-mongo` and `jclaim-storage-postgres` as
-  sibling modules.
-- **After that**: matching policy DSL via JSpec composition;
-  merge/split operations; Maven Central publication.
+- `jclaim-matching-jspec` — `uk.codery.jclaim.matching.jspec`;
+  `JspecMatchingPolicy` (jspec `0.7.0`, `$contextPath` operands).
+- `jclaim-storage-postgres` / `jclaim-storage-mongo` — JDBC and Mongo
+  `EntityStorage` adapters.
+- `jclaim-spring-boot-starter` — Spring Boot 3.x auto-configuration.
+
+## Status
+
+All five modules are delivered: domain model, resolver, stewardship
+events, in-memory + MongoDB + PostgreSQL storage (each passing the shared
+`EntityStorageContract`), opt-in human IDs, the `MatchingPolicy` port with
+the JSPEC-backed implementation, multiple-entity-type support
+(`jclaim.entity-types.<type>` with physical per-type isolation and the
+`EntityResolvers` facade), and the Spring Boot starter. Next milestone:
+merge / split operations.
