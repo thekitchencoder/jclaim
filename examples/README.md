@@ -70,3 +70,21 @@ Loads five curated UK properties from
 
 See [`property-fixtures/README.md`](../jclaim-core/src/test/resources/property-fixtures/README.md)
 for the dataset shape and scenario coverage.
+
+## `MultiTypeQuickStart.java`
+
+Reconciles **two entity types** — `customer` and `vehicle` — side by
+side in one application, *without* Spring. Each type gets its own
+`EntityResolver` over its own `InMemoryEntityStorage`, and both are
+wrapped in an [`EntityResolvers`](../jclaim-core/src/main/java/uk/codery/jclaim/resolver/EntityResolvers.java)
+registry (the selection facade — `forType` / `find` / `types`). This is
+the non-Spring shape of what the starter's `jclaim.entity-types.<type>`
+map builds.
+
+It demonstrates the headline guarantee of **physical per-type
+isolation**: the same `(crm, c-100)` alias resolves to *independent*
+entities under `customer` and `vehicle`. It also uses type-specific
+humanId templates (`CU-…`, `VH…`) to illustrate that humanId uniqueness
+is per storage scope, not global. See the starter's
+[Multiple entity types](../jclaim-spring-boot-starter/README.md#multiple-entity-types)
+section for the Spring configuration.
