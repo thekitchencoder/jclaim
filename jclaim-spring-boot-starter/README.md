@@ -153,6 +153,7 @@ All properties live under the `jclaim.*` prefix.
 | `jclaim.match-sink.type`                  | `spring-events`    | One of `spring-events`, `logging`, `noop`.                                                        |
 | `jclaim.metrics.enabled`                  | `true`             | Wraps the resolver with a Micrometer-instrumented decorator when a `MeterRegistry` bean exists.   |
 | `jclaim.health.enabled`                   | `true`             | Registers an Actuator `HealthIndicator` for the configured storage.                               |
+| `jclaim.entity-types.<type>`              | _(none)_           | Per-entity-type map; **present → multi-type mode** (see [Multiple entity types](#multiple-entity-types)). Per-entry sub-keys: `urn.namespace`, `human-id.template`, `matching.spec`, `matching.max-candidates`, `storage.{schema,collection-name,datasource,mongo-client}`. |
 
 ### Entity type & namespace
 
@@ -172,14 +173,9 @@ type. The humanId itself is **opt-in** — minted only when
 `jclaim.human-id.template` is set; with no template this entity type has no
 humanId.
 
-> **Roadmap.** These top-level keys define a single, default entity type.
-> Reconciling **multiple entity types in one application** is planned: a
-> `jclaim.entity-types.<type>` map where each key is a URN `<type>` segment
-> overriding these same keys, with `jclaim.urn.namespace` /
-> `jclaim.human-id.*` / `jclaim.matching.*` serving as the inherited defaults.
-> The current keys are forward-compatible — the map is purely additive;
-> nothing here changes when it lands. See
-> `docs/plans/2026-06-04-multi-entity-type-direction.md`.
+These top-level keys define a single, default entity type. To reconcile
+**multiple entity types in one application**, add a
+[`jclaim.entity-types.<type>`](#multiple-entity-types) map — see below.
 
 ### humanId template
 
@@ -213,6 +209,173 @@ always 0–9, so the check character always renders as a digit):
 | `#?????`        | literal `#` + 4 data + check | `#K7M23`        | 20        |
 | `JG??????`      | `JG` + 5 data + check        | `JGK7M293`      | 25        |
 | `ID????-????-?` | `ID` + 8 data + check        | `IDK7M2-9X4P-3` | 40        |
+
+## Multiple entity types
+
+One application can reconcile **several entity types** — `customer`,
+`vehicle`, `order`, … — each as its own resolver, by adding a
+`jclaim.entity-types.<type>` map. Each map key is simultaneously the URN
+`<type>` segment, the bean `@Qualifier`, the
+`EntityResolvers.forType(...)` handle, and the default storage scope name.
+
+### Single-type vs multi-type mode
+
+The mode is selected by the **presence of `jclaim.entity-types`**:
+
+- **Absent** → **single-type mode** (today's behaviour, unchanged). The
+  top-level keys define one resolver, published as the `jclaimResolver`
+  bean. No facade, no qualified beans.
+- **Present** → **multi-type mode**. The top-level keys become *inherited
+  defaults only* — there is no unnamed default resolver. Each
+  `entity-types.<type>` entry mints its own resolver. **Pick one mode;
+  the two do not mix** — no single-type `jclaimResolver` bean exists in
+  multi-type mode.
+
+### Worked example
+
+```yaml
+jclaim:
+  urn:
+    namespace: acme            # tenant — inherited by every type
+  matching:
+    max-candidates: 100        # inherited default
+  match-sink:
+    type: spring-events        # app-global, one sink for the whole app
+  storage:
+    type: postgres             # backend kind — app-global
+
+  entity-types:
+    customer:                  # → urn:acme:customer:<uuid>, schema "customer"
+      human-id:
+        template: "CU-????-????-?"
+      matching:
+        spec: matching/customer.yaml
+    vehicle:                   # → urn:acme:vehicle:<uuid>, schema "vehicle"
+      human-id:
+        template: "VH??????"
+      storage:
+        datasource: vehicleDataSource   # own connection (escape hatch)
+```
+
+### Inheritance rules
+
+Only two keys inherit from the top-level block; everything else is either
+per-type or strictly app-global.
+
+| Key | Scope |
+|-----|-------|
+| `urn.namespace` | **Inherited** from top-level; overridable per type. |
+| `matching.max-candidates` | **Inherited** from top-level; overridable per type. |
+| `urn.type` | **Per-type — *is* the map key.** Never inherited (a nested `urn.type` that disagrees with the map key fails startup). |
+| `human-id.template` | **Per-type only.** No global default — absent on an entry → that type mints `humanId == null`. |
+| `matching.spec` | **Per-type only.** No global default — each type matches by its own rules. |
+| `match-sink.*` | **App-global.** One sink for the whole application. |
+| `storage.type` (backend kind) + the shared connection | **App-global.** Only the *scope* (schema/collection) and an optional own-connection override are per-type. |
+
+### Selecting a resolver
+
+Two styles, both available in multi-type mode:
+
+```java
+// 1. Static — qualified bean, compile-wired
+@Component
+class CustomerService {
+    private final EntityResolver resolver;
+    CustomerService(@Qualifier("customer") EntityResolver resolver) {
+        this.resolver = resolver;
+    }
+}
+
+// 2. Dynamic — the EntityResolvers facade, look a type up at runtime / iterate
+@Component
+class MultiTypeService {
+    private final EntityResolvers jclaim;
+    MultiTypeService(EntityResolvers jclaim) {
+        this.jclaim = jclaim;
+    }
+    void ingest(String type, Claim claim) {
+        jclaim.forType(type).resolveOrMint(claim);   // throws if type unknown, listing known types
+    }
+    void each() {
+        for (String type : jclaim.types()) {
+            jclaim.find(type).ifPresent(r -> /* … */ {});   // non-throwing lookup
+        }
+    }
+}
+```
+
+`EntityResolvers` (a Spring-free registry from `jclaim-core`) exposes
+`forType(type)` (throws `IllegalArgumentException` listing known types on
+a miss), `find(type)` (non-throwing `Optional`), and `types()`.
+
+Behind the scenes each resolver is registered under a JClaim-prefixed
+bean name (`jclaimEntityResolver_<type>`) with a `@Qualifier` of the bare
+type key, alongside a per-type `jclaimEntityStorage_<type>`. The prefix
+keeps the registry from colliding with application beans that happen to be
+named `customer` or `order`; the qualifier keeps your injection points
+domain-shaped.
+
+### Storage isolation
+
+Per-type isolation is **physical** — one separately-scoped storage
+instance per type, usually over a single shared connection:
+
+- **Postgres** — schema-per-type. The scope defaults to the type key; the
+  starter runs `CREATE SCHEMA IF NOT EXISTS` and applies the schema there.
+  Override with `storage.schema`.
+- **Mongo** — collection-per-type. The collection defaults to the type
+  key. Override with `storage.collection-name`.
+- **In-memory** — one instance per type.
+
+Two types therefore never share an alias index or a humanId index: the
+same `(source, sourceId)` resolves to independent entities under different
+types.
+
+**Per-type connection escape hatch.** A type may bind its own connection
+bean — `storage.datasource` (a `DataSource` bean name) for Postgres,
+`storage.mongo-client` (a `MongoClient` bean name) for Mongo — for full
+physical separation. The bean is resolved lazily at resolver-creation
+time; a missing bean fails startup with a message naming the type and the
+absent bean.
+
+> **Scope-name grammar — no underscores.** Per-type scope names (Postgres
+> schema, Mongo collection) and the type keys themselves follow the URN
+> **segment grammar** `[A-Za-z0-9][A-Za-z0-9-]*` — letters, digits and
+> hyphens, starting with a letter or digit. **Underscores are not
+> permitted.** A schema such as `customer_data` cannot currently be
+> configured; use `customer-data` (or just the type key). A dedicated
+> relaxed validator for scope identifiers is a noted follow-up.
+
+### humanId uniqueness is per scope, not global
+
+Because isolation is physical, **`humanId` uniqueness is per storage
+scope, not global across types**. `findByHumanId(...)` is resolver/type
+scoped, and **two types may legally mint the same humanId** if their
+templates and entropy collide. When humanIds are spoken, displayed, or
+searched outside a type-specific screen, prefer **type-specific
+templates** (e.g. `CU-…` for customers, `VH…` for vehicles, as in the
+example above) so a value is unambiguous about which type it names.
+
+### Per-type observability
+
+In multi-type mode metrics and health are per-type rather than blended:
+
+- **Metrics** carry a `type=<entity-type>` tag; no resolver is marked
+  `@Primary`.
+- **Health** registers one contributor per type, named
+  `jclaimHealthIndicator_<type>`, each probing that type's scoped storage.
+
+### Startup fails fast on
+
+- a malformed/blank type key, or an invalid scope identifier (see the
+  no-underscore grammar above);
+- a **scope collision** — two types resolving to the same schema/collection
+  on the same connection (which would silently merge their data);
+- a missing per-type connection bean named by `storage.datasource` /
+  `storage.mongo-client`;
+- `matching.spec` set on a type without `jclaim-matching-jspec` on the
+  classpath;
+- a per-type nested `urn.type` that disagrees with the map key.
 
 ## Listening to match events
 
