@@ -51,14 +51,14 @@ class MultiTypeRegistrarBranchTest {
     }
 
     /**
-     * A per-type {@code urn.namespace} explicitly set to the {@code Urn} default
-     * ({@code codery}) takes the inherit branch (override detection compares against
-     * the default), so the minted URN carries the top-level namespace. Here the
-     * top-level is {@code acme}, proving the explicit-default per-type value did NOT
-     * pin {@code codery} — the documented sentinel heuristic.
+     * A per-type {@code urn.namespace} explicitly set to a value that happens to
+     * equal the {@code Urn} default ({@code codery}) still <em>overrides</em> the
+     * top-level value — the per-type override field is nullable, so an explicit
+     * value is distinct from "unset" even when it equals a default. Top-level is
+     * {@code acme}, but the minted URN pins {@code codery}.
      */
     @Test
-    void perTypeNamespaceSetToDefaultInheritsTopLevel() {
+    void perTypeNamespaceSetToDefaultValueStillOverrides() {
         runner.withPropertyValues(
                         "jclaim.storage.type=in-memory",
                         "jclaim.urn.namespace=acme",
@@ -67,34 +67,33 @@ class MultiTypeRegistrarBranchTest {
                     assertThat(ctx).hasNotFailed();
                     Entity e = mint(ctx.getBean("jclaimEntityResolver_customer", EntityResolver.class),
                             "crm", "c1");
-                    assertThat(e.id().namespace()).isEqualTo("acme");
+                    assertThat(e.id().namespace()).isEqualTo("codery");
                 });
     }
 
     /**
-     * Documents the sentinel-heuristic limitation on {@code matching.max-candidates}
-     * — symmetric with the {@code urn.namespace} case above, but not behaviourally
-     * observable through the resolver, so it is pinned by a direct unit test.
-     *
-     * <p>A per-type value set <em>explicitly</em> to the record default (100) is
-     * indistinguishable from "omitted", so it inherits the top-level value (50 here)
-     * rather than pinning 100. A genuinely non-default value DOES override. If the
-     * override-detection heuristic is ever changed, this test must be updated
-     * deliberately rather than silently.
+     * The inherit-vs-override boundary for {@code matching.max-candidates}: a per-type
+     * value set <em>explicitly</em> to a value equal to the top-level default still
+     * overrides (the override is a nullable {@code Integer}, so explicit-100 is
+     * distinct from unset); a genuine non-default value overrides; and an unset
+     * ({@code null}) value inherits the top-level value.
      */
     @Test
-    void maxCandidatesExplicitDefaultIsTreatedAsUnset_knownLimitation() {
+    void maxCandidatesOverridesWheneverExplicitlySet() {
         EntityTypeResolverRegistrar registrar = new EntityTypeResolverRegistrar();
 
         JclaimProperties props = new JclaimProperties();
-        props.matching().setMaxCandidates(50); // top-level value differs from the record default
+        props.matching().setMaxCandidates(50); // top-level
 
         JclaimProperties.EntityType entry = new JclaimProperties.EntityType();
-        entry.matching().setMaxCandidates(100); // explicitly the record default → looks "unset"
-        assertThat(registrar.resolveMaxCandidates(props, entry)).isEqualTo(50); // inherits, not 100
+        entry.matching().setMaxCandidates(100); // explicit value equal to the default → still overrides
+        assertThat(registrar.resolveMaxCandidates(props, entry)).isEqualTo(100);
 
-        entry.matching().setMaxCandidates(7); // genuinely non-default → overrides
+        entry.matching().setMaxCandidates(7); // genuine non-default → overrides
         assertThat(registrar.resolveMaxCandidates(props, entry)).isEqualTo(7);
+
+        entry.matching().setMaxCandidates(null); // unset → inherits top-level
+        assertThat(registrar.resolveMaxCandidates(props, entry)).isEqualTo(50);
     }
 
     /**

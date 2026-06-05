@@ -288,20 +288,22 @@ public class JclaimProperties {
      */
     public static class EntityType {
         /**
-         * URN settings for this type. Only {@code namespace} is meaningful —
-         * the {@code type} segment is supplied by the map key, never this
-         * nested {@code type} field (which is ignored for entity-type entries).
+         * Per-type URN overrides. {@code namespace} overrides the inherited
+         * top-level namespace when set; {@code type} is normally supplied by the
+         * map key and left unset (a non-null value disagreeing with the key fails
+         * fast at startup). Fields are nullable so "unset" (→ inherit) is distinct
+         * from any concrete value, including one equal to a default.
          */
-        private Urn urn = new Urn();
+        private EntityTypeUrn urn = new EntityTypeUrn();
         private HumanId humanId = new HumanId();
-        private Matching matching = new Matching();
+        private EntityTypeMatching matching = new EntityTypeMatching();
         private EntityTypeStorage storage = new EntityTypeStorage();
 
-        public Urn urn() {
+        public EntityTypeUrn urn() {
             return urn;
         }
 
-        public void setUrn(Urn urn) {
+        public void setUrn(EntityTypeUrn urn) {
             this.urn = urn;
         }
 
@@ -313,11 +315,11 @@ public class JclaimProperties {
             this.humanId = humanId;
         }
 
-        public Matching matching() {
+        public EntityTypeMatching matching() {
             return matching;
         }
 
-        public void setMatching(Matching matching) {
+        public void setMatching(EntityTypeMatching matching) {
             this.matching = matching;
         }
 
@@ -327,6 +329,62 @@ public class JclaimProperties {
 
         public void setStorage(EntityTypeStorage storage) {
             this.storage = storage;
+        }
+    }
+
+    /**
+     * Per-type URN overrides. All fields nullable: {@code null} means "not set"
+     * (inherit the top-level value), distinct from any concrete value. Reusing the
+     * top-level {@link Urn} here would be wrong — its non-null defaults
+     * ({@code codery}/{@code entity}) make an explicit value equal to the default
+     * indistinguishable from omission.
+     */
+    public static class EntityTypeUrn {
+        private String namespace;
+        private String type;
+
+        public String namespace() {
+            return namespace;
+        }
+
+        public void setNamespace(String namespace) {
+            this.namespace = namespace;
+        }
+
+        public String type() {
+            return type;
+        }
+
+        public void setType(String type) {
+            this.type = type;
+        }
+    }
+
+    /**
+     * Per-type matching overrides. {@code maxCandidates} is nullable so {@code null}
+     * (inherit the top-level value) is distinct from an explicit value — including
+     * one equal to the default. {@code spec} is per-type only (never inherited).
+     */
+    public static class EntityTypeMatching {
+        private String spec;
+        private Integer maxCandidates;
+
+        /** Classpath path to the jspec matching spec; null/blank means alias-only. Per-type only. */
+        public String spec() {
+            return spec;
+        }
+
+        public void setSpec(String spec) {
+            this.spec = spec;
+        }
+
+        /** Per-type candidate-pool cap; {@code null} inherits the top-level value. */
+        public Integer maxCandidates() {
+            return maxCandidates;
+        }
+
+        public void setMaxCandidates(Integer maxCandidates) {
+            this.maxCandidates = maxCandidates;
         }
     }
 

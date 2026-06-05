@@ -108,13 +108,6 @@ public class EntityTypeResolverRegistrar
     private static final String JSPEC_POLICY_CLASS =
             "uk.codery.jclaim.matching.jspec.JspecMatchingPolicy";
 
-    /** Default namespace baked into {@link JclaimProperties.Urn}. */
-    private static final String DEFAULT_NAMESPACE = "codery";
-    /** Default URN type baked into {@link JclaimProperties.Urn}. */
-    private static final String DEFAULT_TYPE = "entity";
-    /** Default max-candidates baked into {@link JclaimProperties.Matching}. */
-    private static final int DEFAULT_MAX_CANDIDATES = 100;
-
     private Environment environment;
 
     @Override
@@ -206,14 +199,13 @@ public class EntityTypeResolverRegistrar
     }
 
     /**
-     * Fail fast when a per-type {@code urn.type} is explicitly set to a non-default
-     * value that disagrees with the authoritative map key.
+     * Fail fast when a per-type {@code urn.type} is explicitly set to a value that
+     * disagrees with the authoritative map key. The override is nullable, so an
+     * unset {@code type} ({@code null}) simply defers to the key.
      */
     private void validateTypeKeyAgreement(String type, EntityType entry) {
         String entryType = entry.urn().type();
-        if (entryType != null
-                && !entryType.equals(DEFAULT_TYPE)
-                && !entryType.equals(type)) {
+        if (entryType != null && !entryType.equals(type)) {
             throw new IllegalStateException(
                     "jclaim.entity-types." + type + ".urn.type='" + entryType
                             + "' conflicts with the map key '" + type + "'. The map key is the "
@@ -320,49 +312,26 @@ public class EntityTypeResolverRegistrar
     }
 
     /**
-     * Namespace inherits the top-level default; a per-type {@code urn.namespace}
-     * overrides only when it differs from the {@code Urn} default ({@code "codery"}).
-     *
-     * <p><b>Heuristic limitation:</b> override detection compares the bound per-type
-     * value against the {@code Urn} record default rather than tracking whether the
-     * key was explicitly present in the environment. So a per-type entry that
-     * explicitly sets {@code urn.namespace=codery} is indistinguishable from one
-     * that omits it, and will inherit the top-level value instead of pinning
-     * {@code codery}. Resolving this precisely would require nullable property types
-     * on the shared {@code Urn} class, which is out of scope here (it touches the
-     * single-type path). The same sentinel approximation applies to
-     * {@link #resolveMaxCandidates}.
+     * Namespace inherits the top-level value unless the per-type
+     * {@code urn.namespace} is explicitly set. The override field is nullable, so
+     * {@code null} means "not set" (inherit) — distinct from an explicit value, even
+     * one equal to the top-level default.
      */
     private String resolveNamespace(JclaimProperties props, EntityType entry) {
         String entryNs = entry.urn().namespace();
-        if (entryNs != null && !entryNs.equals(DEFAULT_NAMESPACE)) {
-            return entryNs;
-        }
-        return props.urn().namespace();
+        return entryNs != null ? entryNs : props.urn().namespace();
     }
 
     /**
-     * Max-candidates inherits the top-level default; a per-type
-     * {@code matching.max-candidates} overrides only when it differs from the
-     * {@code Matching} default ({@value #DEFAULT_MAX_CANDIDATES}).
-     *
-     * <p><b>Heuristic limitation (symmetric with {@link #resolveNamespace}):</b>
-     * override detection compares the bound per-type value against the record
-     * default rather than tracking explicit presence in the environment. So if the
-     * top-level value is, say, {@code 50} and a type explicitly sets
-     * {@code max-candidates=100} (the default), the per-type {@code 100} is treated
-     * as "not overridden" and the type inherits {@code 50} instead of pinning
-     * {@code 100}. Resolving this precisely would require a nullable
-     * {@code maxCandidates} on the shared {@code Matching} class, which is out of
-     * scope here (it touches the single-type path).
+     * Max-candidates inherits the top-level value unless the per-type
+     * {@code matching.max-candidates} is explicitly set. The override is a nullable
+     * {@code Integer}, so {@code null} means "not set" (inherit) — distinct from an
+     * explicit value, including one equal to the top-level default.
      */
-    // Package-private for direct unit testing of the sentinel-heuristic limitation.
+    // Package-private for direct unit testing of the inherit-vs-override boundary.
     int resolveMaxCandidates(JclaimProperties props, EntityType entry) {
-        int entryMax = entry.matching().maxCandidates();
-        if (entryMax != DEFAULT_MAX_CANDIDATES) {
-            return entryMax;
-        }
-        return props.matching().maxCandidates();
+        Integer entryMax = entry.matching().maxCandidates();
+        return entryMax != null ? entryMax : props.matching().maxCandidates();
     }
 
     private EntityStorage buildStorage(
