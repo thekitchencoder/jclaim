@@ -23,3 +23,6 @@ target/
 
 # Git worktrees for isolated feature work
 .worktrees/
+
+# Local planning / design docs (kept out of version control)
+docs/plans/
