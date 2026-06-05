@@ -132,6 +132,29 @@ class MultiTypeWiringTest {
                 });
     }
 
+    /**
+     * The facade aggregates only the {@code jclaimEntityResolver_<type>} beans. A
+     * stray application-defined {@link EntityResolver} bean (whose name does not
+     * match the per-type prefix, so {@code typeOf} returns {@code null}) is
+     * excluded — exercising the {@code type != null} false arm of the aggregation
+     * loop. The facade therefore holds exactly the two per-type resolvers.
+     */
+    @Test
+    void facadeExcludesNonPerTypeResolverBeans() {
+        twoTypes().withUserConfiguration(StrayResolverConfig.class).run(ctx -> {
+            assertThat(ctx).hasNotFailed();
+            // The stray resolver bean is present in the context...
+            assertThat(ctx).hasBean("strayResolver");
+            // ...but the facade only keys the two per-type resolvers.
+            EntityResolvers resolvers = ctx.getBean(EntityResolvers.class);
+            assertThat(resolvers.types()).containsExactlyInAnyOrder("customer", "vehicle");
+            // The stray instance is not reachable via any facade type key.
+            EntityResolver stray = ctx.getBean("strayResolver", EntityResolver.class);
+            assertThat(resolvers.find("customer")).get().isNotSameAs(stray);
+            assertThat(resolvers.find("vehicle")).get().isNotSameAs(stray);
+        });
+    }
+
     // -- C1: health auto-config must back off in multi-type mode ------------
 
     /**
@@ -180,6 +203,16 @@ class MultiTypeWiringTest {
                     assertThat(ctx.getStartupFailure())
                             .hasStackTraceContaining("conflicts with the map key");
                 });
+    }
+
+    @Configuration(proxyBeanMethods = false)
+    static class StrayResolverConfig {
+        @org.springframework.context.annotation.Bean
+        EntityResolver strayResolver() {
+            return uk.codery.jclaim.resolver.DefaultEntityResolver
+                    .builder(new uk.codery.jclaim.storage.memory.InMemoryEntityStorage())
+                    .namespace("acme").entityType("stray").build();
+        }
     }
 
     @Configuration(proxyBeanMethods = false)

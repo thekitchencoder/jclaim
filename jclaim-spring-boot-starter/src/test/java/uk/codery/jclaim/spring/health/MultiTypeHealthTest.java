@@ -137,6 +137,30 @@ class MultiTypeHealthTest {
         });
     }
 
+    /**
+     * Pins the registrar's {@code registry instanceof ConfigurableListableBeanFactory}
+     * guard: when handed a plain {@link org.springframework.beans.factory.support.BeanDefinitionRegistry}
+     * that is NOT a {@code ConfigurableListableBeanFactory} (the indicator instance
+     * suppliers need bean-factory lookups), the registrar bails out and registers
+     * ZERO indicators rather than failing. A {@code SimpleBeanDefinitionRegistry}
+     * is exactly such a registry; even pre-seeded with a per-type storage bean
+     * definition, no health indicator is added.
+     */
+    @Test
+    void nonBeanFactoryRegistryRegistersNoIndicators() {
+        org.springframework.beans.factory.support.SimpleBeanDefinitionRegistry registry =
+                new org.springframework.beans.factory.support.SimpleBeanDefinitionRegistry();
+        // A storage bean definition that WOULD have spawned an indicator under a real
+        // bean factory.
+        registry.registerBeanDefinition("jclaimEntityStorage_customer",
+                new org.springframework.beans.factory.support.RootBeanDefinition(EntityStorage.class));
+
+        new PerTypeHealthIndicatorRegistrar().postProcessBeanDefinitionRegistry(registry);
+
+        assertThat(registry.containsBeanDefinition("jclaimHealthIndicator_customer")).isFalse();
+        assertThat(registry.getBeanDefinitionCount()).isEqualTo(1); // only the storage def remains
+    }
+
     @Configuration(proxyBeanMethods = false)
     static class PreRegisteredCustomerIndicator {
         @Bean("jclaimHealthIndicator_customer")

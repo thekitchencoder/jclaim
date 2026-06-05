@@ -186,6 +186,35 @@ class JclaimAutoConfigurationTest {
                     .rootCause().isInstanceOf(IllegalArgumentException.class));
     }
 
+    @Test
+    void springEventsSinkWithoutPublisherFailsFast() {
+        // The runner always supplies an ApplicationEventPublisher, so the
+        // no-publisher guard never fires through the context. Drive the @Bean
+        // factory directly with an empty ObjectProvider to exercise the throwing
+        // supplier passed to getIfAvailable.
+        JclaimProperties props = JclaimProperties.defaults();
+        props.matchSink().setType(JclaimProperties.MatchSinkType.SPRING_EVENTS);
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() ->
+                        new JclaimAutoConfiguration().jclaimMatchEventSink(
+                                props, new EmptyObjectProvider<>()))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("spring-events")
+                .hasMessageContaining("ApplicationEventPublisher");
+    }
+
+    /** ObjectProvider that holds nothing — getIfAvailable(supplier) runs the supplier. */
+    private static final class EmptyObjectProvider<T>
+            implements org.springframework.beans.factory.ObjectProvider<T> {
+        @Override public T getObject() { throw new UnsupportedOperationException(); }
+        @Override public T getObject(Object... args) { throw new UnsupportedOperationException(); }
+        @Override public T getIfAvailable() { return null; }
+        @Override public T getIfUnique() { return null; }
+        @Override public T getIfAvailable(java.util.function.Supplier<T> defaultSupplier) {
+            return defaultSupplier.get();
+        }
+    }
+
     @Configuration(proxyBeanMethods = false)
     static class UserResolverConfig {
         static final EntityResolver MARKER = new StubResolver();

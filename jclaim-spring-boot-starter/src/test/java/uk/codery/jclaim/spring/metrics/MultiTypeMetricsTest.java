@@ -3,6 +3,7 @@ package uk.codery.jclaim.spring.metrics;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import uk.codery.jclaim.model.Claim;
@@ -132,5 +133,51 @@ class MultiTypeMetricsTest {
         assertThat(EntityTypeResolverRegistrar.typeOf("jclaimEntityResolver_customer"))
                 .isEqualTo("customer");
         assertThat(EntityTypeResolverRegistrar.typeOf("somethingElse")).isNull();
+    }
+
+    /**
+     * Unit-pins the two pass-through arms of {@link MultiTypeMetricsBeanPostProcessor}:
+     * a non-{@link EntityResolver} bean and an {@link EntityResolver} bean whose
+     * name is NOT a per-type resolver name (so {@code typeOf} returns {@code null})
+     * are both returned untouched. Only beans named {@code jclaimEntityResolver_<type>}
+     * get wrapped.
+     */
+    @Test
+    void beanPostProcessorOnlyWrapsPerTypeResolverBeans() {
+        SimpleMeterRegistry registry = new SimpleMeterRegistry();
+        ObjectProvider<MeterRegistry> provider = new SingletonObjectProvider<>(registry);
+        MultiTypeMetricsBeanPostProcessor bpp = new MultiTypeMetricsBeanPostProcessor(provider);
+
+        // Non-resolver bean: returned as-is.
+        Object plain = new Object();
+        assertThat(bpp.postProcessAfterInitialization(plain, "somethingElse")).isSameAs(plain);
+
+        // EntityResolver bean, but not a per-type bean name (typeOf -> null): unwrapped.
+        EntityResolver resolver = new NoopResolver();
+        assertThat(bpp.postProcessAfterInitialization(resolver, "jclaimResolver")).isSameAs(resolver);
+
+        // EntityResolver bean with a per-type name: wrapped.
+        assertThat(bpp.postProcessAfterInitialization(new NoopResolver(), "jclaimEntityResolver_customer"))
+                .isInstanceOf(MeteredEntityResolver.class);
+    }
+
+    /** Minimal ObjectProvider that always yields the same instance. */
+    private static final class SingletonObjectProvider<T> implements ObjectProvider<T> {
+        private final T value;
+        SingletonObjectProvider(T value) { this.value = value; }
+        @Override public T getObject() { return value; }
+        @Override public T getObject(Object... args) { return value; }
+        @Override public T getIfAvailable() { return value; }
+        @Override public T getIfUnique() { return value; }
+    }
+
+    /** EntityResolver that does nothing — used purely to exercise the BPP arms. */
+    private static final class NoopResolver implements EntityResolver {
+        @Override public uk.codery.jclaim.model.ResolutionResult resolveOrMint(Claim claim) { throw new UnsupportedOperationException(); }
+        @Override public uk.codery.jclaim.model.Entity getByUrn(uk.codery.jclaim.model.EntityId urn) { throw new UnsupportedOperationException(); }
+        @Override public java.util.Optional<uk.codery.jclaim.model.Entity> findByHumanId(String humanId) { return java.util.Optional.empty(); }
+        @Override public java.util.Optional<uk.codery.jclaim.model.Entity> findByAlias(SourceSystem source, String sourceId) { return java.util.Optional.empty(); }
+        @Override public uk.codery.jclaim.model.Entity addAlias(uk.codery.jclaim.model.EntityId urn, SourceSystem source, String sourceId) { throw new UnsupportedOperationException(); }
+        @Override public java.util.Set<uk.codery.jclaim.model.Entity> findCandidates(Claim claim) { return java.util.Set.of(); }
     }
 }

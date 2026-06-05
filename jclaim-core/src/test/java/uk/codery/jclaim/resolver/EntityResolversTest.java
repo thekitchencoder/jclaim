@@ -93,6 +93,22 @@ class EntityResolversTest {
     }
 
     @Test
+    void toString_listsRegisteredTypesInInsertionOrder() {
+        Map<String, EntityResolver> byType = new LinkedHashMap<>();
+        byType.put("customer", resolverFor("customer"));
+        byType.put("vehicle", resolverFor("vehicle"));
+
+        EntityResolvers resolvers = EntityResolvers.of(byType);
+
+        assertThat(resolvers.toString())
+                .startsWith("EntityResolvers")
+                .contains("customer")
+                .contains("vehicle")
+                // the key set renders in insertion order
+                .isEqualTo("EntityResolvers[customer, vehicle]");
+    }
+
+    @Test
     void of_isDefensivelyCopied() {
         Map<String, EntityResolver> source = new HashMap<>();
         source.put("customer", resolverFor("customer"));

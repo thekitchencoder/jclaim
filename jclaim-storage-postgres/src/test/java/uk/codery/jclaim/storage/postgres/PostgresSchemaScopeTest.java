@@ -45,4 +45,24 @@ final class PostgresSchemaScopeTest {
             assertThat(storage).isNotNull();
         });
     }
+
+    /**
+     * A blank schema string is treated as unscoped — the same as {@code null} —
+     * and must NOT reach the identifier validator. If blank were routed down the
+     * validate-then-scope branch instead of the unscoped else-branch,
+     * {@code requireValidSegment} would reject the empty segment and this would
+     * throw (as {@link #builder_rejectsIllegalSchemaIdentifier()} shows a real
+     * bad value does).
+     */
+    @Test
+    void builder_treatsBlankSchemaAsUnscoped() {
+        PGSimpleDataSource ds = dummyDataSource();
+        assertThatNoException().isThrownBy(() -> {
+            PostgresEntityStorage storage = PostgresEntityStorage.builder(ds)
+                    .applySchema(false)
+                    .schema("   ")
+                    .build();
+            assertThat(storage).isNotNull();
+        });
+    }
 }
