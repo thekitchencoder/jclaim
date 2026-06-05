@@ -151,9 +151,7 @@ an optional per-type own-connection escape hatch. The Spring-free
 `find`, `types`) is the selection facade, alongside per-type qualified beans
 (`@Qualifier("<type>")`). Per-type scope names follow the URN-segment grammar
 `[A-Za-z0-9][A-Za-z0-9-]*` (**no underscores**) — a known limitation (see
-Extension Points). See the realised design
-`docs/plans/2026-06-04-multi-entity-types-design.md` and implementation plan
-`docs/plans/2026-06-04-multi-entity-types.md`.
+Extension Points).
 
 ### 2. Human-friendly IDs
 
@@ -468,7 +466,5 @@ When working with this codebase, consider:
   metrics (`type` tag) and health. `urn.namespace` + `matching.max-candidates`
   inherit; `human-id.template` + `matching.spec` are per-type. Known
   limitation: per-type scope names follow the URN-segment grammar (no
-  underscores); logical/shared-store isolation stays deferred. Design:
-  `docs/plans/2026-06-04-multi-entity-types-design.md`; plan:
-  `docs/plans/2026-06-04-multi-entity-types.md`.
+  underscores); logical/shared-store isolation stays deferred.
 - **Next session**: merge / split operations.
