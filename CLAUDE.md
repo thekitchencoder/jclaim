@@ -357,7 +357,7 @@ onto `jclaim-core`'s test classpath via
 
 ## Extension Points
 
-Designed for extension; not yet implemented:
+Designed-in extension points; delivery status is noted per item:
 
 - **Spring Boot starter** — **Delivered** as `jclaim-spring-boot-starter`
   — auto-configures the resolver, selects a storage adapter from the
@@ -409,13 +409,13 @@ When working with this codebase, consider:
 - **Layout**: Multi-module Maven; five published modules
   (`jclaim-core`, `jclaim-matching-jspec`, `jclaim-storage-mongo`,
   `jclaim-storage-postgres`, `jclaim-spring-boot-starter`).
-- **In scope this milestone**: domain model, resolver, stewardship
+- **Delivered — foundational milestone**: domain model, resolver, stewardship
   events, in-memory storage, MongoDB + PostgreSQL adapters, abstract
   `EntityStorageContract` suite pinning every adapter to identical
   behaviour, corpus reconciliation contracts shared across all three
   backends, build + workflow scaffolding, FOSSA + Codecov CI
   integrations.
-- **Also delivered this milestone**: `jclaim-spring-boot-starter` —
+- **Also delivered**: `jclaim-spring-boot-starter` —
   Spring Boot 3.x auto-configuration wiring the resolver, selecting a
   storage adapter from the classpath, bridging stewardship events to
   `ApplicationEventPublisher`, plus optional Actuator health +
