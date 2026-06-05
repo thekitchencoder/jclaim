@@ -3,20 +3,28 @@
 ## Project Structure & Module Organization
 
 JClaim is a multi-module Maven project. The repository root holds the
-aggregator POM; `jclaim-core` is the current implementation module and
-sibling modules (`jclaim-storage-mongo`, `jclaim-storage-postgres`) are
-on the roadmap.
+aggregator POM (`packaging=pom`, centralising dependency/plugin versions
+and the modules list); each capability ships as its own module:
+`jclaim-core` (storage + matching ports, in-memory adapter, abstract
+conformance suite), `jclaim-matching-jspec` (JSPEC-backed
+`MatchingPolicy`), `jclaim-storage-postgres` and `jclaim-storage-mongo`
+(database adapters), and `jclaim-spring-boot-starter` (Spring Boot 3.x
+auto-configuration).
 
 Core library code lives under
 `jclaim-core/src/main/java/uk/codery/jclaim`, organised by concern:
-`model` (immutable records), `resolver` (the `EntityResolver` interface
-and its default implementation), `storage` (the `EntityStorage` port
-and its in-memory adapter under `storage.memory`), `event` (the
-conflict event surface), and `id` (Crockford Base32, Damm checksum,
-UUID v7 and human-friendly ID generation). Tests sit in
-`jclaim-core/src/test/java/uk/codery/jclaim` mirroring the main package
-layout. Runnable QuickStart examples live at the repository root
-under `/examples/` and are added to `jclaim-core`'s test classpath
+`model` (immutable records), `resolver` (the `EntityResolver` interface,
+`DefaultEntityResolver`, and the `EntityResolvers` multi-type registry),
+`storage` (the `EntityStorage` port and its in-memory adapter under
+`storage.memory`), `matching` (the `MatchingPolicy` port, `TriState`,
+and the `aliasOnly()` default), `event` (the stewardship event surface —
+sealed `MatchEvent` delivered to `MatchEventSink`), and `id` (Crockford
+Base32, Damm checksum, UUID v7 and human-friendly ID generation). Tests
+sit in `jclaim-core/src/test/java/uk/codery/jclaim` mirroring the main
+package layout; `jclaim-core` publishes a `tests`-classifier jar so
+adapter modules inherit the `EntityStorageContract` conformance suite and
+corpus contracts. Runnable QuickStart examples live at the repository
+root under `/examples/` and are added to `jclaim-core`'s test classpath
 via `build-helper-maven-plugin`. Skim `README.md` and `CLAUDE.md`
 before altering behaviour.
 
@@ -29,8 +37,12 @@ before altering behaviour.
   code — specialisations belong in caller projects.
 - **Match** and **Mint** are the two outcomes of `resolveOrMint` — keep these
   terms in code, comments, and docs.
-- **humanId** is the Crockford-Base32 display ID (e.g. `K7M2-9X4P-N`). It is
-  separate from, and never derived from, the URN.
+- **TriState** (`MATCHED` / `NOT_MATCHED` / `UNDETERMINED`) is the
+  matching-policy verdict for one candidate; it lives in `jclaim-core` and
+  carries no jspec coupling.
+- **humanId** is the opt-in Crockford-Base32 display ID (e.g. `K7M2-9X4P-3`),
+  minted only when a template is configured. It is separate from, and never
+  derived from, the URN.
 
 ## Build, Test, and Development Commands
 

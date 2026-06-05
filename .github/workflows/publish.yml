@@ -1,24 +1,24 @@
 #
-# Stub workflow for publishing to Maven Central.
+# Publishes every JClaim module to Maven Central when a GitHub Release is
+# created. Mirrors the sibling jspec project's mechanism.
 #
-# Inactive until the project is registered with Sonatype Central and the
-# following repository secrets are configured:
+# Required repository secrets:
 #
-#   CENTRAL_TOKEN_USERNAME   — Sonatype Central token username
-#   CENTRAL_TOKEN_PASSWORD   — Sonatype Central token password
-#   GPG_PRIVATE_KEY          — armoured private key used to sign release
-#                              artefacts
+#   CENTRAL_TOKEN_USERNAME   — Sonatype Central portal token username
+#   CENTRAL_TOKEN_PASSWORD   — Sonatype Central portal token password
+#   GPG_PRIVATE_KEY          — armoured private key used to sign release artefacts
 #   GPG_PASSPHRASE           — passphrase for the GPG private key above
 #
-# Activation: change the `on:` block to `on: { release: { types: [created] } }`
-# (the historical jspec trigger) once secrets are in place. Until then this
-# workflow runs only on manual dispatch so that the repository can carry the
-# template publicly without firing it.
+# The release version is taken from the GitHub Release name (e.g. a release
+# named "0.1.0" publishes uk.codery:jclaim-*:0.1.0). `versions:set` rewrites
+# the aggregator and every module from the in-repo SNAPSHOT to that version
+# before the build.
 #
 name: Publish to Maven Central
 
 on:
-  workflow_dispatch:
+  release:
+    types: [created]
 
 jobs:
   publish:
@@ -38,6 +38,11 @@ jobs:
           server-password: MAVEN_PASSWORD
           gpg-private-key: ${{ secrets.GPG_PRIVATE_KEY }}
           gpg-passphrase: MAVEN_GPG_PASSPHRASE
+
+      - name: Update version to release version
+        run: |
+          mvn versions:set -DnewVersion=${{ github.event.release.name }}
+          mvn versions:commit
 
       - name: Build and Test
         run: mvn --batch-mode clean verify

@@ -56,7 +56,7 @@
         <junit.version>5.10.1</junit.version>
         <assertj.version>3.24.2</assertj.version>
         <jackson.version>2.17.2</jackson.version>
-        <jspec.version>0.6.0</jspec.version>
+        <jspec.version>0.7.0</jspec.version>
 
         <!-- Plugin versions -->
         <maven-compiler-plugin.version>3.14.1</maven-compiler-plugin.version>
@@ -325,6 +325,19 @@
                 </plugin>
             </plugins>
         </pluginManagement>
+
+        <plugins>
+            <!-- Activate the Central publishing extension on the aggregator itself so the
+                 parent POM (packaging=pom) is bundled and uploaded alongside the modules.
+                 Consumers of any jclaim-* artefact must be able to resolve this parent POM
+                 from Central; without this the deployment bundle omits it and Sonatype
+                 validation rejects the release. Inherited by every child module, so their
+                 per-module declarations of this plugin are redundant (but harmless). -->
+            <plugin>
+                <groupId>org.sonatype.central</groupId>
+                <artifactId>central-publishing-maven-plugin</artifactId>
+            </plugin>
+        </plugins>
     </build>
 
     <profiles>
