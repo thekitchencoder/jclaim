@@ -97,6 +97,25 @@ class MultiTypeRegistrarBranchTest {
     }
 
     /**
+     * A per-type {@code urn.namespace} bound to an empty string (some property
+     * sources do this on absence) is treated as "unset" and inherits the top-level
+     * namespace rather than failing on a blank URN segment.
+     */
+    @Test
+    void blankPerTypeNamespaceInheritsTopLevel() {
+        runner.withPropertyValues(
+                        "jclaim.storage.type=in-memory",
+                        "jclaim.urn.namespace=acme",
+                        "jclaim.entity-types.customer.urn.namespace=")
+                .run(ctx -> {
+                    assertThat(ctx).hasNotFailed();
+                    Entity e = mint(ctx.getBean("jclaimEntityResolver_customer", EntityResolver.class),
+                            "crm", "c1");
+                    assertThat(e.id().namespace()).isEqualTo("acme");
+                });
+    }
+
+    /**
      * A blank {@code matching.spec} falls through to the alias-only default policy
      * (exercises the {@code spec.isBlank()} true arm). The resolver still mints.
      */

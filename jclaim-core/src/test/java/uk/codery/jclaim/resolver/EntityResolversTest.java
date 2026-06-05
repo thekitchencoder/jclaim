@@ -93,6 +93,16 @@ class EntityResolversTest {
     }
 
     @Test
+    void of_emptyMapIsValidAndEmpty() {
+        EntityResolvers resolvers = EntityResolvers.of(Map.of());
+        assertThat(resolvers.types()).isEmpty();
+        assertThat(resolvers.find("customer")).isEmpty();
+        assertThatThrownBy(() -> resolvers.forType("customer"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("[]");
+    }
+
+    @Test
     void forType_returnsResolver() {
         EntityResolver customer = resolverFor("customer");
         EntityResolvers resolvers = EntityResolvers.of(Map.of("customer", customer));

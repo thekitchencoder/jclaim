@@ -27,6 +27,7 @@ import com.mongodb.client.MongoClient;
 
 import uk.codery.jclaim.event.MatchEventSink;
 import uk.codery.jclaim.matching.MatchingPolicy;
+import uk.codery.jclaim.model.EntityId;
 import uk.codery.jclaim.resolver.DefaultEntityResolver;
 import uk.codery.jclaim.resolver.EntityResolver;
 import uk.codery.jclaim.spring.JclaimProperties.EntityType;
@@ -152,6 +153,10 @@ public class EntityTypeResolverRegistrar
             String type = e.getKey();
             EntityType entry = e.getValue();
 
+            // Fail fast at registration (not lazily at first bean access) if the
+            // map key — which becomes the URN type segment and bean qualifier — is
+            // not a valid URN segment, e.g. a trailing-hyphen or underscore key.
+            EntityId.requireValidSegment("jclaim.entity-types.<type> key '" + type + "'", type);
             validateTypeKeyAgreement(type, entry);
             reserveScope(claimedScopes, kind, type, entry);
 
@@ -228,7 +233,7 @@ public class EntityTypeResolverRegistrar
      */
     private void validateTypeKeyAgreement(String type, EntityType entry) {
         String entryType = entry.urn().type();
-        if (entryType != null && !entryType.equals(type)) {
+        if (entryType != null && !entryType.isBlank() && !entryType.equals(type)) {
             throw new IllegalStateException(
                     "jclaim.entity-types." + type + ".urn.type='" + entryType
                             + "' conflicts with the map key '" + type + "'. The map key is the "
@@ -331,6 +336,10 @@ public class EntityTypeResolverRegistrar
                             + "uk.codery:jclaim-matching-jspec dependency to enable jspec-backed "
                             + "matching, or unset the spec to use the alias-only default policy.");
         }
+        // Hard reference is safe: it is reached only after the ClassUtils.isPresent
+        // guard above confirms the optional jspec module is on the classpath, and the
+        // JVM resolves the JspecMatchingPolicy class lazily on this line's execution —
+        // so an absent module never triggers NoClassDefFoundError.
         return uk.codery.jclaim.matching.jspec.JspecMatchingPolicy.fromResource(normalise(spec));
     }
 
@@ -342,7 +351,10 @@ public class EntityTypeResolverRegistrar
      */
     private String resolveNamespace(JclaimProperties props, EntityType entry) {
         String entryNs = entry.urn().namespace();
-        return entryNs != null ? entryNs : props.urn().namespace();
+        // Treat null OR blank as "not set" (inherit) — some property sources bind an
+        // absent key to "" rather than null, and a blank namespace is never valid;
+        // inheriting is consistent with how matching.spec / human-id.template treat blank.
+        return (entryNs != null && !entryNs.isBlank()) ? entryNs : props.urn().namespace();
     }
 
     /**

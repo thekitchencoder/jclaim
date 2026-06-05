@@ -215,9 +215,22 @@ class MultiTypeWiringTest {
         }
     }
 
+    @Test
+    void malformedTypeKeyFailsStartupAtRegistration() {
+        runner.withPropertyValues(
+                "jclaim.storage.type=in-memory",
+                "jclaim.entity-types.bad_key.human-id.template=????-?")
+                .run(ctx -> {
+                    assertThat(ctx).hasFailed();
+                    assertThat(ctx.getStartupFailure())
+                            .hasStackTraceContaining("must match");
+                });
+    }
+
     @Configuration(proxyBeanMethods = false)
     static class QualifiedProbe {
-        @Qualifier("customer")
+        // Constructor injection: the @Qualifier on the constructor parameter is what
+        // selects the bean; no field-level @Qualifier needed.
         final EntityResolver customer;
 
         QualifiedProbe(@Qualifier("customer") EntityResolver customer) {

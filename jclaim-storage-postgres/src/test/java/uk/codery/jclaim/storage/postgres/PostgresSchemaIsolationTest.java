@@ -62,6 +62,13 @@ final class PostgresSchemaIsolationTest {
         assertThat(vehicleSeen).isEqualTo(vehicleEntity.id());
         // The two schemas are isolated: neither read leaked the other's id.
         assertThat(customerSeen).isNotEqualTo(vehicleSeen);
+
+        // findByUrn is schema-scoped too: each storage finds its own entity by URN,
+        // and does NOT see the other schema's entity even by its exact URN.
+        assertThat(customer.findByUrn(customerEntity.id())).isPresent();
+        assertThat(vehicle.findByUrn(vehicleEntity.id())).isPresent();
+        assertThat(customer.findByUrn(vehicleEntity.id())).isEmpty();
+        assertThat(vehicle.findByUrn(customerEntity.id())).isEmpty();
     }
 
     private static Entity mint(Alias alias, String uuid) {
