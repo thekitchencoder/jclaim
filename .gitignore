@@ -20,3 +20,6 @@ target/
 # Examples
 /examples/*/target/
 /examples/*/.idea/
+
+# Local planning / design docs (kept out of version control)
+docs/plans/
