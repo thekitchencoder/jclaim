@@ -50,6 +50,11 @@ public interface MatchingPolicy {
      * <p>Returned names must match the {@link MatchingAttribute#name()} values
      * carried on claims and entities exactly (including any normalisation), or
      * the projection will block on nothing.
+     *
+     * <p>Implementations must <strong>never</strong> return {@code null} —
+     * return an empty set to block on every attribute. The resolver enforces
+     * this and fails fast with a {@link NullPointerException} on a {@code null}
+     * return rather than letting it surface obscurely deeper in resolution.
      */
     default Set<String> blockingKeys() {
         return Set.of();

@@ -1,5 +1,6 @@
 package uk.codery.jclaim.resolver;
 
+import lombok.NonNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import uk.codery.jclaim.event.AttributeDiff;
@@ -103,8 +104,7 @@ public final class DefaultEntityResolver implements EntityResolver {
         // policy scores on but omits from blockingKeys() (a weak signal like
         // town) is never allowed to widen — and thus truncate — the capped pool.
         // An empty blockingKeys() means "block on everything" (historic default).
-        Set<String> blockingKeys = matchingPolicy.blockingKeys();
-        Claim blockingClaim = blockingKeys.isEmpty() ? claim : claim.projectedTo(blockingKeys);
+        Claim blockingClaim = projectForBlocking(claim, matchingPolicy.blockingKeys());
         Set<Entity> candidates = storage.findCandidates(blockingClaim, maxCandidates);
         // Heuristic truncation flag: a full pool is *assumed* truncated. An exact
         // found-count is deferred — querying limit+1 to detect overflow would
@@ -122,6 +122,10 @@ public final class DefaultEntityResolver implements EntityResolver {
         List<CandidateOutcome> matched = outcomes.stream()
                 .filter(o -> o.policyResult() == TriState.MATCHED)
                 .toList();
+        // These counts describe the blocking pool actually fetched. When the
+        // policy declares a non-empty blockingKeys(), that pool is the projected
+        // one (blockingClaim), not the full-attribute pool — so a steward reading
+        // candidatesConsidered/Found/Truncated sees blocking-key-pool numbers.
         int considered = candidates.size();
         int found = candidates.size();
 
@@ -154,6 +158,18 @@ public final class DefaultEntityResolver implements EntityResolver {
                 yield new ResolutionResult.Matched(now);
             }
         };
+    }
+
+    /**
+     * Projects {@code claim} onto the policy's declared blocking keys, or
+     * returns it unchanged when the policy blocks on everything (an empty key
+     * set). The {@link NonNull} guard turns a misbehaving {@link MatchingPolicy}
+     * that returns {@code null} from {@link MatchingPolicy#blockingKeys()} into a
+     * clear {@link NullPointerException} at this boundary, rather than an obscure
+     * one inside {@link Claim#projectedTo(Set)} or the storage query.
+     */
+    private static Claim projectForBlocking(Claim claim, @NonNull Set<String> blockingKeys) {
+        return blockingKeys.isEmpty() ? claim : claim.projectedTo(blockingKeys);
     }
 
     private ResolutionResult linkSingleMatch(Claim claim, Alias alias, Entity winner) {

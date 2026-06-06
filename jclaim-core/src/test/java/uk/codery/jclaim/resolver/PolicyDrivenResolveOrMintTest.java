@@ -30,6 +30,7 @@ import java.util.UUID;
 import java.util.function.Supplier;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * Covers the attribute-blocking + matching-policy branches of
@@ -58,10 +59,7 @@ class PolicyDrivenResolveOrMintTest {
 
     /** Seeds an entity directly into storage so it becomes a blocking candidate. */
     private Entity seed(SourceSystem source, String sourceId, String email) {
-        Claim claim = new Claim(source, sourceId, List.of(
-                MatchingAttribute.of("email", email)));
-        DefaultEntityResolver seeding = resolverWith(MatchingPolicy.aliasOnly(), 100);
-        return seeding.resolveOrMint(claim).entity();
+        return seedAttrs(source, sourceId, MatchingAttribute.of("email", email));
     }
 
     private final Random humanIdRng = new Random(7);
@@ -283,6 +281,28 @@ class PolicyDrivenResolveOrMintTest {
         assertThat(sawTownOnClaim[0]).isTrue();
     }
 
+    @Test
+    void nullBlockingKeys_failsFast() {
+        // A misbehaving policy that returns null from blockingKeys() must be
+        // rejected loudly at the blocking boundary, not surface obscurely later.
+        Claim claim = new Claim(POS, "loyalty-9", List.of(
+                MatchingAttribute.of("email", "alice@example.com")));
+        MatchingPolicy policy = new MatchingPolicy() {
+            @Override
+            public Set<String> blockingKeys() {
+                return null;
+            }
+
+            @Override
+            public TriState evaluate(Claim c, Entity cand) {
+                return TriState.NOT_MATCHED;
+            }
+        };
+
+        assertThatThrownBy(() -> resolverWith(policy, 100).resolveOrMint(claim))
+                .isInstanceOf(NullPointerException.class);
+    }
+
     // --- helpers ---------------------------------------------------------
 
     /** Seeds an entity carrying arbitrary attributes via an alias-only mint. */
@@ -291,7 +311,6 @@ class PolicyDrivenResolveOrMintTest {
         DefaultEntityResolver seeding = resolverWith(MatchingPolicy.aliasOnly(), 100);
         return seeding.resolveOrMint(new Claim(source, sourceId, List.of(attrs))).entity();
     }
-
 
     /** Seeds an entity with a specific createdAt by minting via a fixed clock. */
     private Entity seedAt(SourceSystem source, String sourceId, String email,
