@@ -2,6 +2,7 @@ package uk.codery.jclaim.model;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 
 /**
  * Inbound identity assertion from a source system. A claim carries:
@@ -33,5 +34,24 @@ public record Claim(SourceSystem source, String sourceId, List<MatchingAttribute
     /** Returns the alias formed by {@code (source, sourceId)}. */
     public Alias asAlias() {
         return new Alias(source, sourceId);
+    }
+
+    /**
+     * Returns a copy of this claim whose attributes are restricted to those
+     * whose name is in {@code names}, preserving {@code source} and
+     * {@code sourceId}. The resolver uses this to fetch the candidate pool on a
+     * {@code MatchingPolicy}'s declared blocking keys without narrowing the
+     * attributes the policy later scores against: blocking sees the projection,
+     * scoring sees the full claim. Projecting to an empty set yields a claim
+     * with no attributes (which blocks on the alias alone).
+     */
+    public Claim projectedTo(Set<String> names) {
+        Objects.requireNonNull(names, "names");
+        List<MatchingAttribute> kept = attributes.stream()
+                .filter(a -> names.contains(a.name()))
+                .toList();
+        return kept.size() == attributes.size()
+                ? this
+                : new Claim(source, sourceId, kept);
     }
 }
