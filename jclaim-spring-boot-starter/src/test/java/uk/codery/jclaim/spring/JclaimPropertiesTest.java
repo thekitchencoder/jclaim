@@ -81,6 +81,24 @@ class JclaimPropertiesTest {
         assertThat(p.humanId().template()).isNull();
     }
 
+    @Test
+    void bindsBlockingKeys() {
+        JclaimProperties props = bind(Map.of(
+                "jclaim.matching.spec", "matching/policy.yaml",
+                "jclaim.matching.blocking-keys", "email,phone",
+                "jclaim.entity-types.customer.matching.spec", "matching/customer.yaml",
+                "jclaim.entity-types.customer.matching.blocking-keys[0]", "email"));
+        assertThat(props.matching().blockingKeys()).containsExactly("email", "phone");
+        assertThat(props.entityTypes().get("customer").matching().blockingKeys())
+                .containsExactly("email");
+    }
+
+    @Test
+    void blockingKeysDefaultsToEmpty() {
+        JclaimProperties props = JclaimProperties.defaults();
+        assertThat(props.matching().blockingKeys()).isEmpty();
+    }
+
     private static JclaimProperties bind(Map<String, String> map) {
         MapConfigurationPropertySource source = new MapConfigurationPropertySource(map);
         return new Binder(source).bind("jclaim", JclaimProperties.class)

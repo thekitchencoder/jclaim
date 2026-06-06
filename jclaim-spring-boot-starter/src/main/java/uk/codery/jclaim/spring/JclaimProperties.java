@@ -1,6 +1,8 @@
 package uk.codery.jclaim.spring;
 
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
@@ -248,6 +250,7 @@ public class JclaimProperties {
     public static class Matching {
         private String spec;
         private int maxCandidates = 100;
+        private List<String> blockingKeys = new ArrayList<>();
 
         /** Classpath path to the jspec matching spec (e.g. {@code matching/policy.yaml}); null/blank means alias-only. */
         public String spec() {
@@ -264,6 +267,19 @@ public class JclaimProperties {
 
         public void setMaxCandidates(int maxCandidates) {
             this.maxCandidates = maxCandidates;
+        }
+
+        /**
+         * Blocking-key attribute names for the jspec-backed policy. Empty (the
+         * default) blocks on every attribute. Only meaningful when {@code spec}
+         * is set; ignored (with a WARN) for the alias-only default.
+         */
+        public List<String> blockingKeys() {
+            return blockingKeys;
+        }
+
+        public void setBlockingKeys(List<String> blockingKeys) {
+            this.blockingKeys = blockingKeys;
         }
     }
 
@@ -368,6 +384,7 @@ public class JclaimProperties {
     public static class EntityTypeMatching {
         private String spec;
         private Integer maxCandidates;
+        private List<String> blockingKeys = new ArrayList<>();
 
         /** Classpath path to the jspec matching spec; null/blank means alias-only. Per-type only. */
         public String spec() {
@@ -391,6 +408,19 @@ public class JclaimProperties {
 
         public void setMaxCandidates(Integer maxCandidates) {
             this.maxCandidates = maxCandidates;
+        }
+
+        /**
+         * Per-type blocking-key attribute names. Per-type only (never inherited),
+         * mirroring {@code spec}: blocking keys belong to a specific spec. Empty
+         * (the default) blocks on every attribute.
+         */
+        public List<String> blockingKeys() {
+            return blockingKeys;
+        }
+
+        public void setBlockingKeys(List<String> blockingKeys) {
+            this.blockingKeys = blockingKeys;
         }
     }
 
