@@ -22,8 +22,10 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Random;
+import java.util.Set;
 import java.util.UUID;
 import java.util.function.Supplier;
 
@@ -208,7 +210,88 @@ class PolicyDrivenResolveOrMintTest {
         assertThat(event.candidatesFound()).isEqualTo(2);
     }
 
+    @Test
+    void defaultBlocking_weakAttributeWidensPool() {
+        // Baseline: with the default (empty) blockingKeys(), every attribute
+        // blocks. Entity B shares only 'town' with the claim, yet still lands in
+        // the candidate pool and gets scored.
+        Entity a = seedAttrs(ECOMMERCE, "cust-1",
+                MatchingAttribute.of("email", "alice@example.com"),
+                MatchingAttribute.of("town", "London"));
+        Entity b = seedAttrs(CRM, "crm-2",
+                MatchingAttribute.of("email", "bob@example.com"),
+                MatchingAttribute.of("town", "London"));
+
+        Claim claim = new Claim(POS, "loyalty-9", List.of(
+                MatchingAttribute.of("email", "alice@example.com"),
+                MatchingAttribute.of("town", "London")));
+
+        Set<EntityId> scored = new LinkedHashSet<>();
+        MatchingPolicy policy = (c, cand) -> {
+            scored.add(cand.id());
+            return TriState.NOT_MATCHED;
+        };
+
+        resolverWith(policy, 100).resolveOrMint(claim);
+
+        // Both entities were fetched and scored — 'town' widened the pool.
+        assertThat(scored).contains(a.id(), b.id());
+    }
+
+    @Test
+    void blockingKeysProjection_weakAttributeIsScoredButDoesNotWidenPool() {
+        // Same data, but the policy declares blockingKeys() = {email}. Now B,
+        // which shares only 'town', is excluded from the pool — while the policy
+        // still SEES 'town' on the claim it scores (proving scoring is on the
+        // full claim, not the projection).
+        Entity a = seedAttrs(ECOMMERCE, "cust-1",
+                MatchingAttribute.of("email", "alice@example.com"),
+                MatchingAttribute.of("town", "London"));
+        Entity b = seedAttrs(CRM, "crm-2",
+                MatchingAttribute.of("email", "bob@example.com"),
+                MatchingAttribute.of("town", "London"));
+
+        Claim claim = new Claim(POS, "loyalty-9", List.of(
+                MatchingAttribute.of("email", "alice@example.com"),
+                MatchingAttribute.of("town", "London")));
+
+        Set<EntityId> scored = new LinkedHashSet<>();
+        boolean[] sawTownOnClaim = {false};
+        MatchingPolicy policy = new MatchingPolicy() {
+            @Override
+            public Set<String> blockingKeys() {
+                return Set.of("email");
+            }
+
+            @Override
+            public TriState evaluate(Claim c, Entity cand) {
+                scored.add(cand.id());
+                sawTownOnClaim[0] |= c.attributes().stream()
+                        .anyMatch(at -> at.name().equals("town"));
+                return cand.id().equals(a.id()) ? TriState.MATCHED : TriState.NOT_MATCHED;
+            }
+        };
+
+        ResolutionResult result = resolverWith(policy, 100).resolveOrMint(claim);
+
+        assertThat(result).isInstanceOf(ResolutionResult.Matched.class);
+        assertThat(result.entity().id()).isEqualTo(a.id());
+        // Only the email-sharing entity entered the pool; the town-only one did not.
+        assertThat(scored).containsExactly(a.id());
+        assertThat(scored).doesNotContain(b.id());
+        // Scoring still saw the full claim, including the non-blocking 'town'.
+        assertThat(sawTownOnClaim[0]).isTrue();
+    }
+
     // --- helpers ---------------------------------------------------------
+
+    /** Seeds an entity carrying arbitrary attributes via an alias-only mint. */
+    private Entity seedAttrs(SourceSystem source, String sourceId,
+                             MatchingAttribute... attrs) {
+        DefaultEntityResolver seeding = resolverWith(MatchingPolicy.aliasOnly(), 100);
+        return seeding.resolveOrMint(new Claim(source, sourceId, List.of(attrs))).entity();
+    }
+
 
     /** Seeds an entity with a specific createdAt by minting via a fixed clock. */
     private Entity seedAt(SourceSystem source, String sourceId, String email,

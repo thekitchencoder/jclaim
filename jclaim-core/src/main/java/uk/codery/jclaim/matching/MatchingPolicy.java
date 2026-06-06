@@ -2,6 +2,9 @@ package uk.codery.jclaim.matching;
 
 import uk.codery.jclaim.model.Claim;
 import uk.codery.jclaim.model.Entity;
+import uk.codery.jclaim.model.MatchingAttribute;
+
+import java.util.Set;
 
 /**
  * Port that scores a single {@code (Claim, candidate)} pair, deciding whether
@@ -28,6 +31,29 @@ public interface MatchingPolicy {
      * insufficient evidence to decide.
      */
     TriState evaluate(Claim claim, Entity candidate);
+
+    /**
+     * The names of the attributes this policy uses to fetch the candidate pool
+     * — its <em>blocking keys</em>. Before scoring, the resolver projects each
+     * inbound claim to these names (via {@link Claim#projectedTo(Set)}) and
+     * fetches candidates on that projection, so an attribute outside this set is
+     * still scored by {@link #evaluate} but never widens the pool.
+     *
+     * <p>The default returns an empty set, meaning <em>no projection</em>: the
+     * resolver blocks on every attribute on the claim, reproducing jclaim's
+     * historic behaviour where each {@code (name, value)} pair is a blocking
+     * key. A policy that scores on weak signals (name, address, date of birth)
+     * but blocks on a smaller, higher-cardinality or derived key set should
+     * override this to return just those key names — otherwise a low-cardinality
+     * attribute can flood the capped pool and truncate the real match out of it.
+     *
+     * <p>Returned names must match the {@link MatchingAttribute#name()} values
+     * carried on claims and entities exactly (including any normalisation), or
+     * the projection will block on nothing.
+     */
+    default Set<String> blockingKeys() {
+        return Set.of();
+    }
 
     /**
      * The default, dependency-free policy: a candidate {@code MATCHED} iff its

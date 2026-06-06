@@ -97,7 +97,15 @@ public final class DefaultEntityResolver implements EntityResolver {
         }
 
         // 2. No exact alias owner: attribute blocking + matching policy.
-        Set<Entity> candidates = storage.findCandidates(claim, maxCandidates);
+        // The policy declares which attributes block (fetch the pool); the
+        // resolver projects the claim to those keys before fetching, but scores
+        // the candidates against the FULL claim below. So an attribute the
+        // policy scores on but omits from blockingKeys() (a weak signal like
+        // town) is never allowed to widen — and thus truncate — the capped pool.
+        // An empty blockingKeys() means "block on everything" (historic default).
+        Set<String> blockingKeys = matchingPolicy.blockingKeys();
+        Claim blockingClaim = blockingKeys.isEmpty() ? claim : claim.projectedTo(blockingKeys);
+        Set<Entity> candidates = storage.findCandidates(blockingClaim, maxCandidates);
         // Heuristic truncation flag: a full pool is *assumed* truncated. An exact
         // found-count is deferred — querying limit+1 to detect overflow would
         // defeat the cap's IO bound. candidatesFound therefore reports the
