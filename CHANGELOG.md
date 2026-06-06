@@ -7,6 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-06-06
+
+### Added
+
+- **Blocking keys separated from scored attributes.**
+  `MatchingPolicy.blockingKeys()` (default empty) lets a policy declare which
+  attribute names fetch the candidate pool, distinct from the attributes it
+  scores. When non-empty, `resolveOrMint` blocks on a projection of the claim
+  (`Claim.projectedTo(Set<String>)`) but scores candidates against the **full**
+  claim — so a weak, low-cardinality attribute can be scoring evidence without
+  flooding (and truncating) the capped pool. The empty default reproduces the
+  historic "block on every attribute" behaviour exactly. Core only — no
+  `EntityStorage` port, adapter, or `EntityStorageContract` change. (#17)
+- **Blocking keys reachable via the jspec provider and the Spring starter.**
+  `JspecMatchingPolicy` gains a `blockingKeys(Collection<String>)` builder slot
+  and keyed `fromResource(path, keys)` / `fromString(text, keys)` factories (the
+  no-keys forms delegate, so existing call sites are unchanged; blank key names
+  are rejected). The starter adds `jclaim.matching.blocking-keys` on both the
+  single-type `Matching` and per-type `EntityTypeMatching` config — **per-type
+  only, never inherited**, mirroring `matching.spec`. Blocking keys configured
+  without a spec are ignored and logged at WARN (alias-only fall-back). (#18)
+
+### Documentation
+
+- **ADR-0001 — matching architecture.** Records the decision to separate
+  blocking keys from scored attributes, the claim-projection mechanism, and the
+  deterministic-vs-probabilistic policy taxonomy
+  (`docs/adr/0001-matching-blocking-keys-and-policy-tiers.md`).
+
+## [0.1.0] - 2026-06-05
+
 ### Added
 
 - **Configurable URN type segment.** The URN type segment — historically
@@ -284,4 +315,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Re-import the Maven project in your IDE so the new modules
   register.
 
-[Unreleased]: https://github.com/thekitchencoder/jclaim/commits/main
+[Unreleased]: https://github.com/thekitchencoder/jclaim/compare/0.2.0...HEAD
+[0.2.0]: https://github.com/thekitchencoder/jclaim/compare/0.1.0...0.2.0
+[0.1.0]: https://github.com/thekitchencoder/jclaim/releases/tag/0.1.0
