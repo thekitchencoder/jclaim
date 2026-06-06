@@ -1,6 +1,7 @@
 package uk.codery.jclaim.spring;
 
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 import javax.sql.DataSource;
@@ -334,11 +335,22 @@ public class EntityTypeResolverRegistrar
     /**
      * Per-type matching policy. A configured {@code spec} requires the optional
      * jspec module; its absence is a fail-fast configuration error naming the type.
-     * No spec → alias-only. Spec is per-type only and is never inherited.
+     * No spec → alias-only (a non-empty {@code blocking-keys} in that case is inert
+     * and logged as a WARN). Spec and blocking keys are per-type only and never
+     * inherited.
+     *
+     * <p>Package-private for direct unit testing of the spec/blocking-key wiring.
      */
-    private MatchingPolicy buildMatchingPolicy(String type, EntityType entry) {
+    MatchingPolicy buildMatchingPolicy(String type, EntityType entry) {
         String spec = entry.matching().spec();
         if (spec == null || spec.isBlank()) {
+            List<String> keys = entry.matching().blockingKeys();
+            if (keys != null && !keys.isEmpty()) {
+                log.warn("jclaim.entity-types.{}.matching.blocking-keys={} is set but no "
+                        + "matching.spec is configured for the type. Blocking keys only apply to a "
+                        + "jspec-backed policy, so they are ignored and the type falls back to the "
+                        + "alias-only default.", type, keys);
+            }
             return MatchingPolicy.aliasOnly();
         }
         if (!ClassUtils.isPresent(JSPEC_POLICY_CLASS, getClass().getClassLoader())) {
@@ -352,7 +364,8 @@ public class EntityTypeResolverRegistrar
         // guard above confirms the optional jspec module is on the classpath, and the
         // JVM resolves the JspecMatchingPolicy class lazily on this line's execution —
         // so an absent module never triggers NoClassDefFoundError.
-        return uk.codery.jclaim.matching.jspec.JspecMatchingPolicy.fromResource(normalise(spec));
+        return uk.codery.jclaim.matching.jspec.JspecMatchingPolicy.fromResource(
+                normalise(spec), entry.matching().blockingKeys());
     }
 
     /**

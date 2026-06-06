@@ -3,9 +3,14 @@ package uk.codery.jclaim.spring;
 import java.util.List;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 
+import uk.codery.jclaim.matching.MatchingPolicy;
+import uk.codery.jclaim.matching.jspec.JspecMatchingPolicy;
 import uk.codery.jclaim.model.Claim;
 import uk.codery.jclaim.model.Entity;
 import uk.codery.jclaim.model.ResolutionResult;
@@ -168,5 +173,31 @@ class MultiTypeRegistrarBranchTest {
                             "crm", "c1");
                     assertThat(e.id().type()).isEqualTo("customer");
                 });
+    }
+
+    @Test
+    void buildMatchingPolicyCarriesPerTypeBlockingKeys() {
+        EntityTypeResolverRegistrar registrar = new EntityTypeResolverRegistrar();
+        JclaimProperties.EntityType entry = new JclaimProperties.EntityType();
+        entry.matching().setSpec("matching/email.yaml");
+        entry.matching().setBlockingKeys(List.of("email"));
+
+        MatchingPolicy policy = registrar.buildMatchingPolicy("customer", entry);
+
+        assertThat(policy).isInstanceOf(JspecMatchingPolicy.class);
+        assertThat(policy.blockingKeys()).containsExactly("email");
+    }
+
+    @Test
+    @ExtendWith(OutputCaptureExtension.class)
+    void buildMatchingPolicyWarnsWhenBlockingKeysSetWithoutSpec(CapturedOutput output) {
+        EntityTypeResolverRegistrar registrar = new EntityTypeResolverRegistrar();
+        JclaimProperties.EntityType entry = new JclaimProperties.EntityType();
+        entry.matching().setBlockingKeys(List.of("email"));
+
+        MatchingPolicy policy = registrar.buildMatchingPolicy("customer", entry);
+
+        assertThat(policy).isSameAs(MatchingPolicy.aliasOnly());
+        assertThat(output).contains("blocking-keys").contains("customer");
     }
 }

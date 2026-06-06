@@ -7,6 +7,7 @@ import org.springframework.boot.context.properties.source.MapConfigurationProper
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class JclaimPropertiesTest {
 
@@ -79,6 +80,63 @@ class JclaimPropertiesTest {
         assertThat(p.urn().namespace()).isEqualTo("codery");
         assertThat(p.urn().type()).isEqualTo("entity");
         assertThat(p.humanId().template()).isNull();
+    }
+
+    @Test
+    void bindsBlockingKeys() {
+        JclaimProperties props = bind(Map.of(
+                "jclaim.matching.spec", "matching/policy.yaml",
+                "jclaim.matching.blocking-keys", "email,phone",
+                "jclaim.entity-types.customer.matching.spec", "matching/customer.yaml",
+                "jclaim.entity-types.customer.matching.blocking-keys[0]", "email"));
+        assertThat(props.matching().blockingKeys()).containsExactly("email", "phone");
+        assertThat(props.entityTypes().get("customer").matching().blockingKeys())
+                .containsExactly("email");
+    }
+
+    @Test
+    void blockingKeysDefaultsToEmpty() {
+        JclaimProperties props = JclaimProperties.defaults();
+        assertThat(props.matching().blockingKeys()).isEmpty();
+    }
+
+    /**
+     * Blocking keys are per-type only and never inherited: a top-level
+     * {@code jclaim.matching.blocking-keys} must not bleed into a per-type
+     * entry that declared none. The per-type entry stays empty (blocking keys
+     * travel with the per-type {@code matching.spec}), and the registrar's
+     * {@code buildMatchingPolicy} reads only the per-type field — so the built
+     * policy cannot inherit the top-level keys.
+     */
+    @Test
+    void blockingKeysAreNotInheritedFromTopLevelToPerType() {
+        JclaimProperties props = bind(Map.of(
+                "jclaim.matching.blocking-keys", "email,phone",
+                "jclaim.entity-types.customer.matching.spec", "matching/customer.yaml"));
+        assertThat(props.matching().blockingKeys()).containsExactly("email", "phone");
+        assertThat(props.entityTypes().get("customer").matching().blockingKeys()).isEmpty();
+    }
+
+    /**
+     * The blocking-keys accessors return an immutable, never-null view on both
+     * the single-type and per-type matching properties: a caller cannot mutate
+     * the bound property post-boot, and a {@code null} field (e.g. a programmatic
+     * {@code setBlockingKeys(null)}) yields an empty list rather than propagating
+     * a low-signal NPE into the spec wiring.
+     */
+    @Test
+    void blockingKeysAccessorsAreImmutableAndNullSafe() {
+        JclaimProperties.Matching matching = new JclaimProperties.Matching();
+        assertThatThrownBy(() -> matching.blockingKeys().add("injection"))
+                .isInstanceOf(UnsupportedOperationException.class);
+        matching.setBlockingKeys(null);
+        assertThat(matching.blockingKeys()).isEmpty();
+
+        JclaimProperties.EntityTypeMatching perType = new JclaimProperties.EntityTypeMatching();
+        assertThatThrownBy(() -> perType.blockingKeys().add("injection"))
+                .isInstanceOf(UnsupportedOperationException.class);
+        perType.setBlockingKeys(null);
+        assertThat(perType.blockingKeys()).isEmpty();
     }
 
     private static JclaimProperties bind(Map<String, String> map) {

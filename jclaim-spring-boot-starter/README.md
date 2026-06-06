@@ -150,10 +150,11 @@ All properties live under the `jclaim.*` prefix.
 | `jclaim.storage.postgres.apply-schema`    | `true`             | Auto-apply the bundled `schema.sql` on startup.                                                   |
 | `jclaim.matching.spec`                    | _(none)_           | Classpath spec resource for a `JspecMatchingPolicy`; absent → `aliasOnly()`. Requires `jclaim-matching-jspec`. Eagerly validated — a missing resource fails context startup. |
 | `jclaim.matching.max-candidates`          | `100`              | Cap on attribute-blocked candidates the policy scores per claim. Truncation → WARN + `jclaim.matching.pool_truncated_total`. |
+| `jclaim.matching.blocking-keys`           | _(empty)_          | Attribute names the jspec policy blocks (fetches the candidate pool) on; others are still scored. Requires `jclaim.matching.spec`; set without a spec → ignored (WARN). |
 | `jclaim.match-sink.type`                  | `spring-events`    | One of `spring-events`, `logging`, `noop`.                                                        |
 | `jclaim.metrics.enabled`                  | `true`             | Wraps the resolver with a Micrometer-instrumented decorator when a `MeterRegistry` bean exists.   |
 | `jclaim.health.enabled`                   | `true`             | Registers an Actuator `HealthIndicator` for the configured storage.                               |
-| `jclaim.entity-types.<type>`              | _(none)_           | Per-entity-type map; **present → multi-type mode** (see [Multiple entity types](#multiple-entity-types)). Per-entry sub-keys: `urn.namespace`, `human-id.template`, `matching.spec`, `matching.max-candidates`, `storage.{schema,collection-name,datasource,mongo-client}`. |
+| `jclaim.entity-types.<type>`              | _(none)_           | Per-entity-type map; **present → multi-type mode** (see [Multiple entity types](#multiple-entity-types)). Per-entry sub-keys: `urn.namespace`, `human-id.template`, `matching.spec`, `matching.max-candidates`, `matching.blocking-keys`, `storage.{schema,collection-name,datasource,mongo-client}`. |
 
 ### Entity type & namespace
 
@@ -269,6 +270,7 @@ per-type or strictly app-global.
 | `urn.type` | **Per-type — *is* the map key.** Never inherited (a nested `urn.type` that disagrees with the map key fails startup). |
 | `human-id.template` | **Per-type only.** No global default — absent on an entry → that type mints `humanId == null`. |
 | `matching.spec` | **Per-type only.** No global default — each type matches by its own rules. |
+| `matching.blocking-keys` | **Per-type only.** Travels with the per-type `matching.spec`; never inherited. |
 | `match-sink.*` | **App-global.** One sink for the whole application. |
 | `storage.type` (backend kind) + the shared connection | **App-global.** Only the *scope* (schema/collection) and an optional own-connection override are per-type. |
 

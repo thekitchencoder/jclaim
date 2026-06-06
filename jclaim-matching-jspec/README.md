@@ -91,6 +91,8 @@ Three construction entry points:
 |-----------------------------------------|-----------------------------------------------------------|
 | `JspecMatchingPolicy.fromResource(path)`| Load a YAML/JSON spec from the classpath. Missing resource → `IllegalArgumentException`. |
 | `JspecMatchingPolicy.fromString(text)`  | Parse a YAML/JSON spec from an in-memory string.          |
+| `JspecMatchingPolicy.fromResource(path, keys)`| As above, plus blocking keys (attribute names the resolver fetches the candidate pool on). |
+| `JspecMatchingPolicy.fromString(text, keys)`  | As above, from an in-memory string, plus blocking keys. |
 | `JspecMatchingPolicy.builder()`         | Supply a pre-built `Specification` and override defaults.  |
 
 ## Defaults and overrides
@@ -102,10 +104,22 @@ use the builder:
 ```java
 var policy = JspecMatchingPolicy.builder()
         .spec(specification)
-        .projection(myProjection)   // default: DocumentProjection.defaults()
-        .aggregate(myAggregator)    // default: OutcomeAggregator.conjunctive()
+        .blockingKeys(List.of("email"))  // default: none → block on every attribute
+        .projection(myProjection)        // default: DocumentProjection.defaults()
+        .aggregate(myAggregator)         // default: OutcomeAggregator.conjunctive()
         .build();
 ```
+
+### Blocking keys
+
+By default a policy blocks on every claim attribute (it returns an empty
+`blockingKeys()`). Declare `blockingKeys(...)` — or the keyed `fromResource` /
+`fromString` factories — to restrict the candidate pool to a projection of the
+claim onto those attribute names, while the spec still scores against the full
+claim. This keeps a weak, low-cardinality attribute (e.g. `town`) as scoring
+evidence without letting it flood the capped pool. Names must match
+`MatchingAttribute.name()` exactly; a blank name is rejected. See ADR-0001 for
+the rationale.
 
 ### Default projection — `DocumentProjection.defaults()`
 
