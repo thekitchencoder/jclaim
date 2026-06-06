@@ -15,6 +15,7 @@ import uk.codery.jspec.model.Specification;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -118,5 +119,62 @@ class JspecMatchingPolicyTest {
                 candidate(new MatchingAttribute("email", "a@b.com"),
                         new MatchingAttribute("country", "UK"))))
                 .isEqualTo(TriState.MATCHED);
+    }
+
+    @Test
+    void defaultBlockingKeysAreEmpty() {
+        MatchingPolicy policy = JspecMatchingPolicy.builder().spec(twoCriterionSpec()).build();
+        assertThat(policy.blockingKeys()).isEmpty();
+    }
+
+    @Test
+    void builderCarriesBlockingKeys() {
+        MatchingPolicy policy = JspecMatchingPolicy.builder()
+                .spec(twoCriterionSpec())
+                .blockingKeys(List.of("email", "country"))
+                .build();
+        assertThat(policy.blockingKeys()).containsExactlyInAnyOrder("email", "country");
+    }
+
+    @Test
+    void fromResourceWithKeysCarriesThemOntoThePolicy() {
+        MatchingPolicy policy = JspecMatchingPolicy.fromResource(
+                "/matching/email-and-country.yaml", List.of("email"));
+        assertThat(policy.blockingKeys()).containsExactly("email");
+    }
+
+    @Test
+    void fromStringWithKeysCarriesThemOntoThePolicy() {
+        String yaml = """
+                id: claim-vs-candidate
+                criteria:
+                  - id: same-email
+                    query:
+                      claim.email:
+                        $eq:
+                          $contextPath: candidate.email
+                """;
+        MatchingPolicy policy = JspecMatchingPolicy.fromString(yaml, List.of("email"));
+        assertThat(policy.blockingKeys()).containsExactly("email");
+    }
+
+    @Test
+    void blankBlockingKeyIsRejected() {
+        assertThatThrownBy(() -> JspecMatchingPolicy.builder()
+                .spec(twoCriterionSpec())
+                .blockingKeys(List.of("email", "  ")))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("blocking key");
+    }
+
+    @Test
+    void returnedBlockingKeysSetIsImmutable() {
+        Set<String> keys = JspecMatchingPolicy.builder()
+                .spec(twoCriterionSpec())
+                .blockingKeys(List.of("email"))
+                .build()
+                .blockingKeys();
+        assertThatThrownBy(() -> keys.add("country"))
+                .isInstanceOf(UnsupportedOperationException.class);
     }
 }
