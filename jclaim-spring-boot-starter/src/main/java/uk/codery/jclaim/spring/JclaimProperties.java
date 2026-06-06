@@ -275,7 +275,12 @@ public class JclaimProperties {
          * is set; ignored (with a WARN) for the alias-only default.
          */
         public List<String> blockingKeys() {
-            return blockingKeys;
+            // Return an immutable, never-null view: callers (and the wiring that
+            // forwards these to JspecMatchingPolicy) must not mutate the bound
+            // property, and a null field must not propagate a low-signal NPE into
+            // the spec path. Spring binds the list via the setter, so an immutable
+            // accessor does not impede property binding.
+            return blockingKeys == null ? List.of() : List.copyOf(blockingKeys);
         }
 
         public void setBlockingKeys(List<String> blockingKeys) {
@@ -416,7 +421,12 @@ public class JclaimProperties {
          * (the default) blocks on every attribute.
          */
         public List<String> blockingKeys() {
-            return blockingKeys;
+            // Return an immutable, never-null view: callers (and the wiring that
+            // forwards these to JspecMatchingPolicy) must not mutate the bound
+            // property, and a null field must not propagate a low-signal NPE into
+            // the spec path. Spring binds the list via the setter, so an immutable
+            // accessor does not impede property binding.
+            return blockingKeys == null ? List.of() : List.copyOf(blockingKeys);
         }
 
         public void setBlockingKeys(List<String> blockingKeys) {
