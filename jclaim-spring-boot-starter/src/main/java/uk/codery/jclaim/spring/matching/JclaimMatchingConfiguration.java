@@ -30,7 +30,7 @@ import java.util.List;
  *       set but {@code jclaim-matching-jspec} is <em>not</em> on the classpath: fails
  *       startup with an actionable message naming the missing module.</li>
  *   <li><b>alias-only default</b> — no spec configured: the outer
- *       {@link #jclaimAliasOnlyMatchingPolicy()} bean returns
+ *       {@link #jclaimAliasOnlyMatchingPolicy(JclaimProperties)} bean returns
  *       {@link MatchingPolicy#aliasOnly()} (always available from core).</li>
  * </ul>
  *
