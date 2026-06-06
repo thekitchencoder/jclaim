@@ -99,6 +99,23 @@ class JclaimPropertiesTest {
         assertThat(props.matching().blockingKeys()).isEmpty();
     }
 
+    /**
+     * Blocking keys are per-type only and never inherited: a top-level
+     * {@code jclaim.matching.blocking-keys} must not bleed into a per-type
+     * entry that declared none. The per-type entry stays empty (blocking keys
+     * travel with the per-type {@code matching.spec}), and the registrar's
+     * {@code buildMatchingPolicy} reads only the per-type field — so the built
+     * policy cannot inherit the top-level keys.
+     */
+    @Test
+    void blockingKeysAreNotInheritedFromTopLevelToPerType() {
+        JclaimProperties props = bind(Map.of(
+                "jclaim.matching.blocking-keys", "email,phone",
+                "jclaim.entity-types.customer.matching.spec", "matching/customer.yaml"));
+        assertThat(props.matching().blockingKeys()).containsExactly("email", "phone");
+        assertThat(props.entityTypes().get("customer").matching().blockingKeys()).isEmpty();
+    }
+
     private static JclaimProperties bind(Map<String, String> map) {
         MapConfigurationPropertySource source = new MapConfigurationPropertySource(map);
         return new Binder(source).bind("jclaim", JclaimProperties.class)
