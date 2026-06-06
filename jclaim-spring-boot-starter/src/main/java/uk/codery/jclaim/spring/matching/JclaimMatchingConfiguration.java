@@ -1,5 +1,7 @@
 package uk.codery.jclaim.spring.matching;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingClass;
@@ -8,6 +10,8 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import uk.codery.jclaim.matching.MatchingPolicy;
 import uk.codery.jclaim.spring.JclaimProperties;
+
+import java.util.List;
 
 /**
  * Registers the {@link MatchingPolicy} bean the resolver uses.
@@ -37,6 +41,8 @@ import uk.codery.jclaim.spring.JclaimProperties;
 @Configuration(proxyBeanMethods = false)
 public class JclaimMatchingConfiguration {
 
+    private static final Logger log = LoggerFactory.getLogger(JclaimMatchingConfiguration.class);
+
     /**
      * Spec-backed policy. {@code JspecMatchingPolicy} is referenced only here, behind
      * {@code @ConditionalOnClass(name=...)}, so absence of the optional module never
@@ -53,7 +59,8 @@ public class JclaimMatchingConfiguration {
             String spec = normalise(properties.matching().spec());
             // Eager validation: a missing/unparseable resource throws here, so the
             // Spring context fails to start rather than deferring to first traffic.
-            return uk.codery.jclaim.matching.jspec.JspecMatchingPolicy.fromResource(spec);
+            return uk.codery.jclaim.matching.jspec.JspecMatchingPolicy.fromResource(
+                    spec, properties.matching().blockingKeys());
         }
 
         /**
@@ -99,7 +106,13 @@ public class JclaimMatchingConfiguration {
      */
     @Bean
     @ConditionalOnMissingBean(MatchingPolicy.class)
-    MatchingPolicy jclaimAliasOnlyMatchingPolicy() {
+    MatchingPolicy jclaimAliasOnlyMatchingPolicy(JclaimProperties properties) {
+        List<String> keys = properties.matching().blockingKeys();
+        if (keys != null && !keys.isEmpty()) {
+            log.warn("jclaim.matching.blocking-keys={} is set but no jclaim.matching.spec is "
+                    + "configured. Blocking keys only apply to a jspec-backed policy, so they are "
+                    + "ignored and matching falls back to the alias-only default.", keys);
+        }
         return MatchingPolicy.aliasOnly();
     }
 }

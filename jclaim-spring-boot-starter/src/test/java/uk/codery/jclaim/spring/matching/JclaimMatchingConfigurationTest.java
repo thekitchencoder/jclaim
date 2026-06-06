@@ -1,8 +1,11 @@
 package uk.codery.jclaim.spring.matching;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import uk.codery.jclaim.matching.MatchingPolicy;
@@ -69,6 +72,29 @@ class JclaimMatchingConfigurationTest {
                     .rootCause()
                     .hasMessageContaining("does-not-exist.yaml");
         });
+    }
+
+    @Test
+    void specWithBlockingKeysCarriesThemOntoTheJspecPolicy() {
+        runner.withPropertyValues(
+                        "jclaim.matching.spec=classpath:matching/email.yaml",
+                        "jclaim.matching.blocking-keys=email,phone")
+                .run(ctx -> {
+                    assertThat(ctx).hasNotFailed();
+                    MatchingPolicy policy = ctx.getBean(MatchingPolicy.class);
+                    assertThat(policy).isInstanceOf(JspecMatchingPolicy.class);
+                    assertThat(policy.blockingKeys()).containsExactlyInAnyOrder("email", "phone");
+                });
+    }
+
+    @Test
+    @ExtendWith(OutputCaptureExtension.class)
+    void blockingKeysWithoutSpecWarnsAndFallsBackToAliasOnly(CapturedOutput output) {
+        runner.withPropertyValues("jclaim.matching.blocking-keys=email,phone").run(ctx -> {
+            assertThat(ctx).hasNotFailed();
+            assertThat(ctx.getBean(MatchingPolicy.class)).isSameAs(MatchingPolicy.aliasOnly());
+        });
+        assertThat(output).contains("blocking-keys").contains("email");
     }
 
     @Configuration(proxyBeanMethods = false)
