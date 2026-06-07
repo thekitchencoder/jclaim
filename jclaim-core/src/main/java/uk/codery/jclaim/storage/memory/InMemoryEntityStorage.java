@@ -21,12 +21,12 @@ import java.util.function.Supplier;
 
 /**
  * In-memory {@link EntityStorage} adapter backed by {@link ConcurrentHashMap}
- * indexes for URN, human ID, and alias lookups. Suitable for tests, demos and
+ * indexes for URN, public ID, and alias lookups. Suitable for tests, demos and
  * single-process embeddings where durability is not required.
  *
  * <p>Mutating operations are serialised through a single {@link ReentrantLock}.
  * This trades a small amount of contention for an obviously-correct
- * concurrency story: alias uniqueness, human ID uniqueness, and URN
+ * concurrency story: alias uniqueness, public ID uniqueness, and URN
  * uniqueness are all checked under the same critical section as the
  * cross-index publication. Readers do not acquire the lock and see the
  * consistent state published when each writer releases.
@@ -34,7 +34,7 @@ import java.util.function.Supplier;
 public final class InMemoryEntityStorage implements EntityStorage {
 
     private final ConcurrentHashMap<EntityId, Entity> byUrn = new ConcurrentHashMap<>();
-    private final ConcurrentHashMap<String, EntityId> byHumanId = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, EntityId> byPublicId = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<Alias, EntityId> byAlias = new ConcurrentHashMap<>();
     private final ReentrantLock writeLock = new ReentrantLock();
 
@@ -45,9 +45,9 @@ public final class InMemoryEntityStorage implements EntityStorage {
     }
 
     @Override
-    public Optional<Entity> findByHumanId(String humanId) {
-        Objects.requireNonNull(humanId, "humanId");
-        EntityId urn = byHumanId.get(humanId);
+    public Optional<Entity> findByPublicId(String publicId) {
+        Objects.requireNonNull(publicId, "publicId");
+        EntityId urn = byPublicId.get(publicId);
         return urn == null ? Optional.empty() : Optional.ofNullable(byUrn.get(urn));
     }
 
@@ -85,9 +85,9 @@ public final class InMemoryEntityStorage implements EntityStorage {
             if (byUrn.containsKey(minted.id())) {
                 throw new IllegalStateException("URN collision on mint: " + minted.id());
             }
-            if (minted.humanId() != null && byHumanId.containsKey(minted.humanId())) {
+            if (minted.publicId() != null && byPublicId.containsKey(minted.publicId())) {
                 throw new IllegalStateException(
-                        "humanId collision on mint: " + minted.humanId());
+                        "publicId collision on mint: " + minted.publicId());
             }
             for (Alias other : minted.aliases()) {
                 if (!other.equals(alias) && byAlias.containsKey(other)) {
@@ -96,8 +96,8 @@ public final class InMemoryEntityStorage implements EntityStorage {
             }
 
             byUrn.put(minted.id(), minted);
-            if (minted.humanId() != null) {
-                byHumanId.put(minted.humanId(), minted.id());
+            if (minted.publicId() != null) {
+                byPublicId.put(minted.publicId(), minted.id());
             }
             for (Alias other : minted.aliases()) {
                 byAlias.put(other, minted.id());

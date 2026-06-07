@@ -73,7 +73,7 @@ class ModelValidationTest {
     }
 
     @Test
-    void entity_rejectsBlankHumanId() {
+    void entity_rejectsBlankPublicId() {
         assertThatThrownBy(() -> new Entity(
                 SOME_ID, " ", List.of(), List.of(), null,
                 Instant.EPOCH, Instant.EPOCH))

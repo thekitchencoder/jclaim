@@ -10,8 +10,10 @@ import uk.codery.jclaim.event.MatchAmbiguous;
 import uk.codery.jclaim.event.MatchEvent;
 import uk.codery.jclaim.event.MatchEventSink;
 import uk.codery.jclaim.event.MatchUndecided;
-import uk.codery.jclaim.id.HumanIdFormat;
-import uk.codery.jclaim.id.HumanIdGenerator;
+import uk.codery.jclaim.id.CrockfordPublicIdGenerator;
+import uk.codery.jclaim.id.FilteringPublicIdGenerator;
+import uk.codery.jclaim.id.PublicIdFormat;
+import uk.codery.jclaim.id.PublicIdGenerator;
 import uk.codery.jclaim.id.UuidV7;
 import uk.codery.jclaim.matching.MatchingPolicy;
 import uk.codery.jclaim.matching.TriState;
@@ -52,13 +54,13 @@ import java.util.function.Supplier;
 public final class DefaultEntityResolver implements EntityResolver {
 
     private static final Logger log = LoggerFactory.getLogger(DefaultEntityResolver.class);
-    private static final int HUMAN_ID_MAX_ATTEMPTS = 16;
+    private static final int PUBLIC_ID_MAX_ATTEMPTS = 16;
 
     private final EntityStorage storage;
     private final String namespace;
     private final String entityType;
     private final Supplier<UUID> uuidSupplier;
-    private final HumanIdGenerator humanIdGenerator;
+    private final PublicIdGenerator publicIdGenerator;
     private final Clock clock;
     private final MatchEventSink matchEventSink;
     private final MatchingPolicy matchingPolicy;
@@ -74,7 +76,7 @@ public final class DefaultEntityResolver implements EntityResolver {
         this.namespace = Objects.requireNonNull(b.namespace, "namespace");
         this.entityType = Objects.requireNonNull(b.entityType, "entityType");
         this.uuidSupplier = Objects.requireNonNull(b.uuidSupplier, "uuidSupplier");
-        this.humanIdGenerator = b.humanIdGenerator;
+        this.publicIdGenerator = b.publicIdGenerator;
         this.clock = Objects.requireNonNull(b.clock, "clock");
         this.matchEventSink = Objects.requireNonNull(b.matchEventSink, "matchEventSink");
         this.matchingPolicy = Objects.requireNonNull(b.matchingPolicy, "matchingPolicy");
@@ -243,9 +245,9 @@ public final class DefaultEntityResolver implements EntityResolver {
     }
 
     @Override
-    public Optional<Entity> findByHumanId(String humanId) {
-        Objects.requireNonNull(humanId, "humanId");
-        return storage.findByHumanId(humanId);
+    public Optional<Entity> findByPublicId(String publicId) {
+        Objects.requireNonNull(publicId, "publicId");
+        return storage.findByPublicId(publicId);
     }
 
     @Override
@@ -268,10 +270,10 @@ public final class DefaultEntityResolver implements EntityResolver {
     private Entity mintEntity(Claim claim) {
         Instant now = clock.instant();
         EntityId entityId = EntityId.of(namespace, entityType, uuidSupplier.get());
-        String humanId = humanIdGenerator == null ? null : freshHumanId();
+        String publicId = publicIdGenerator == null ? null : freshPublicId();
         return new Entity(
                 entityId,
-                humanId,
+                publicId,
                 List.of(claim.asAlias()),
                 claim.attributes(),
                 null,
@@ -280,16 +282,16 @@ public final class DefaultEntityResolver implements EntityResolver {
         );
     }
 
-    private String freshHumanId() {
-        for (int attempt = 0; attempt < HUMAN_ID_MAX_ATTEMPTS; attempt++) {
-            String candidate = humanIdGenerator.generate();
-            if (storage.findByHumanId(candidate).isEmpty()) {
+    private String freshPublicId() {
+        for (int attempt = 0; attempt < PUBLIC_ID_MAX_ATTEMPTS; attempt++) {
+            String candidate = publicIdGenerator.generate();
+            if (storage.findByPublicId(candidate).isEmpty()) {
                 return candidate;
             }
-            log.warn("Human ID collision on attempt {} ({}); re-rolling", attempt + 1, candidate);
+            log.warn("Public ID collision on attempt {} ({}); re-rolling", attempt + 1, candidate);
         }
         throw new IllegalStateException(
-                "Failed to mint a unique human ID after " + HUMAN_ID_MAX_ATTEMPTS + " attempts");
+                "Failed to mint a unique public ID after " + PUBLIC_ID_MAX_ATTEMPTS + " attempts");
     }
 
     private void emitConflictIfDiverged(Entity stored, Claim incoming) {
@@ -349,7 +351,7 @@ public final class DefaultEntityResolver implements EntityResolver {
         private String namespace = EntityId.DEFAULT_NAMESPACE;
         private String entityType = EntityId.DEFAULT_TYPE;
         private Supplier<UUID> uuidSupplier = UuidV7.supplier();
-        private HumanIdGenerator humanIdGenerator = null;
+        private PublicIdGenerator publicIdGenerator = null;
         private Clock clock = Clock.systemUTC();
         private MatchEventSink matchEventSink = MatchEventSink.noop();
         private MatchingPolicy matchingPolicy = MatchingPolicy.aliasOnly();
@@ -376,21 +378,23 @@ public final class DefaultEntityResolver implements EntityResolver {
         }
 
         /**
-         * Advanced/test hook: sets the humanId generator directly (e.g. with
+         * Advanced/test hook: sets the publicId generator directly (e.g. with
          * deterministic entropy). {@code null} means this resolver mints no
-         * humanId. Prefer {@link #humanIdTemplate(String)} for normal use; both
+         * publicId. Prefer {@link #publicIdTemplate(String)} for normal use; both
          * target the same field, so the last call wins.
          */
-        public Builder humanIdGenerator(HumanIdGenerator humanIdGenerator) {
-            this.humanIdGenerator = humanIdGenerator;
+        public Builder publicIdGenerator(PublicIdGenerator publicIdGenerator) {
+            this.publicIdGenerator = publicIdGenerator;
             return this;
         }
 
-        /** Sets the humanId template. {@code null} or blank means this resolver mints no humanId. */
-        public Builder humanIdTemplate(String template) {
-            this.humanIdGenerator = (template == null || template.isBlank())
+        /** Sets the publicId template. {@code null} or blank means this resolver mints no publicId. */
+        public Builder publicIdTemplate(String template) {
+            this.publicIdGenerator = (template == null || template.isBlank())
                     ? null
-                    : new HumanIdGenerator(HumanIdFormat.ofTemplate(template));
+                    : new FilteringPublicIdGenerator(
+                            new CrockfordPublicIdGenerator(PublicIdFormat.ofTemplate(template)),
+                            FilteringPublicIdGenerator.ALLOW_ALL);
             return this;
         }
 

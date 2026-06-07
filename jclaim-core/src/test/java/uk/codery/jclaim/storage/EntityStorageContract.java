@@ -2,7 +2,7 @@ package uk.codery.jclaim.storage;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import uk.codery.jclaim.id.HumanIdFormat;
+import uk.codery.jclaim.id.PublicIdFormat;
 import uk.codery.jclaim.id.UuidV7;
 import uk.codery.jclaim.model.Alias;
 import uk.codery.jclaim.model.Claim;
@@ -100,7 +100,7 @@ public abstract class EntityStorageContract {
         EntityId id = EntityId.of("acme", "customer", UuidV7.supplier().get());
         Entity minted = new Entity(
                 id,
-                HumanIdFormat.DEFAULT.format(42L),
+                PublicIdFormat.DEFAULT.format(42L),
                 List.of(alias),
                 List.of(MatchingAttribute.of("seed", 42)),
                 null,
@@ -118,26 +118,26 @@ public abstract class EntityStorageContract {
         assertThat(reloaded.id().type()).isEqualTo("customer");
     }
 
-    // ── findByHumanId ──────────────────────────────────────────────────────
+    // ── findByPublicId ──────────────────────────────────────────────────────
 
     @Test
-    void findByHumanId_emptyStorage_returnsEmpty() {
-        assertThat(storage.findByHumanId(HumanIdFormat.DEFAULT.format(0L))).isEmpty();
+    void findByPublicId_emptyStorage_returnsEmpty() {
+        assertThat(storage.findByPublicId(PublicIdFormat.DEFAULT.format(0L))).isEmpty();
     }
 
     @Test
-    void findByHumanId_afterMint_returnsStoredEntity() {
+    void findByPublicId_afterMint_returnsStoredEntity() {
         Entity alice = entityWith(0, List.of(ALICE_ECOM));
         storage.resolveOrCreate(ALICE_ECOM, () -> alice);
 
-        assertThat(storage.findByHumanId(alice.humanId())).contains(alice);
+        assertThat(storage.findByPublicId(alice.publicId())).contains(alice);
     }
 
     @Test
-    void findByHumanId_unknownHumanId_returnsEmpty() {
+    void findByPublicId_unknownPublicId_returnsEmpty() {
         storage.resolveOrCreate(ALICE_ECOM, () -> entityWith(0, List.of(ALICE_ECOM)));
 
-        assertThat(storage.findByHumanId(HumanIdFormat.DEFAULT.format(999_999L))).isEmpty();
+        assertThat(storage.findByPublicId(PublicIdFormat.DEFAULT.format(999_999L))).isEmpty();
     }
 
     // ── findByAlias ────────────────────────────────────────────────────────
@@ -184,7 +184,7 @@ public abstract class EntityStorageContract {
         assertThat(outcome).isInstanceOf(StorageOutcome.Created.class);
         assertThat(outcome.entity()).isEqualTo(alice);
         assertThat(storage.findByUrn(alice.id())).contains(alice);
-        assertThat(storage.findByHumanId(alice.humanId())).contains(alice);
+        assertThat(storage.findByPublicId(alice.publicId())).contains(alice);
         assertThat(storage.findByAlias(ALICE_ECOM)).contains(alice);
     }
 
@@ -220,13 +220,13 @@ public abstract class EntityStorageContract {
     }
 
     @Test
-    void resolveOrCreate_humanIdCollision_isRejectedAndNothingPersisted() {
+    void resolveOrCreate_publicIdCollision_isRejectedAndNothingPersisted() {
         Entity alice = entityWith(0, List.of(ALICE_ECOM));
         storage.resolveOrCreate(ALICE_ECOM, () -> alice);
 
         Entity colliding = new Entity(
                 EntityId.of(UUID.randomUUID()),
-                alice.humanId(),
+                alice.publicId(),
                 List.of(BOB_ECOM),
                 List.of(MatchingAttribute.of("email", "bob@example.com")),
                 null,
@@ -260,16 +260,16 @@ public abstract class EntityStorageContract {
     }
 
     @Test
-    void resolveOrCreate_noHumanId_storesAndRoundTripsNull() {
-        Entity e = entityWithoutHumanId(0, List.of(ALICE_ECOM));
+    void resolveOrCreate_noPublicId_storesAndRoundTripsNull() {
+        Entity e = entityWithoutPublicId(0, List.of(ALICE_ECOM));
         storage.resolveOrCreate(ALICE_ECOM, () -> e);
-        assertThat(storage.findByUrn(e.id()).orElseThrow().humanId()).isNull();
+        assertThat(storage.findByUrn(e.id()).orElseThrow().publicId()).isNull();
     }
 
     @Test
-    void resolveOrCreate_multipleEntitiesWithoutHumanId_coexist() {
-        storage.resolveOrCreate(ALICE_ECOM, () -> entityWithoutHumanId(0, List.of(ALICE_ECOM)));
-        storage.resolveOrCreate(BOB_ECOM, () -> entityWithoutHumanId(1, List.of(BOB_ECOM)));
+    void resolveOrCreate_multipleEntitiesWithoutPublicId_coexist() {
+        storage.resolveOrCreate(ALICE_ECOM, () -> entityWithoutPublicId(0, List.of(ALICE_ECOM)));
+        storage.resolveOrCreate(BOB_ECOM, () -> entityWithoutPublicId(1, List.of(BOB_ECOM)));
         assertThat(storage.findByAlias(ALICE_ECOM)).isPresent();
         assertThat(storage.findByAlias(BOB_ECOM)).isPresent();
     }
@@ -587,7 +587,7 @@ public abstract class EntityStorageContract {
 
     /**
      * Builds a deterministic Entity carrying the given aliases. Each call uses
-     * a distinct seed so URN, humanId and the email attribute are unique per
+     * a distinct seed so URN, publicId and the email attribute are unique per
      * invocation (within the seed namespace).
      */
     protected static Entity entityWith(int seed, List<Alias> aliases) {
@@ -597,10 +597,10 @@ public abstract class EntityStorageContract {
     /** Variant of {@link #entityWith(int, List)} taking an explicit attribute list. */
     protected static Entity entityWith(int seed, List<Alias> aliases, List<MatchingAttribute> attributes) {
         UUID id = UUID.fromString("00000000-0000-7000-8000-" + String.format("%012d", seed));
-        String humanId = HumanIdFormat.DEFAULT.format(((long) seed) & ((1L << 40) - 1L));
+        String publicId = PublicIdFormat.DEFAULT.format(((long) seed) & ((1L << 40) - 1L));
         return new Entity(
                 EntityId.of(id),
-                humanId,
+                publicId,
                 new ArrayList<>(aliases),
                 attributes,
                 null,
@@ -611,10 +611,10 @@ public abstract class EntityStorageContract {
 
     /**
      * Variant of {@link #entityWith(int, List)} that mints the entity with a
-     * {@code null} humanId. Exercises the opt-in humanId contract: adapters must
+     * {@code null} publicId. Exercises the opt-in publicId contract: adapters must
      * store and round-trip such entities without raising a false null-collision.
      */
-    protected static Entity entityWithoutHumanId(int seed, List<Alias> aliases) {
+    protected static Entity entityWithoutPublicId(int seed, List<Alias> aliases) {
         UUID id = UUID.fromString("00000000-0000-7000-8000-" + String.format("%012d", seed));
         return new Entity(
                 EntityId.of(id),

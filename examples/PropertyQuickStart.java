@@ -62,7 +62,7 @@ public final class PropertyQuickStart {
     public static Map<String, Entity> run(PrintStream out) {
         PropertyFixtures fixtures = PropertyFixtures.load();
         // Properties are machine-keyed (UPRN, title number), so this resolver
-        // opts out of humanIds: no humanIdTemplate is set, so no humanId is minted.
+        // opts out of publicIds: no publicIdTemplate is set, so no publicId is minted.
         EntityResolver resolver = DefaultEntityResolver.builder(new InMemoryEntityStorage())
                 .namespace("codery")
                 .matchEventSink(loggingMatchSink(out))
@@ -117,8 +117,8 @@ public final class PropertyQuickStart {
     private static void printEntity(PrintStream out, String propertyId, Entity entity) {
         out.println(propertyId);
         out.println("  urn      = " + entity.id().urn());
-        out.println("  humanId  = " + (entity.humanId() == null
-                ? "(none — this resolver opts out of humanIds)" : entity.humanId()));
+        out.println("  publicId = " + (entity.publicId() == null
+                ? "(none — this resolver opts out of publicIds)" : entity.publicId()));
         out.println("  aliases  :");
         for (Alias alias : entity.aliases()) {
             out.println("      " + alias.source().name() + "/" + alias.sourceId());

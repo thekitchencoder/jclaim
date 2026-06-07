@@ -13,7 +13,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 /**
  * Runs the {@link MultiTypeQuickStart} demonstration end-to-end and asserts
  * the headline multi-type guarantees the README quotes: two independent
- * resolvers, distinct URN types, type-specific humanIds, and — the crucial
+ * resolvers, distinct URN types, type-specific publicIds, and — the crucial
  * one — physical per-type isolation, so the same {@code (source, sourceId)}
  * alias yields independent entities under different types. Keeps the example
  * honest: any change that breaks it also breaks this test.
@@ -21,7 +21,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 class MultiTypeQuickStartTest {
 
     @Test
-    void runReconcilesTwoTypesInIsolationWithTypeScopedHumanIds() {
+    void runReconcilesTwoTypesInIsolationWithTypeScopedPublicIds() {
         ByteArrayOutputStream buf = new ByteArrayOutputStream();
         Map<String, Entity> graph = MultiTypeQuickStart.run(
                 new PrintStream(buf, true, StandardCharsets.UTF_8));
@@ -37,9 +37,9 @@ class MultiTypeQuickStartTest {
         // physical per-type isolation guarantee.
         assertThat(customer.id()).isNotEqualTo(vehicle.id());
 
-        // Type-specific humanId templates rendered.
-        assertThat(customer.humanId()).startsWith("CU-");
-        assertThat(vehicle.humanId()).startsWith("VH");
+        // Type-specific publicId templates rendered.
+        assertThat(customer.publicId()).startsWith("CU-");
+        assertThat(vehicle.publicId()).startsWith("VH");
 
         // Second customer source attached as an alias on the same entity.
         assertThat(graph.get("customer/alice-merged").aliases()).hasSize(2);

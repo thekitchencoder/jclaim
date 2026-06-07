@@ -6,8 +6,8 @@ import uk.codery.jclaim.event.AttributeDiff;
 import uk.codery.jclaim.event.EntityAttributesConflicted;
 import uk.codery.jclaim.event.MatchEvent;
 import uk.codery.jclaim.event.MatchEventSink;
-import uk.codery.jclaim.id.HumanIdFormat;
-import uk.codery.jclaim.id.HumanIdGenerator;
+import uk.codery.jclaim.id.CrockfordPublicIdGenerator;
+import uk.codery.jclaim.id.PublicIdFormat;
 import uk.codery.jclaim.model.Claim;
 import uk.codery.jclaim.model.Entity;
 import uk.codery.jclaim.model.EntityId;
@@ -45,7 +45,7 @@ class DefaultEntityResolverTest {
         resolver = DefaultEntityResolver.builder(storage)
                 .namespace("codery")
                 .uuidSupplier(deterministicUuids())
-                .humanIdGenerator(new HumanIdGenerator(new Random(7)))
+                .publicIdGenerator(new CrockfordPublicIdGenerator(new Random(7)))
                 .clock(Clock.fixed(Instant.parse("2026-05-10T12:00:00Z"), ZoneOffset.UTC))
                 .matchEventSink(sink)
                 .build();
@@ -63,7 +63,7 @@ class DefaultEntityResolverTest {
         assertThat(result.entity().aliases()).containsExactly(claim.asAlias());
         assertThat(result.entity().attributes()).containsExactly(
                 MatchingAttribute.of("email", "alice@example.com"));
-        assertThat(HumanIdFormat.DEFAULT.isValid(result.entity().humanId())).isTrue();
+        assertThat(PublicIdFormat.DEFAULT.isValid(result.entity().publicId())).isTrue();
         assertThat(sink.events).isEmpty();
     }
 
@@ -190,7 +190,7 @@ class DefaultEntityResolverTest {
         DefaultEntityResolver defaults = DefaultEntityResolver.builder(storage)
                 .namespace("codery")
                 .uuidSupplier(deterministicUuids())
-                .humanIdGenerator(new HumanIdGenerator(new Random(7)))
+                .publicIdGenerator(new CrockfordPublicIdGenerator(new Random(7)))
                 .matchEventSink(sink)
                 .build();
 
@@ -218,27 +218,27 @@ class DefaultEntityResolverTest {
     }
 
     @Test
-    void mintsHumanIdWithConfiguredTemplate() {
+    void mintsPublicIdWithConfiguredTemplate() {
         EntityStorage storage = new InMemoryEntityStorage();
         EntityResolver resolver = DefaultEntityResolver.builder(storage)
-                .humanIdTemplate("JG??????")
+                .publicIdTemplate("JG??????")
                 .build();
         ResolutionResult r = resolver.resolveOrMint(
                 new Claim(SourceSystem.of("crm"), "u-2", List.of()));
         Entity e = ((ResolutionResult.Minted) r).entity();
-        assertThat(e.humanId()).startsWith("JG").hasSize(8);
+        assertThat(e.publicId()).startsWith("JG").hasSize(8);
     }
 
     @Test
-    void humanIdTemplateRejectsInvalidTemplateEagerly() {
+    void publicIdTemplateRejectsInvalidTemplateEagerly() {
         EntityStorage storage = new InMemoryEntityStorage();
         DefaultEntityResolver.Builder builder = DefaultEntityResolver.builder(storage);
-        assertThatThrownBy(() -> builder.humanIdTemplate("AB")) // < 2 placeholders
+        assertThatThrownBy(() -> builder.publicIdTemplate("AB")) // < 2 placeholders
                 .isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test
-    void unconfiguredResolverMintsDefaultUrnAndNoHumanId() {
+    void unconfiguredResolverMintsDefaultUrnAndNoPublicId() {
         EntityStorage storage = new InMemoryEntityStorage();
         EntityResolver resolver = DefaultEntityResolver.builder(storage).build();
         ResolutionResult r = resolver.resolveOrMint(
@@ -246,36 +246,36 @@ class DefaultEntityResolverTest {
         Entity e = ((ResolutionResult.Minted) r).entity();
         assertThat(e.id().urn()).startsWith("urn:codery:entity:");
         assertThat(e.id().type()).isEqualTo("entity");
-        assertThat(e.humanId()).isNull();
+        assertThat(e.publicId()).isNull();
     }
 
     @Test
-    void noTemplate_mintsEntityWithNullHumanId() {
+    void noTemplate_mintsEntityWithNullPublicId() {
         EntityStorage storage = new InMemoryEntityStorage();
         EntityResolver resolver = DefaultEntityResolver.builder(storage).build(); // no template
         Entity e = ((ResolutionResult.Minted) resolver.resolveOrMint(
                 new Claim(SourceSystem.of("crm"), "u-1", List.of()))).entity();
-        assertThat(e.humanId()).isNull();
+        assertThat(e.publicId()).isNull();
     }
 
     @Test
-    void nullTemplate_mintsNoHumanId() {
+    void nullTemplate_mintsNoPublicId() {
         EntityStorage storage = new InMemoryEntityStorage();
         EntityResolver resolver = DefaultEntityResolver.builder(storage)
-                .humanIdTemplate(null).build();
+                .publicIdTemplate(null).build();
         Entity e = ((ResolutionResult.Minted) resolver.resolveOrMint(
                 new Claim(SourceSystem.of("crm"), "u-3", List.of()))).entity();
-        assertThat(e.humanId()).isNull();
+        assertThat(e.publicId()).isNull();
     }
 
     @Test
-    void blankTemplate_mintsNoHumanId() {
+    void blankTemplate_mintsNoPublicId() {
         EntityStorage storage = new InMemoryEntityStorage();
         EntityResolver resolver = DefaultEntityResolver.builder(storage)
-                .humanIdTemplate("  ").build();
+                .publicIdTemplate("  ").build();
         Entity e = ((ResolutionResult.Minted) resolver.resolveOrMint(
                 new Claim(SourceSystem.of("crm"), "u-2", List.of()))).entity();
-        assertThat(e.humanId()).isNull();
+        assertThat(e.publicId()).isNull();
     }
 
     @Test
@@ -292,11 +292,11 @@ class DefaultEntityResolverTest {
     }
 
     @Test
-    void findByHumanId_returnsEntityAfterResolveOrMint() {
+    void findByPublicId_returnsEntityAfterResolveOrMint() {
         Claim claim = new Claim(ECOMMERCE, "cust-9", List.of());
         var minted = resolver.resolveOrMint(claim).entity();
 
-        assertThat(resolver.findByHumanId(minted.humanId())).contains(minted);
+        assertThat(resolver.findByPublicId(minted.publicId())).contains(minted);
     }
 
     @Test
