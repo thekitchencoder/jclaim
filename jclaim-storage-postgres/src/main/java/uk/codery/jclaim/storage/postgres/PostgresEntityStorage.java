@@ -115,12 +115,12 @@ public final class PostgresEntityStorage implements EntityStorage {
     }
 
     @Override
-    public Optional<Entity> findByHumanId(String humanId) {
-        Objects.requireNonNull(humanId, "humanId");
+    public Optional<Entity> findByPublicId(String publicId) {
+        Objects.requireNonNull(publicId, "publicId");
         try (Connection conn = dataSource.getConnection();
              PreparedStatement ps = conn.prepareStatement(
-                     "SELECT urn FROM " + tEntities + " WHERE human_id = ?")) {
-            ps.setString(1, humanId);
+                     "SELECT urn FROM " + tEntities + " WHERE public_id = ?")) {
+            ps.setString(1, publicId);
             try (ResultSet rs = ps.executeQuery()) {
                 if (!rs.next()) {
                     return Optional.empty();
@@ -128,7 +128,7 @@ public final class PostgresEntityStorage implements EntityStorage {
                 return loadEntity(conn, rs.getString(1));
             }
         } catch (SQLException ex) {
-            throw new PostgresStorageException("findByHumanId failed for " + humanId, ex);
+            throw new PostgresStorageException("findByPublicId failed for " + publicId, ex);
         }
     }
 
@@ -225,10 +225,10 @@ public final class PostgresEntityStorage implements EntityStorage {
                 throw new AliasAlreadyClaimedException(other, new EntityId(owner));
             }
         }
-        // humanId or URN collision — surface as the existing in-memory adapter does.
-        if (constraint != null && constraint.contains("human_id")) {
+        // publicId or URN collision — surface as the existing in-memory adapter does.
+        if (constraint != null && constraint.contains("public_id")) {
             throw new IllegalStateException(
-                    "humanId collision on mint: " + minted.humanId(), ex);
+                    "publicId collision on mint: " + minted.publicId(), ex);
         }
         if (constraint != null && constraint.contains("entities_pkey")) {
             throw new IllegalStateException("URN collision on mint: " + minted.id(), ex);
@@ -348,18 +348,18 @@ public final class PostgresEntityStorage implements EntityStorage {
     }
 
     private Optional<Entity> loadEntity(Connection conn, String urn) throws SQLException {
-        String humanId;
+        String publicId;
         String supersededBy;
         java.time.Instant createdAt;
         java.time.Instant updatedAt;
         try (PreparedStatement ps = conn.prepareStatement(
-                "SELECT human_id, superseded_by, created_at, updated_at FROM " + tEntities + " WHERE urn = ?")) {
+                "SELECT public_id, superseded_by, created_at, updated_at FROM " + tEntities + " WHERE urn = ?")) {
             ps.setString(1, urn);
             try (ResultSet rs = ps.executeQuery()) {
                 if (!rs.next()) {
                     return Optional.empty();
                 }
-                humanId = rs.getString(1);
+                publicId = rs.getString(1);
                 supersededBy = rs.getString(2);
                 createdAt = rs.getTimestamp(3).toInstant();
                 updatedAt = rs.getTimestamp(4).toInstant();
@@ -394,7 +394,7 @@ public final class PostgresEntityStorage implements EntityStorage {
 
         return Optional.of(new Entity(
                 new EntityId(urn),
-                humanId,
+                publicId,
                 aliases,
                 attributes,
                 supersededBy == null ? null : new EntityId(supersededBy),
@@ -404,10 +404,10 @@ public final class PostgresEntityStorage implements EntityStorage {
 
     private void insertEntityRow(Connection conn, Entity entity) throws SQLException {
         try (PreparedStatement ps = conn.prepareStatement(
-                "INSERT INTO " + tEntities + " (urn, human_id, superseded_by, created_at, updated_at) "
+                "INSERT INTO " + tEntities + " (urn, public_id, superseded_by, created_at, updated_at) "
                         + "VALUES (?, ?, ?, ?, ?)")) {
             ps.setString(1, entity.id().urn());
-            ps.setString(2, entity.humanId());
+            ps.setString(2, entity.publicId());
             ps.setString(3, entity.supersededBy() == null ? null : entity.supersededBy().urn());
             ps.setTimestamp(4, Timestamp.from(entity.createdAt()));
             ps.setTimestamp(5, Timestamp.from(entity.updatedAt()));

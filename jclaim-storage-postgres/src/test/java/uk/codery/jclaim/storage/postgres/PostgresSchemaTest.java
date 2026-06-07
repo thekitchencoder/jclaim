@@ -38,14 +38,14 @@ final class PostgresSchemaTest {
                     .containsExactlyInAnyOrder("entities", "entity_aliases", "entity_attributes");
 
             assertThat(tableColumns.get("entities"))
-                    .containsExactlyInAnyOrder("urn", "human_id", "superseded_by", "created_at", "updated_at");
+                    .containsExactlyInAnyOrder("urn", "public_id", "superseded_by", "created_at", "updated_at");
             assertThat(tableColumns.get("entity_aliases"))
                     .containsExactlyInAnyOrder("source", "source_id", "entity_urn", "attached_at", "position");
             assertThat(tableColumns.get("entity_attributes"))
                     .containsExactlyInAnyOrder("entity_urn", "name", "value", "position");
 
-            // human_id is opt-in: nullable, so its uniqueness is enforced by a
-            // partial unique index (WHERE human_id IS NOT NULL) rather than an
+            // public_id is opt-in: nullable, so its uniqueness is enforced by a
+            // partial unique index (WHERE public_id IS NOT NULL) rather than an
             // inline UNIQUE constraint. The table-constraint list therefore
             // covers only urn / alias / attribute keys.
             List<String> uniqueConstraints = readUniqueOrPrimaryConstraintColumns(conn);
@@ -54,21 +54,21 @@ final class PostgresSchemaTest {
                     "entity_aliases(source,source_id)",
                     "entity_attributes(entity_urn,name)");
             assertThat(uniqueConstraints)
-                    .noneMatch(s -> s.equals("entities(human_id)"));
+                    .noneMatch(s -> s.equals("entities(public_id)"));
 
             List<String> indexes = readNonConstraintIndexes(conn);
             assertThat(indexes)
-                    .anyMatch(s -> s.contains("entities_human_id_unique"))
+                    .anyMatch(s -> s.contains("entities_public_id_unique"))
                     .anyMatch(s -> s.contains("idx_entity_aliases_entity_urn"))
                     .anyMatch(s -> s.contains("idx_entity_attributes_entity_urn"))
                     .anyMatch(s -> s.contains("idx_entity_attributes_name_value"));
 
-            // The human_id uniqueness index must be partial, otherwise multiple
-            // entities without a humanId would collide on NULL.
-            assertThat(readPartialUniqueIndexDefinition(conn, "entities_human_id_unique"))
+            // The public_id uniqueness index must be partial, otherwise multiple
+            // entities without a publicId would collide on NULL.
+            assertThat(readPartialUniqueIndexDefinition(conn, "entities_public_id_unique"))
                     .isNotNull()
                     .containsIgnoringCase("UNIQUE")
-                    .containsIgnoringCase("human_id IS NOT NULL");
+                    .containsIgnoringCase("public_id IS NOT NULL");
         }
     }
 
