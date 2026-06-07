@@ -17,7 +17,7 @@ import uk.codery.jclaim.storage.mongo.support.RequiresDockerCondition;
  * Pins collection-per-type isolation for the MongoDB adapter: two resolvers of
  * different entity types, each over its own collection on the <em>same</em>
  * client and database, share no state. The same {@code (source, sourceId)}
- * alias and the same humanId resolve independently per collection — isolation
+ * alias and the same publicId resolve independently per collection — isolation
  * is physical (distinct collections), not logical.
  */
 @ExtendWith(RequiresDockerCondition.class)
@@ -42,7 +42,7 @@ final class MongoIsolationTest {
         return DefaultEntityResolver.builder(storage)
                 .namespace("acme")
                 .entityType(type)
-                .humanIdTemplate("????-????-?")
+                .publicIdTemplate("????-????-?")
                 .build();
     }
 
@@ -73,16 +73,16 @@ final class MongoIsolationTest {
     }
 
     @Test
-    void humanIdScopedPerCollection() {
+    void publicIdScopedPerCollection() {
         wire();
 
         Entity customer = customers.resolveOrMint(claim("ABC-123")).entity();
-        assertThat(customer.humanId()).isNotNull();
+        assertThat(customer.publicId()).isNotNull();
 
-        // The customer's humanId is found in its own collection but not the other.
-        assertThat(customerStorage.findByHumanId(customer.humanId()))
+        // The customer's publicId is found in its own collection but not the other.
+        assertThat(customerStorage.findByPublicId(customer.publicId()))
                 .map(Entity::id)
                 .contains(customer.id());
-        assertThat(vehicleStorage.findByHumanId(customer.humanId())).isEmpty();
+        assertThat(vehicleStorage.findByPublicId(customer.publicId())).isEmpty();
     }
 }
