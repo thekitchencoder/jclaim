@@ -57,6 +57,7 @@ jclaim/
         │   ├── id/                                 # Identifier generation
         │   │   ├── CrockfordBase32.java            # 32-symbol alphabet, ambiguous chars dropped
         │   │   ├── Damm.java                       # Single-digit checksum, totally anti-symmetric quasigroup
+        │   │   ├── PublicIdFormat.java             # Template-compiled format (Crockford Base32 + Damm); '?' → data or check char, literals verbatim
         │   │   ├── PublicIdGenerator.java          # Port: K7M2-9X4P-3 style public-ID generation
         │   │   ├── CrockfordPublicIdGenerator.java # Crockford Base32 + Damm concrete generator
         │   │   ├── FilteringPublicIdGenerator.java # Acceptance-filter decorator (allow-all default)
