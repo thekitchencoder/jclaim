@@ -317,6 +317,38 @@ class DefaultEntityResolverTest {
         assertThat(resolver.findByAlias(POS, "loyalty-42")).contains(updated);
     }
 
+    @Test
+    void freshPublicId_collidesThenReRollsToAUniqueValue() {
+        // First mint claims "DUP-DUP-1"; the second mint draws "DUP-DUP-1" again
+        // (collision → re-roll) then "UNIQ-UNIQ-2".
+        String[] script = {"DUP-DUP-1", "DUP-DUP-1", "UNIQ-UNIQ-2"};
+        int[] i = {0};
+        EntityStorage s = new InMemoryEntityStorage();
+        DefaultEntityResolver r = DefaultEntityResolver.builder(s)
+                .uuidSupplier(deterministicUuids())
+                .publicIdGenerator(() -> script[i[0]++])
+                .build();
+
+        Entity first = r.resolveOrMint(new Claim(ECOMMERCE, "cust-1", List.of())).entity();
+        assertThat(first.publicId()).isEqualTo("DUP-DUP-1");
+
+        Entity second = r.resolveOrMint(new Claim(ECOMMERCE, "cust-2", List.of())).entity();
+        assertThat(second.publicId()).isEqualTo("UNIQ-UNIQ-2");
+    }
+
+    @Test
+    void freshPublicId_exhaustsAttemptsOnPersistentCollision_throws() {
+        EntityStorage s = new InMemoryEntityStorage();
+        DefaultEntityResolver r = DefaultEntityResolver.builder(s)
+                .uuidSupplier(deterministicUuids())
+                .publicIdGenerator(() -> "ALWAYS-SAME-0")
+                .build();
+
+        r.resolveOrMint(new Claim(ECOMMERCE, "cust-1", List.of()));
+        assertThatThrownBy(() -> r.resolveOrMint(new Claim(ECOMMERCE, "cust-2", List.of())))
+                .isInstanceOf(IllegalStateException.class);
+    }
+
     private static java.util.function.Supplier<UUID> deterministicUuids() {
         // Use UUID v7-shaped UUIDs derived from a counter so the URN regex
         // passes. Real production code uses UuidV7.supplier().
