@@ -35,8 +35,8 @@ class MultiTypeHealthTest {
                     JclaimHealthAutoConfiguration.class))
             .withPropertyValues(
                     "jclaim.storage.type=in-memory",
-                    "jclaim.entity-types.customer.human-id.template=????-?",
-                    "jclaim.entity-types.vehicle.human-id.template=????-?");
+                    "jclaim.entity-types.customer.public-id.template=????-?",
+                    "jclaim.entity-types.vehicle.public-id.template=????-?");
 
     @Test
     void oneUpIndicatorPerType() {

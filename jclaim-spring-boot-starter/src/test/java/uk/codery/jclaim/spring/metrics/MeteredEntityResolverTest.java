@@ -102,8 +102,8 @@ class MeteredEntityResolverTest {
         assertThat(metered.getByUrn(urn)).isSameAs(stub.entity);
         assertThat(stub.getByUrnArg).isEqualTo(urn);
 
-        assertThat(metered.findByHumanId("K7M2-9X4P-3")).contains(stub.entity);
-        assertThat(stub.findByHumanIdArg).isEqualTo("K7M2-9X4P-3");
+        assertThat(metered.findByPublicId("K7M2-9X4P-3")).contains(stub.entity);
+        assertThat(stub.findByPublicIdArg).isEqualTo("K7M2-9X4P-3");
 
         assertThat(metered.findByAlias(source, "u-9")).contains(stub.entity);
         assertThat(stub.findByAliasSource).isEqualTo(source);
@@ -130,7 +130,7 @@ class MeteredEntityResolverTest {
         }
 
         @Override public Entity getByUrn(EntityId urn) { throw new UnsupportedOperationException(); }
-        @Override public Optional<Entity> findByHumanId(String humanId) { return Optional.empty(); }
+        @Override public Optional<Entity> findByPublicId(String publicId) { return Optional.empty(); }
         @Override public Optional<Entity> findByAlias(SourceSystem source, String sourceId) { return Optional.empty(); }
         @Override public Entity addAlias(EntityId urn, SourceSystem source, String sourceId) { throw new UnsupportedOperationException(); }
         @Override public Set<Entity> findCandidates(Claim claim) { return Set.of(); }
@@ -140,7 +140,7 @@ class MeteredEntityResolverTest {
     private static final class RecordingStub implements EntityResolver {
         final Entity entity;
         EntityId getByUrnArg;
-        String findByHumanIdArg;
+        String findByPublicIdArg;
         SourceSystem findByAliasSource;
         String findByAliasSourceId;
         EntityId addAliasUrn;
@@ -154,7 +154,7 @@ class MeteredEntityResolverTest {
 
         @Override public ResolutionResult resolveOrMint(Claim claim) { return new ResolutionResult.Minted(entity); }
         @Override public Entity getByUrn(EntityId urn) { this.getByUrnArg = urn; return entity; }
-        @Override public Optional<Entity> findByHumanId(String humanId) { this.findByHumanIdArg = humanId; return Optional.of(entity); }
+        @Override public Optional<Entity> findByPublicId(String publicId) { this.findByPublicIdArg = publicId; return Optional.of(entity); }
         @Override public Optional<Entity> findByAlias(SourceSystem source, String sourceId) {
             this.findByAliasSource = source; this.findByAliasSourceId = sourceId; return Optional.of(entity);
         }

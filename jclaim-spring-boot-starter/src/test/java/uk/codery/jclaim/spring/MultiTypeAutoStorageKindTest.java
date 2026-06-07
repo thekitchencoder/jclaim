@@ -73,7 +73,7 @@ class MultiTypeAutoStorageKindTest {
                 .withPropertyValues(
                         // type UNSET defaults to AUTO; a DataSource bean is present.
                         "jclaim.storage.postgres.apply-schema=false",
-                        "jclaim.entity-types.customer.human-id.template=????-?")
+                        "jclaim.entity-types.customer.public-id.template=????-?")
                 .run(ctx -> {
                     assertThat(ctx).hasNotFailed();
                     EntityStorage storage =
@@ -113,7 +113,7 @@ class MultiTypeAutoStorageKindTest {
                         "jclaim.storage.type=auto",
                         // no DataSource bean -> AUTO falls through to MongoClient.
                         "jclaim.storage.mongo.create-indexes=false",
-                        "jclaim.entity-types.customer.human-id.template=????-?")
+                        "jclaim.entity-types.customer.public-id.template=????-?")
                 .run(ctx -> {
                     assertThat(ctx).hasNotFailed();
                     EntityStorage storage =
@@ -164,8 +164,8 @@ class MultiTypeAutoStorageKindTest {
                 .withPropertyValues(
                         "jclaim.storage.type=mongo",
                         "jclaim.storage.mongo.create-indexes=false",
-                        "jclaim.entity-types.customer.human-id.template=????-?",
-                        "jclaim.entity-types.vehicle.human-id.template=????-?")
+                        "jclaim.entity-types.customer.public-id.template=????-?",
+                        "jclaim.entity-types.vehicle.public-id.template=????-?")
                 .run(ctx -> {
                     assertThat(ctx).hasNotFailed();
                     assertThat(ctx.getBean("jclaimEntityStorage_customer", EntityStorage.class))
@@ -188,7 +188,7 @@ class MultiTypeAutoStorageKindTest {
                 .withPropertyValues(
                         "jclaim.storage.type=auto",
                         "jclaim.storage.postgres.apply-schema=false",
-                        "jclaim.entity-types.customer.human-id.template=????-?")
+                        "jclaim.entity-types.customer.public-id.template=????-?")
                 .run(ctx -> {
                     assertThat(ctx).hasNotFailed();
                     EntityStorage storage =

@@ -80,8 +80,8 @@ public final class MeteredEntityResolver implements EntityResolver {
     }
 
     @Override
-    public Optional<Entity> findByHumanId(String humanId) {
-        return delegate.findByHumanId(humanId);
+    public Optional<Entity> findByPublicId(String publicId) {
+        return delegate.findByPublicId(publicId);
     }
 
     @Override

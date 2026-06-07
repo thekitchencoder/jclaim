@@ -56,8 +56,8 @@ class MultiTypePostgresIntegrationTest {
         reg.add("jclaim.storage.type", () -> "postgres");
         reg.add("jclaim.urn.namespace", () -> "acme");
         // Two entity types; each defaults its Postgres schema to the type key.
-        reg.add("jclaim.entity-types.customer.human-id.template", () -> "????-?");
-        reg.add("jclaim.entity-types.vehicle.human-id.template", () -> "????-?");
+        reg.add("jclaim.entity-types.customer.public-id.template", () -> "????-?");
+        reg.add("jclaim.entity-types.vehicle.public-id.template", () -> "????-?");
     }
 
     @Configuration(proxyBeanMethods = false)

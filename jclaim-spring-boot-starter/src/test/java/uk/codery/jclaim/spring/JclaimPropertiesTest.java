@@ -48,38 +48,38 @@ class JclaimPropertiesTest {
     }
 
     @Test
-    void bindsUrnAndHumanIdProperties() {
+    void bindsUrnAndPublicIdProperties() {
         JclaimProperties p = bind(Map.of(
                 "jclaim.urn.namespace", "acme",
                 "jclaim.urn.type", "customer",
-                "jclaim.human-id.template", "JG??????"));
+                "jclaim.public-id.template", "JG??????"));
         assertThat(p.urn().namespace()).isEqualTo("acme");
         assertThat(p.urn().type()).isEqualTo("customer");
-        assertThat(p.humanId().template()).isEqualTo("JG??????");
+        assertThat(p.publicId().template()).isEqualTo("JG??????");
     }
 
     @Test
     void bindsEntityTypesMap() {
         JclaimProperties props = bind(Map.of(
                 "jclaim.urn.namespace", "acme",
-                "jclaim.entity-types.customer.human-id.template", "CU-????-?",
+                "jclaim.entity-types.customer.public-id.template", "CU-????-?",
                 "jclaim.entity-types.customer.matching.spec", "matching/customer.yaml",
                 "jclaim.entity-types.vehicle.storage.schema", "veh",
                 "jclaim.entity-types.vehicle.storage.datasource", "vehicleDs"));
         assertThat(props.urn().namespace()).isEqualTo("acme");
         assertThat(props.entityTypes()).containsKeys("customer", "vehicle");
-        assertThat(props.entityTypes().get("customer").humanId().template()).isEqualTo("CU-????-?");
+        assertThat(props.entityTypes().get("customer").publicId().template()).isEqualTo("CU-????-?");
         assertThat(props.entityTypes().get("customer").matching().spec()).isEqualTo("matching/customer.yaml");
         assertThat(props.entityTypes().get("vehicle").storage().schema()).isEqualTo("veh");
         assertThat(props.entityTypes().get("vehicle").storage().datasource()).isEqualTo("vehicleDs");
     }
 
     @Test
-    void urnAndHumanIdDefaults() {
+    void urnAndPublicIdDefaults() {
         JclaimProperties p = JclaimProperties.defaults();
         assertThat(p.urn().namespace()).isEqualTo("codery");
         assertThat(p.urn().type()).isEqualTo("entity");
-        assertThat(p.humanId().template()).isNull();
+        assertThat(p.publicId().template()).isNull();
     }
 
     @Test

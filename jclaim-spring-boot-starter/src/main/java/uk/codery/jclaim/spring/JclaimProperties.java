@@ -9,7 +9,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 
 /**
  * Tunables exposed by the JClaim Spring Boot starter under the {@code jclaim}
- * property namespace. Covers the URN namespace and type, the human-id template,
+ * property namespace. Covers the URN namespace and type, the public-id template,
  * storage selection and per-adapter settings, match-sink wiring, and the optional
  * metrics and health indicators. Defaults yield a working in-memory setup with no
  * required overrides.
@@ -18,7 +18,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 public class JclaimProperties {
 
     private Urn urn = new Urn();
-    private HumanId humanId = new HumanId();
+    private PublicId publicId = new PublicId();
     private Storage storage = new Storage();
     private MatchSink matchSink = new MatchSink();
     private Matching matching = new Matching();
@@ -46,12 +46,12 @@ public class JclaimProperties {
         this.urn = urn;
     }
 
-    public HumanId humanId() {
-        return humanId;
+    public PublicId publicId() {
+        return publicId;
     }
 
-    public void setHumanId(HumanId humanId) {
-        this.humanId = humanId;
+    public void setPublicId(PublicId publicId) {
+        this.publicId = publicId;
     }
 
     public Storage storage() {
@@ -135,13 +135,13 @@ public class JclaimProperties {
     }
 
     /**
-     * Human-friendly lookup ID format. The template is opt-in: when absent
-     * (null or blank) this entity type mints no humanId. Set a non-blank
+     * Public lookup ID format. The template is opt-in: when absent
+     * (null or blank) this entity type mints no publicId. Set a non-blank
      * template (e.g. {@code ????-????-?}) to opt in; a malformed non-blank
      * template fails startup via eager validation.
      */
-    public static class HumanId {
-        /** Display template; null/blank means no humanId is minted. */
+    public static class PublicId {
+        /** Display template; null/blank means no publicId is minted. */
         private String template;
 
         public String template() {
@@ -316,7 +316,7 @@ public class JclaimProperties {
          * from any concrete value, including one equal to a default.
          */
         private EntityTypeUrn urn = new EntityTypeUrn();
-        private HumanId humanId = new HumanId();
+        private PublicId publicId = new PublicId();
         private EntityTypeMatching matching = new EntityTypeMatching();
         private EntityTypeStorage storage = new EntityTypeStorage();
 
@@ -328,12 +328,12 @@ public class JclaimProperties {
             this.urn = urn;
         }
 
-        public HumanId humanId() {
-            return humanId;
+        public PublicId publicId() {
+            return publicId;
         }
 
-        public void setHumanId(HumanId humanId) {
-            this.humanId = humanId;
+        public void setPublicId(PublicId publicId) {
+            this.publicId = publicId;
         }
 
         public EntityTypeMatching matching() {

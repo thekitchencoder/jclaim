@@ -41,7 +41,7 @@ class MultiTypeInheritanceTest {
                         // customer pins its own namespace (differs from default + top-level)
                         "jclaim.entity-types.customer.urn.namespace=customers-ns",
                         // vehicle omits it -> inherits the top-level 'acme'
-                        "jclaim.entity-types.vehicle.human-id.template=????-?")
+                        "jclaim.entity-types.vehicle.public-id.template=????-?")
                 .run(ctx -> {
                     assertThat(ctx).hasNotFailed();
                     EntityResolvers resolvers = ctx.getBean(EntityResolvers.class);
@@ -80,8 +80,8 @@ class MultiTypeInheritanceTest {
         // through to in-memory. Two types with no explicit scope never collide.
         runner.withPropertyValues(
                         "jclaim.storage.type=auto",
-                        "jclaim.entity-types.customer.human-id.template=????-?",
-                        "jclaim.entity-types.vehicle.human-id.template=????-?")
+                        "jclaim.entity-types.customer.public-id.template=????-?",
+                        "jclaim.entity-types.vehicle.public-id.template=????-?")
                 .run(ctx -> {
                     assertThat(ctx).hasNotFailed();
                     EntityResolvers resolvers = ctx.getBean(EntityResolvers.class);
