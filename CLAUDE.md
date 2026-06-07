@@ -434,8 +434,11 @@ When working with this codebase, consider:
 
 ## Project Status
 
-- **Version**: 0.1.0-SNAPSHOT (held across the multi-module split
-  because no Maven Central artefact has been published yet)
+- **Version**: `0.3.0-SNAPSHOT` in-repo (next development version).
+  Releases **0.1.0** (2026-06-05) and **0.2.0** (2026-06-07) are published to
+  Maven Central. The in-repo pom intentionally stays a SNAPSHOT — `publish.yml`
+  derives the release version from the GitHub Release title via `versions:set`,
+  so the repo is never bumped to a release version.
 - **Java Version**: 21
 - **Layout**: Multi-module Maven; five published modules
   (`jclaim-core`, `jclaim-matching-jspec`, `jclaim-storage-mongo`,
