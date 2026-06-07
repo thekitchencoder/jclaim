@@ -36,11 +36,12 @@ The adapter applies the following schema on construction (idempotent via
 ```sql
 CREATE TABLE entities (
     urn            text PRIMARY KEY,
-    human_id       text NOT NULL UNIQUE,
+    public_id      text NULL,
     superseded_by  text NULL,
     created_at     timestamptz NOT NULL,
     updated_at     timestamptz NOT NULL
 );
+CREATE UNIQUE INDEX entities_public_id_unique ON entities (public_id) WHERE public_id IS NOT NULL;
 
 CREATE TABLE entity_aliases (
     source       text NOT NULL,

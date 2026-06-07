@@ -91,7 +91,7 @@ narrows the scope.
   `org.springframework.*`. JClaim integrates with Spring Boot without
   depending on it.
 - **Testing**: JUnit 5 + AssertJ. Tests cover the happy path and the relevant
-  failure mode (alias hit, alias miss, human-ID collision retry, conflict
+  failure mode (alias hit, alias miss, public-ID collision retry, conflict
   emission).
 - **Logging**: SLF4J for all diagnostics; never `System.out` / `System.err`.
 
@@ -100,7 +100,7 @@ narrows the scope.
 Inside `jclaim-core`:
 
 - `uk.codery.jclaim.id` — Crockford Base32, Damm checksum, UUID v7
-  generation, human-friendly ID minting.
+  generation, public-ID minting (`PublicIdGenerator` port, `CrockfordPublicIdGenerator`, `FilteringPublicIdGenerator`).
 - `uk.codery.jclaim.model` — `Entity`, `EntityId`, `Claim`, `Alias`,
   `SourceSystem`, `MatchingAttribute`, `ResolutionResult`.
 - `uk.codery.jclaim.matching` — `MatchingPolicy` port, `TriState`,
@@ -125,7 +125,7 @@ Sibling modules:
 
 All five modules are delivered: domain model, resolver, stewardship
 events, in-memory + MongoDB + PostgreSQL storage (each passing the shared
-`EntityStorageContract`), opt-in human IDs, the `MatchingPolicy` port with
+`EntityStorageContract`), opt-in public IDs (`PublicIdGenerator` port + `CrockfordPublicIdGenerator` + `FilteringPublicIdGenerator` acceptance decorator), the `MatchingPolicy` port with
 the JSPEC-backed implementation, multiple-entity-type support
 (`jclaim.entity-types.<type>` with physical per-type isolation and the
 `EntityResolvers` facade), and the Spring Boot starter. Next milestone:

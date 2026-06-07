@@ -19,7 +19,8 @@ Core library code lives under
 `storage.memory`), `matching` (the `MatchingPolicy` port, `TriState`,
 and the `aliasOnly()` default), `event` (the stewardship event surface —
 sealed `MatchEvent` delivered to `MatchEventSink`), and `id` (Crockford
-Base32, Damm checksum, UUID v7 and human-friendly ID generation). Tests
+Base32, Damm checksum, UUID v7 and public-ID generation — `PublicIdGenerator`
+port, `CrockfordPublicIdGenerator`, `FilteringPublicIdGenerator`). Tests
 sit in `jclaim-core/src/test/java/uk/codery/jclaim` mirroring the main
 package layout; `jclaim-core` publishes a `tests`-classifier jar so
 adapter modules inherit the `EntityStorageContract` conformance suite and
@@ -40,9 +41,11 @@ before altering behaviour.
 - **TriState** (`MATCHED` / `NOT_MATCHED` / `UNDETERMINED`) is the
   matching-policy verdict for one candidate; it lives in `jclaim-core` and
   carries no jspec coupling.
-- **humanId** is the opt-in Crockford-Base32 display ID (e.g. `K7M2-9X4P-3`),
+- **publicId** is the opt-in Crockford-Base32 display ID (e.g. `K7M2-9X4P-3`),
   minted only when a template is configured. It is separate from, and never
-  derived from, the URN.
+  derived from, the URN. Generation is pluggable via `PublicIdGenerator`;
+  `CrockfordPublicIdGenerator` is the built-in default, wrapped by
+  `FilteringPublicIdGenerator` (allow-all) for composable content acceptance.
 
 ## Build, Test, and Development Commands
 
@@ -78,7 +81,7 @@ Write focused JUnit Jupiter tests in
 `jclaim-core/src/test/java/uk/codery/jclaim/...` mirroring the main
 package layout. Use AssertJ's fluent assertions. Cover the
 happy path **and** the relevant failure mode for each operation: alias-hit,
-alias-miss, conflict detection, human-ID collision retry, URN-shape validation.
+alias-miss, conflict detection, public-ID collision retry, URN-shape validation.
 Keep test data deterministic where possible — inject `Clock` or
 `Supplier<UUID>` rather than calling `Instant.now()` / `UUID.randomUUID()`
 directly inside hot paths. Run `mvn test` locally; add `-Dtest=ClassName` for

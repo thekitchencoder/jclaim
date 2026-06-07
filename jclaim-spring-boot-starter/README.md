@@ -142,11 +142,11 @@ All properties live under the `jclaim.*` prefix.
 |-------------------------------------------|--------------------|---------------------------------------------------------------------------------------------------|
 | `jclaim.urn.namespace`                    | `codery`           | URN namespace; produces `urn:<ns>:<type>:<UUID>`.                                                 |
 | `jclaim.urn.type`                         | `entity`           | URN type segment; produces `urn:<ns>:<type>:<UUID>`.                                              |
-| `jclaim.human-id.template`                | _(none)_           | Human-id template; **absent → no humanId is minted**. Set a template to opt in (eagerly validated — a malformed template fails context startup). |
+| `jclaim.public-id.template`               | _(none)_           | Public-id template; **absent → no publicId is minted**. Set a template to opt in (eagerly validated — a malformed template fails context startup). |
 | `jclaim.storage.type`                     | `auto`             | One of `auto`, `in-memory`, `mongo`, `postgres`.                                                  |
 | `jclaim.storage.mongo.database`           | `jclaim`           | Mongo database name.                                                                              |
 | `jclaim.storage.mongo.collection-name`    | `jclaim_entities`  | Mongo collection name.                                                                            |
-| `jclaim.storage.mongo.create-indexes`     | `true`             | Auto-create the unique alias + humanId indexes on startup.                                        |
+| `jclaim.storage.mongo.create-indexes`     | `true`             | Auto-create the unique alias + publicId indexes on startup.                                       |
 | `jclaim.storage.postgres.apply-schema`    | `true`             | Auto-apply the bundled `schema.sql` on startup.                                                   |
 | `jclaim.matching.spec`                    | _(none)_           | Classpath spec resource for a `JspecMatchingPolicy`; absent → `aliasOnly()`. Requires `jclaim-matching-jspec`. Eagerly validated — a missing resource fails context startup. |
 | `jclaim.matching.max-candidates`          | `100`              | Cap on attribute-blocked candidates the policy scores per claim. Truncation → WARN + `jclaim.matching.pool_truncated_total`. |
@@ -154,7 +154,7 @@ All properties live under the `jclaim.*` prefix.
 | `jclaim.match-sink.type`                  | `spring-events`    | One of `spring-events`, `logging`, `noop`.                                                        |
 | `jclaim.metrics.enabled`                  | `true`             | Wraps the resolver with a Micrometer-instrumented decorator when a `MeterRegistry` bean exists.   |
 | `jclaim.health.enabled`                   | `true`             | Registers an Actuator `HealthIndicator` for the configured storage.                               |
-| `jclaim.entity-types.<type>`              | _(none)_           | Per-entity-type map; **present → multi-type mode** (see [Multiple entity types](#multiple-entity-types)). Per-entry sub-keys: `urn.namespace`, `human-id.template`, `matching.spec`, `matching.max-candidates`, `matching.blocking-keys`, `storage.{schema,collection-name,datasource,mongo-client}`. |
+| `jclaim.entity-types.<type>`              | _(none)_           | Per-entity-type map; **present → multi-type mode** (see [Multiple entity types](#multiple-entity-types)). Per-entry sub-keys: `urn.namespace`, `public-id.template`, `matching.spec`, `matching.max-candidates`, `matching.blocking-keys`, `storage.{schema,collection-name,datasource,mongo-client}`. |
 
 ### Entity type & namespace
 
@@ -168,23 +168,23 @@ type. The two URN coordinates play different roles:
 - `jclaim.urn.type` — the entity type itself (e.g. `customer`, `vehicle`).
   Default `entity` (generic/unclassified).
 
-`jclaim.human-id.template`, `jclaim.matching.*` and `jclaim.storage.*`
+`jclaim.public-id.template`, `jclaim.matching.*` and `jclaim.storage.*`
 describe the format, matching policy and storage that belong to this entity
-type. The humanId itself is **opt-in** — minted only when
-`jclaim.human-id.template` is set; with no template this entity type has no
-humanId.
+type. The publicId itself is **opt-in** — minted only when
+`jclaim.public-id.template` is set; with no template this entity type has no
+publicId.
 
 These top-level keys define a single, default entity type. To reconcile
 **multiple entity types in one application**, add a
 [`jclaim.entity-types.<type>`](#multiple-entity-types) map — see below.
 
-### humanId template
+### publicId template
 
-The humanId is **opt-in**: it is minted only when
-`jclaim.human-id.template` is configured. With no template set, entities of
-this type are minted with no humanId at all (no generation, no stored field,
+The publicId is **opt-in**: it is minted only when
+`jclaim.public-id.template` is configured. With no template set, entities of
+this type are minted with no publicId at all (no generation, no stored field,
 no index entry). When you do set one, the property drives the shape of every
-minted humanId. The template is compiled once into a `HumanIdFormat` at
+minted publicId. The template is compiled once into a `PublicIdFormat` at
 startup and is eagerly validated — a malformed template fails context
 startup.
 
@@ -247,12 +247,12 @@ jclaim:
 
   entity-types:
     customer:                  # → urn:acme:customer:<uuid>, schema "customer"
-      human-id:
+      public-id:
         template: "CU-????-????-?"
       matching:
         spec: matching/customer.yaml
     vehicle:                   # → urn:acme:vehicle:<uuid>, schema "vehicle"
-      human-id:
+      public-id:
         template: "VH??????"
       storage:
         datasource: vehicleDataSource   # own connection (escape hatch)
@@ -268,7 +268,7 @@ per-type or strictly app-global.
 | `urn.namespace` | **Inherited** from top-level; overridable per type. |
 | `matching.max-candidates` | **Inherited** from top-level; overridable per type. |
 | `urn.type` | **Per-type — *is* the map key.** Never inherited (a nested `urn.type` that disagrees with the map key fails startup). |
-| `human-id.template` | **Per-type only.** No global default — absent on an entry → that type mints `humanId == null`. |
+| `public-id.template` | **Per-type only.** No global default — absent on an entry → that type mints `publicId == null`. |
 | `matching.spec` | **Per-type only.** No global default — each type matches by its own rules. |
 | `matching.blocking-keys` | **Per-type only.** Travels with the per-type `matching.spec`; never inherited. |
 | `match-sink.*` | **App-global.** One sink for the whole application. |
@@ -329,7 +329,7 @@ instance per type, usually over a single shared connection:
   key. Override with `storage.collection-name`.
 - **In-memory** — one instance per type.
 
-Two types therefore never share an alias index or a humanId index: the
+Two types therefore never share an alias index or a publicId index: the
 same `(source, sourceId)` resolves to independent entities under different
 types.
 
@@ -348,12 +348,12 @@ absent bean.
 > configured; use `customer-data` (or just the type key). A dedicated
 > relaxed validator for scope identifiers is a noted follow-up.
 
-### humanId uniqueness is per scope, not global
+### publicId uniqueness is per scope, not global
 
-Because isolation is physical, **`humanId` uniqueness is per storage
-scope, not global across types**. `findByHumanId(...)` is resolver/type
-scoped, and **two types may legally mint the same humanId** if their
-templates and entropy collide. When humanIds are spoken, displayed, or
+Because isolation is physical, **`publicId` uniqueness is per storage
+scope, not global across types**. `findByPublicId(...)` is resolver/type
+scoped, and **two types may legally mint the same publicId** if their
+templates and entropy collide. When publicIds are spoken, displayed, or
 searched outside a type-specific screen, prefer **type-specific
 templates** (e.g. `CU-…` for customers, `VH…` for vehicles, as in the
 example above) so a value is unambiguous about which type it names.

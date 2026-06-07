@@ -32,7 +32,7 @@ collection:
 ```json
 {
   "_id": "urn:codery:entity:01931dad-d6c4-7c2e-bdfa-f49d33ed1ec3",
-  "humanId": "K7M2-9X4P-N",
+  "publicId": "K7M2-9X4P-N",
   "supersededBy": null,
   "createdAt": ISODate("2026-05-12T10:00:00Z"),
   "updatedAt": ISODate("2026-05-12T10:00:00Z"),
@@ -49,11 +49,11 @@ collection:
 
 The adapter creates the following indexes on construction:
 
-| Index name                  | Keys                                                  | Unique | Notes                                |
-|-----------------------------|-------------------------------------------------------|--------|--------------------------------------|
-| `jclaim_humanId_unique`     | `{ humanId: 1 }`                                      | yes    | Enforces human-ID uniqueness.        |
-| `jclaim_aliases_unique`     | `{ "aliases.source": 1, "aliases.sourceId": 1 }`      | yes    | Enforces alias uniqueness across the collection — the storage port's atomic guarantee. |
-| `jclaim_attributes_lookup`  | `{ "attributes.name": 1, "attributes.value": 1 }`     | no     | Supports `findCandidates(Claim)` per-attribute elemMatch lookups. Not part of any uniqueness contract; purely retrieval efficiency. |
+| Index name                   | Keys                                                  | Unique | Notes                                |
+|------------------------------|-------------------------------------------------------|--------|--------------------------------------|
+| `jclaim_publicId_unique`     | `{ publicId: 1 }`                                     | yes    | Enforces public-ID uniqueness (partial: `$exists: true`). |
+| `jclaim_aliases_unique`      | `{ "aliases.source": 1, "aliases.sourceId": 1 }`      | yes    | Enforces alias uniqueness across the collection — the storage port's atomic guarantee. |
+| `jclaim_attributes_lookup`   | `{ "attributes.name": 1, "attributes.value": 1 }`     | no     | Supports `findCandidates(Claim)` per-attribute elemMatch lookups. Not part of any uniqueness contract; purely retrieval efficiency. |
 
 All three indexes are idempotent (`createIndex` is a no-op if the index already
 exists with matching options).

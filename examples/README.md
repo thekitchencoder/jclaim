@@ -84,7 +84,7 @@ map builds.
 It demonstrates the headline guarantee of **physical per-type
 isolation**: the same `(crm, c-100)` alias resolves to *independent*
 entities under `customer` and `vehicle`. It also uses type-specific
-humanId templates (`CU-…`, `VH…`) to illustrate that humanId uniqueness
+publicId templates (`CU-…`, `VH…`) to illustrate that publicId uniqueness
 is per storage scope, not global. See the starter's
 [Multiple entity types](../jclaim-spring-boot-starter/README.md#multiple-entity-types)
 section for the Spring configuration.
