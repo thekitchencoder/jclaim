@@ -41,6 +41,9 @@ public final class FilteringPublicIdGenerator implements PublicIdGenerator {
                                       int maxAttempts) {
         this.delegate = Objects.requireNonNull(delegate, "delegate");
         this.acceptable = Objects.requireNonNull(acceptable, "acceptable");
+        if (maxAttempts <= 0) {
+            throw new IllegalArgumentException("maxAttempts must be positive, was " + maxAttempts);
+        }
         this.maxAttempts = maxAttempts;
     }
 

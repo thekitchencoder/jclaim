@@ -51,4 +51,12 @@ class FilteringPublicIdGeneratorTest {
         assertThatNullPointerException().isThrownBy(
                 () -> new FilteringPublicIdGenerator(() -> "X", null));
     }
+
+    @Test
+    void nonPositiveMaxAttempts_throwsIllegalArgument() {
+        assertThatThrownBy(() -> new FilteringPublicIdGenerator(() -> "X", FilteringPublicIdGenerator.ALLOW_ALL, 0))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> new FilteringPublicIdGenerator(() -> "X", FilteringPublicIdGenerator.ALLOW_ALL, -1))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
 }

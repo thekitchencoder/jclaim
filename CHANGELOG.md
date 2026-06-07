@@ -45,8 +45,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Postgres: `ALTER TABLE entities RENAME COLUMN human_id TO public_id;`
       then drop `entities_human_id_unique` and recreate as
       `entities_public_id_unique`.
-    - MongoDB: rename the field on all documents and drop/recreate the
-      `jclaim_humanId_unique` partial index as `jclaim_publicId_unique`.
+    - MongoDB: `db.<collection>.updateMany({ humanId: { $exists: true } }, { $rename: { "humanId": "publicId" } })`,
+      then `db.<collection>.dropIndex("jclaim_humanId_unique")` and recreate via the adapter (auto-created on construction) or
+      `db.<collection>.createIndex({ publicId: 1 }, { unique: true, partialFilterExpression: { publicId: { $exists: true } }, name: "jclaim_publicId_unique" })`.
 
 ## [0.2.0] - 2026-06-07
 
