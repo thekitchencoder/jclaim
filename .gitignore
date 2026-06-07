@@ -26,3 +26,5 @@ target/
 
 # Local planning / design docs (kept out of version control)
 docs/plans/
+# superpowers plugin skills write specs/scratch here
+docs/superpowers/
