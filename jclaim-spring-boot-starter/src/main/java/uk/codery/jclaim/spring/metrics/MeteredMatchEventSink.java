@@ -24,7 +24,7 @@ public final class MeteredMatchEventSink implements MatchEventSink {
         this.delegate = Objects.requireNonNull(delegate, "delegate");
         Objects.requireNonNull(registry, "registry");
         this.poolTruncated = Counter.builder("jclaim.matching.pool_truncated_total")
-                .description("Stewardship events fired with a truncated candidate pool")
+                .description("resolveOrMint calls whose candidate pool hit the maxCandidates cap")
                 .register(registry);
     }
 

@@ -18,6 +18,11 @@ import java.util.Objects;
  * carried here. {@code claim} identifies the input; {@code cap} is the actionable
  * number — the {@code maxCandidates} limit that was hit.
  *
+ * <p>Truncation is detected heuristically as {@code candidatesFound == cap}, so it
+ * also fires in the benign edge case where storage holds exactly {@code cap}
+ * candidates and none were actually excluded. Treat the event as "the pool may be
+ * incomplete", not a guarantee that a match was dropped.
+ *
  * @param claim the inbound claim whose candidate pool was truncated
  * @param cap   the {@code maxCandidates} limit that was hit
  */
