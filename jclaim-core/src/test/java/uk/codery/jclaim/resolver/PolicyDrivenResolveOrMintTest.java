@@ -369,6 +369,31 @@ class PolicyDrivenResolveOrMintTest {
         assertThat(sink.events).noneMatch(e -> e instanceof CandidatePoolTruncated);
     }
 
+    @Test
+    void truncation_sinkThrows_resolutionStillCompletes() {
+        // A misbehaving sink that throws on the CandidatePoolTruncated delivery
+        // must not break resolution: safeAccept swallows the RuntimeException.
+        seed(ECOMMERCE, "cust-1", "alice@example.com");
+        Claim claim = new Claim(POS, "loyalty-9", List.of(
+                MatchingAttribute.of("email", "alice@example.com")));
+        MatchEventSink throwingSink = event -> {
+            throw new RuntimeException("sink boom");
+        };
+        DefaultEntityResolver resolver = DefaultEntityResolver.builder(storage)
+                .namespace("codery")
+                .uuidSupplier(uuidSupplier)
+                .publicIdGenerator(new CrockfordPublicIdGenerator(publicIdRng))
+                .clock(Clock.fixed(Instant.parse("2026-05-10T12:00:00Z"), ZoneOffset.UTC))
+                .matchingPolicy((c, cand) -> TriState.NOT_MATCHED)
+                .matchEventSink(throwingSink)
+                .maxCandidates(1) // 1 candidate, cap 1 => truncated => fires the event
+                .build();
+
+        ResolutionResult result = resolver.resolveOrMint(claim);
+
+        assertThat(result).isInstanceOf(ResolutionResult.Minted.class);
+    }
+
     // --- helpers ---------------------------------------------------------
 
     /** Seeds an entity carrying arbitrary attributes via an alias-only mint. */

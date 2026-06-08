@@ -136,5 +136,9 @@ class EventTypesTest {
         assertThat(event.cap()).isEqualTo(7);
         assertThatThrownBy(() -> new CandidatePoolTruncated(null, 1))
                 .isInstanceOf(NullPointerException.class);
+        assertThatThrownBy(() -> new CandidatePoolTruncated(claim, 0))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> new CandidatePoolTruncated(claim, -1))
+                .isInstanceOf(IllegalArgumentException.class);
     }
 }

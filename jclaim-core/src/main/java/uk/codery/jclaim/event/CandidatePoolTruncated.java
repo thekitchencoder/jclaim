@@ -24,11 +24,16 @@ import java.util.Objects;
  * incomplete", not a guarantee that a match was dropped.
  *
  * @param claim the inbound claim whose candidate pool was truncated
- * @param cap   the {@code maxCandidates} limit that was hit
+ * @param cap   the {@code maxCandidates} limit that was hit (always positive)
+ * @throws IllegalArgumentException if {@code cap} is not positive — truncation at a
+ *         non-positive cap is meaningless
  */
 public record CandidatePoolTruncated(Claim claim, int cap) implements MatchEvent {
 
     public CandidatePoolTruncated {
         Objects.requireNonNull(claim, "claim");
+        if (cap <= 0) {
+            throw new IllegalArgumentException("cap must be positive, was " + cap);
+        }
     }
 }
