@@ -2,6 +2,7 @@ package uk.codery.jclaim.resolver;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import uk.codery.jclaim.event.CandidatePoolTruncated;
 import uk.codery.jclaim.event.MatchAmbiguous;
 import uk.codery.jclaim.event.MatchEvent;
 import uk.codery.jclaim.event.MatchEventSink;
@@ -183,7 +184,10 @@ class PolicyDrivenResolveOrMintTest {
         ResolutionResult result = resolverWith(policy, cap).resolveOrMint(claim);
 
         assertThat(result).isInstanceOf(ResolutionResult.Minted.class);
-        MatchUndecided event = (MatchUndecided) sink.events.get(0);
+        // CandidatePoolTruncated fires first (index 0), then MatchUndecided (index 1).
+        assertThat(sink.events).hasSize(2);
+        assertThat(sink.events.get(0)).isInstanceOf(CandidatePoolTruncated.class);
+        MatchUndecided event = (MatchUndecided) sink.events.get(1);
         assertThat(event.candidatePoolTruncated()).isTrue();
         assertThat(event.candidatesConsidered()).isEqualTo(cap);
         assertThat(event.candidatesFound()).isEqualTo(cap);
@@ -301,6 +305,72 @@ class PolicyDrivenResolveOrMintTest {
 
         assertThatThrownBy(() -> resolverWith(policy, 100).resolveOrMint(claim))
                 .isInstanceOf(NullPointerException.class);
+    }
+
+    @Test
+    void truncatedCleanMint_emitsCandidatePoolTruncated() {
+        // cap=1 + one overlapping candidate => pool size == cap => truncated.
+        // Policy says NOT_MATCHED => clean mint with NO undetermined candidate:
+        // previously silent (WARN only); now a CandidatePoolTruncated must fire.
+        seed(ECOMMERCE, "cust-1", "alice@example.com");
+        Claim claim = new Claim(POS, "loyalty-9", List.of(
+                MatchingAttribute.of("email", "alice@example.com")));
+        MatchingPolicy policy = (c, cand) -> TriState.NOT_MATCHED;
+
+        ResolutionResult result = resolverWith(policy, 1).resolveOrMint(claim);
+
+        assertThat(result).isInstanceOf(ResolutionResult.Minted.class);
+        assertThat(sink.events).hasSize(1);
+        CandidatePoolTruncated event = (CandidatePoolTruncated) sink.events.get(0);
+        assertThat(event.claim()).isEqualTo(claim);
+        assertThat(event.cap()).isEqualTo(1);
+    }
+
+    @Test
+    void truncatedSingleMatch_emitsCandidatePoolTruncated() {
+        // cap=1 with exactly one stored candidate: size == cap fires the truncation heuristic even though the pool is actually complete.
+        Entity existing = seed(ECOMMERCE, "cust-1", "alice@example.com");
+        Claim claim = new Claim(POS, "loyalty-9", List.of(
+                MatchingAttribute.of("email", "alice@example.com")));
+        MatchingPolicy policy = (c, cand) ->
+                cand.id().equals(existing.id()) ? TriState.MATCHED : TriState.NOT_MATCHED;
+
+        ResolutionResult result = resolverWith(policy, 1).resolveOrMint(claim);
+
+        assertThat(result).isInstanceOf(ResolutionResult.Matched.class);
+        assertThat(sink.events).hasSize(1);
+        assertThat(sink.events.get(0)).isInstanceOf(CandidatePoolTruncated.class);
+        assertThat(((CandidatePoolTruncated) sink.events.get(0)).cap()).isEqualTo(1);
+    }
+
+    @Test
+    void truncatedAmbiguous_emitsBothTruncatedAndAmbiguous() {
+        // cap=2 with two overlapping candidates => size == cap => truncated;
+        // both MATCHED => ambiguous. Both events fire (truncation first).
+        seed(ECOMMERCE, "cust-1", "alice@example.com");
+        seed(CRM, "crm-2", "alice@example.com");
+        Claim claim = new Claim(POS, "loyalty-9", List.of(
+                MatchingAttribute.of("email", "alice@example.com")));
+        MatchingPolicy policy = (c, cand) -> TriState.MATCHED;
+
+        ResolutionResult result = resolverWith(policy, 2).resolveOrMint(claim);
+
+        assertThat(result).isInstanceOf(ResolutionResult.Matched.class);
+        assertThat(sink.events).hasSize(2);
+        assertThat(sink.events.get(0)).isInstanceOf(CandidatePoolTruncated.class);
+        assertThat(sink.events.get(1)).isInstanceOf(MatchAmbiguous.class);
+    }
+
+    @Test
+    void belowCap_emitsNoCandidatePoolTruncated() {
+        seed(ECOMMERCE, "cust-1", "alice@example.com");
+        Claim claim = new Claim(POS, "loyalty-9", List.of(
+                MatchingAttribute.of("email", "alice@example.com")));
+        MatchingPolicy policy = (c, cand) -> TriState.NOT_MATCHED;
+
+        resolverWith(policy, 5).resolveOrMint(claim); // 1 candidate, cap 5 => not truncated
+
+        assertThat(sink.events).noneMatch(e -> e instanceof CandidatePoolTruncated);
     }
 
     // --- helpers ---------------------------------------------------------

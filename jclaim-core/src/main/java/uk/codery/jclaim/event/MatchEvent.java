@@ -13,11 +13,13 @@ package uk.codery.jclaim.event;
  *       entity was minted while at least one candidate remained undetermined,</li>
  *   <li>{@link MatchAmbiguous} — more than one candidate matched; a winner was
  *       chosen deterministically and the alternatives are surfaced.</li>
+ *   <li>{@link CandidatePoolTruncated} — the candidate pool hit the cap and was
+ *       truncated, so the matching policy may not have seen the true match.</li>
  * </ul>
  *
  * <p>Listeners receive these via the {@link MatchEventSink} configured on the
  * resolver.
  */
 public sealed interface MatchEvent
-        permits EntityAttributesConflicted, MatchUndecided, MatchAmbiguous {
+        permits EntityAttributesConflicted, MatchUndecided, MatchAmbiguous, CandidatePoolTruncated {
 }
