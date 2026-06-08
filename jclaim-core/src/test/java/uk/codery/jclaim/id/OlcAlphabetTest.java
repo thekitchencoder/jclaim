@@ -55,4 +55,15 @@ class OlcAlphabetTest {
         assertThat(olc.decodeCheck('C')).isEqualTo(-1);
         assertThat(olc.decodeCheck('X')).isEqualTo(-1);
     }
+
+    @Test
+    void decodeRejectsCharsAbove127() {
+        assertThat(olc.decode((char) 200)).isEqualTo(-1);
+    }
+
+    @Test
+    void decodeCheckRejectsCharsBelowDigitRange() {
+        assertThat(olc.decodeCheck('-')).isEqualTo(-1);  // '-' (45) is below '0' (48)
+        assertThat(olc.decodeCheck('!')).isEqualTo(-1);
+    }
 }

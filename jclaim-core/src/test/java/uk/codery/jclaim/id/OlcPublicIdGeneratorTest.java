@@ -74,4 +74,19 @@ class OlcPublicIdGeneratorTest {
                 PublicIdFormat.ofTemplate("??", OlcAlphabet.INSTANCE), (java.util.function.Supplier<Long>) null))
                 .isInstanceOf(NullPointerException.class);
     }
+
+    @Test
+    void defaultConstructorProducesValidOlcId() {
+        OlcPublicIdGenerator g = new OlcPublicIdGenerator();
+        String id = g.generate();
+        assertThat(id).matches("[23456789CFGHJMPQRVWX]{4}-[23456789CFGHJMPQRVWX]{4}-[0-9]");
+        assertThat(g.isValid(id)).isTrue();
+    }
+
+    @Test
+    void formatAccessorReturnsConfiguredFormat() {
+        PublicIdFormat f = PublicIdFormat.ofTemplate("??-??-?", OlcAlphabet.INSTANCE);
+        OlcPublicIdGenerator g = new OlcPublicIdGenerator(f, new Random(1L));
+        assertThat(g.format()).isSameAs(f);
+    }
 }
