@@ -9,7 +9,10 @@ package uk.codery.jclaim.id;
  * <p>See <a href="https://www.crockford.com/base32.html">https://www.crockford.com/base32.html</a>
  * for the reference specification.
  */
-public final class CrockfordBase32 {
+public final class CrockfordBase32 implements IdAlphabet {
+
+    /** Singleton {@link IdAlphabet} view of this base-32 codec. */
+    public static final IdAlphabet INSTANCE = new CrockfordBase32();
 
     public static final String ALPHABET = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
 
@@ -34,6 +37,32 @@ public final class CrockfordBase32 {
     }
 
     private CrockfordBase32() {
+    }
+
+    @Override
+    public int radix() {
+        return 32;
+    }
+
+    @Override
+    public char encode(int index) {
+        return ALPHABET.charAt(index);
+    }
+
+    @Override
+    public int decode(char c) {
+        return decodeChar(c);
+    }
+
+    @Override
+    public char checkChar(int digit) {
+        return ALPHABET.charAt(digit);
+    }
+
+    @Override
+    public int decodeCheck(char c) {
+        int d = decodeChar(c);
+        return (d >= 0 && d <= 9) ? d : -1;
     }
 
     /**
