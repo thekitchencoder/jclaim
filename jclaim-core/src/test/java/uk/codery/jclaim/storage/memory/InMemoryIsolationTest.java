@@ -12,7 +12,7 @@ import uk.codery.jclaim.resolver.DefaultEntityResolver;
 /**
  * Pins instance-per-type isolation for the in-memory adapter: two resolvers of
  * different entity types over their own {@link InMemoryEntityStorage} share no
- * state, so the same {@code (source, sourceId)} alias and the same humanId
+ * state, so the same {@code (source, sourceId)} alias and the same publicId
  * resolve independently per type.
  */
 final class InMemoryIsolationTest {
@@ -23,7 +23,7 @@ final class InMemoryIsolationTest {
         return DefaultEntityResolver.builder(new InMemoryEntityStorage())
                 .namespace("acme")
                 .entityType(type)
-                .humanIdTemplate("????-????-?")
+                .publicIdTemplate("????-????-?")
                 .build();
     }
 
@@ -54,17 +54,17 @@ final class InMemoryIsolationTest {
     }
 
     @Test
-    void humanIdMintedUnderOneTypeInvisibleToOther() {
+    void publicIdMintedUnderOneTypeInvisibleToOther() {
         DefaultEntityResolver customers = resolverFor("customer");
         DefaultEntityResolver vehicles = resolverFor("vehicle");
 
         Entity customer = customers.resolveOrMint(claim("ABC-123")).entity();
-        assertThat(customer.humanId()).isNotNull();
+        assertThat(customer.publicId()).isNotNull();
 
-        // The customer's humanId is visible to its own type but not the other.
-        assertThat(customers.findByHumanId(customer.humanId()))
+        // The customer's publicId is visible to its own type but not the other.
+        assertThat(customers.findByPublicId(customer.publicId()))
                 .map(Entity::id)
                 .contains(customer.id());
-        assertThat(vehicles.findByHumanId(customer.humanId())).isEmpty();
+        assertThat(vehicles.findByPublicId(customer.publicId())).isEmpty();
     }
 }

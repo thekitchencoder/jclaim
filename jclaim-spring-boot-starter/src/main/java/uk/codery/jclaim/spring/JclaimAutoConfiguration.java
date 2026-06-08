@@ -74,7 +74,7 @@ public class JclaimAutoConfiguration {
         return DefaultEntityResolver.builder(storage)
                 .namespace(properties.urn().namespace())
                 .entityType(properties.urn().type())
-                .humanIdTemplate(properties.humanId().template())
+                .publicIdTemplate(properties.publicId().template())
                 .matchEventSink(matchSink)
                 .matchingPolicy(matchingPolicy)
                 .maxCandidates(properties.matching().maxCandidates())

@@ -14,7 +14,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Asserts the adapter's auto-created indexes match what the port contract
- * depends on for atomic alias uniqueness and humanId uniqueness.
+ * depends on for atomic alias uniqueness and publicId uniqueness.
  */
 @ExtendWith(RequiresDockerCondition.class)
 final class MongoIndexesTest {
@@ -28,9 +28,9 @@ final class MongoIndexesTest {
         collection.listIndexes().forEach(indexes::add);
 
         assertThat(indexes)
-                .anyMatch(idx -> MongoEntityStorage.INDEX_HUMAN_ID.equals(idx.getString("name"))
+                .anyMatch(idx -> MongoEntityStorage.INDEX_PUBLIC_ID.equals(idx.getString("name"))
                         && Boolean.TRUE.equals(idx.getBoolean("unique"))
-                        // humanId is opt-in: the unique index is partial so that
+                        // publicId is opt-in: the unique index is partial so that
                         // documents without the field don't collide on null.
                         && idx.containsKey("partialFilterExpression"))
                 .anyMatch(idx -> MongoEntityStorage.INDEX_ALIASES.equals(idx.getString("name"))

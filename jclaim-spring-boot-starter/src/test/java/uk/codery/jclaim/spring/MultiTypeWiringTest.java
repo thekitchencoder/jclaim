@@ -34,8 +34,8 @@ class MultiTypeWiringTest {
         return runner.withPropertyValues(
                 "jclaim.storage.type=in-memory",
                 "jclaim.urn.namespace=acme",
-                "jclaim.entity-types.customer.human-id.template=????-?",
-                "jclaim.entity-types.vehicle.human-id.template=????-?");
+                "jclaim.entity-types.customer.public-id.template=????-?",
+                "jclaim.entity-types.vehicle.public-id.template=????-?");
     }
 
     private static Entity mint(EntityResolver r, String source, String sourceId) {
@@ -219,7 +219,7 @@ class MultiTypeWiringTest {
     void malformedTypeKeyFailsStartupAtRegistration() {
         runner.withPropertyValues(
                 "jclaim.storage.type=in-memory",
-                "jclaim.entity-types.bad_key.human-id.template=????-?")
+                "jclaim.entity-types.bad_key.public-id.template=????-?")
                 .run(ctx -> {
                     assertThat(ctx).hasFailed();
                     assertThat(ctx.getStartupFailure())

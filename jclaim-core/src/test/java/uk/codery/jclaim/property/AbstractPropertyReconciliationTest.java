@@ -7,7 +7,7 @@ import uk.codery.jclaim.event.EntityAttributesConflicted;
 import uk.codery.jclaim.fixtures.DeterministicUuids;
 import uk.codery.jclaim.fixtures.GroundTruthIngester;
 import uk.codery.jclaim.fixtures.RecordingMatchSink;
-import uk.codery.jclaim.id.HumanIdGenerator;
+import uk.codery.jclaim.id.CrockfordPublicIdGenerator;
 import uk.codery.jclaim.model.Alias;
 import uk.codery.jclaim.model.Claim;
 import uk.codery.jclaim.model.Entity;
@@ -58,7 +58,7 @@ public abstract class AbstractPropertyReconciliationTest {
         resolver = DefaultEntityResolver.builder(storage)
                 .namespace("codery")
                 .uuidSupplier(DeterministicUuids.supplier())
-                .humanIdGenerator(new HumanIdGenerator(new Random(44)))
+                .publicIdGenerator(new CrockfordPublicIdGenerator(new Random(44)))
                 .clock(Clock.fixed(Instant.parse("2026-05-11T10:00:00Z"), ZoneOffset.UTC))
                 .matchEventSink(matchSink)
                 .build();
@@ -242,7 +242,7 @@ public abstract class AbstractPropertyReconciliationTest {
         EntityStorage isolated = newStorage();
         EntityResolver isolatedResolver = DefaultEntityResolver.builder(isolated)
                 .uuidSupplier(DeterministicUuids.supplier())
-                .humanIdGenerator(new HumanIdGenerator(new Random(98)))
+                .publicIdGenerator(new CrockfordPublicIdGenerator(new Random(98)))
                 .build();
         for (Claim claim : records) {
             isolatedResolver.resolveOrMint(claim);

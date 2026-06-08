@@ -12,23 +12,23 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class EntityTest {
 
     @Test
-    void allowsNullHumanId() {
+    void allowsNullPublicId() {
         Entity e = new Entity(EntityId.of(UUID.randomUUID()), null,
                 List.of(), List.of(), null, Instant.EPOCH, Instant.EPOCH);
-        assertThat(e.humanId()).isNull();
+        assertThat(e.publicId()).isNull();
     }
 
     @Test
-    void rejectsBlankHumanIdWhenPresent() {
+    void rejectsBlankPublicIdWhenPresent() {
         assertThatThrownBy(() -> new Entity(EntityId.of(UUID.randomUUID()), "  ",
                 List.of(), List.of(), null, Instant.EPOCH, Instant.EPOCH))
                 .isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test
-    void acceptsPresentHumanId() {
+    void acceptsPresentPublicId() {
         Entity e = new Entity(EntityId.of(UUID.randomUUID()), "K7M2-9X4P-N",
                 List.of(), List.of(), null, Instant.EPOCH, Instant.EPOCH);
-        assertThat(e.humanId()).isEqualTo("K7M2-9X4P-N");
+        assertThat(e.publicId()).isEqualTo("K7M2-9X4P-N");
     }
 }

@@ -325,7 +325,7 @@ public class EntityTypeResolverRegistrar
         return DefaultEntityResolver.builder(storage)
                 .namespace(namespace)
                 .entityType(type)
-                .humanIdTemplate(entry.humanId().template())
+                .publicIdTemplate(entry.publicId().template())
                 .matchEventSink(sink)
                 .matchingPolicy(policy)
                 .maxCandidates(maxCandidates)
@@ -378,7 +378,7 @@ public class EntityTypeResolverRegistrar
         String entryNs = entry.urn().namespace();
         // Treat null OR blank as "not set" (inherit) — some property sources bind an
         // absent key to "" rather than null, and a blank namespace is never valid;
-        // inheriting is consistent with how matching.spec / human-id.template treat blank.
+        // inheriting is consistent with how matching.spec / public-id.template treat blank.
         return (entryNs != null && !entryNs.isBlank()) ? entryNs : props.urn().namespace();
     }
 

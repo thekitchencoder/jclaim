@@ -59,12 +59,12 @@ public final class RetailQuickStart {
     /** Runs the demo, writing the entity graph to {@code out}. Returns the graph for inspection. */
     public static Map<String, Entity> run(PrintStream out) {
         RetailFixtures fixtures = RetailFixtures.load();
-        // Customers are a natural fit for human-typed lookup IDs, so this
-        // resolver opts in to humanIds by configuring a template. Each minted
+        // Customers are a natural fit for public lookup IDs, so this
+        // resolver opts in to publicIds by configuring a template. Each minted
         // entity then carries a Crockford+Damm display ID (e.g. K7M2-9X4P-3).
         EntityResolver resolver = DefaultEntityResolver.builder(new InMemoryEntityStorage())
                 .namespace("codery")
-                .humanIdTemplate("????-????-?")
+                .publicIdTemplate("????-????-?")
                 .matchEventSink(loggingMatchSink(out))
                 .build();
 
@@ -117,7 +117,7 @@ public final class RetailQuickStart {
     private static void printEntity(PrintStream out, String customerId, Entity entity) {
         out.println(customerId);
         out.println("  urn      = " + entity.id().urn());
-        out.println("  humanId  = " + entity.humanId());
+        out.println("  publicId = " + entity.publicId());
         out.println("  aliases  :");
         for (Alias alias : entity.aliases()) {
             out.println("      " + alias.source().name() + "/" + alias.sourceId());

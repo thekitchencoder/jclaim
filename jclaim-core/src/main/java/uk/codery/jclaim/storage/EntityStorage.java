@@ -11,7 +11,7 @@ import java.util.function.Supplier;
 
 /**
  * Storage port used by the resolver. Adapters persist canonical entities
- * indexed by URN, human ID and alias, and must enforce alias uniqueness
+ * indexed by URN, public ID and alias, and must enforce alias uniqueness
  * atomically — naïve read-then-write implementations are incorrect under
  * concurrency.
  *
@@ -26,8 +26,8 @@ public interface EntityStorage {
     /** Lookup by canonical URN. */
     Optional<Entity> findByUrn(EntityId urn);
 
-    /** Lookup by human-friendly identifier. */
-    Optional<Entity> findByHumanId(String humanId);
+    /** Lookup by public identifier. */
+    Optional<Entity> findByPublicId(String publicId);
 
     /** Lookup by {@code (source, sourceId)} alias. */
     Optional<Entity> findByAlias(Alias alias);
@@ -39,7 +39,7 @@ public interface EntityStorage {
      * <p>The supplied factory must produce an entity whose alias list already
      * includes {@code alias}; the adapter rejects mismatched mint factories.
      * The factory may be invoked at most once per call. The entity URN and
-     * human ID it produces must not collide with any already stored — the
+     * public ID it produces must not collide with any already stored — the
      * caller is responsible for re-rolling on collision.
      */
     StorageOutcome resolveOrCreate(Alias alias, Supplier<Entity> mintFactory);

@@ -152,14 +152,14 @@ class JclaimAutoConfigurationTest {
     }
 
     @Test
-    void noTemplateConfigured_mintsNoHumanId() {
+    void noTemplateConfigured_mintsNoPublicId() {
         new ApplicationContextRunner()
             .withConfiguration(AutoConfigurations.of(JclaimAutoConfiguration.class))
             .run(ctx -> {
                 EntityResolver r = ctx.getBean(EntityResolver.class);
                 Entity e = ((ResolutionResult.Minted) r.resolveOrMint(
                         new Claim(SourceSystem.of("crm"), "u-1", List.of()))).entity();
-                assertThat(e.humanId()).isNull();
+                assertThat(e.publicId()).isNull();
             });
     }
 
@@ -167,21 +167,21 @@ class JclaimAutoConfigurationTest {
     void resolverHonoursConfiguredUrnTypeAndTemplate() {
         new ApplicationContextRunner()
             .withConfiguration(AutoConfigurations.of(JclaimAutoConfiguration.class))
-            .withPropertyValues("jclaim.urn.type=customer", "jclaim.human-id.template=JG??????")
+            .withPropertyValues("jclaim.urn.type=customer", "jclaim.public-id.template=JG??????")
             .run(ctx -> {
                 EntityResolver r = ctx.getBean(EntityResolver.class);
                 Entity e = ((ResolutionResult.Minted) r.resolveOrMint(
                         new Claim(SourceSystem.of("crm"), "u-1", List.of()))).entity();
                 assertThat(e.id().type()).isEqualTo("customer");
-                assertThat(e.humanId()).startsWith("JG");
+                assertThat(e.publicId()).startsWith("JG");
             });
     }
 
     @Test
-    void badHumanIdTemplateFailsStartup() {
+    void badPublicIdTemplateFailsStartup() {
         new ApplicationContextRunner()
             .withConfiguration(AutoConfigurations.of(JclaimAutoConfiguration.class))
-            .withPropertyValues("jclaim.human-id.template=AB") // < 2 placeholders
+            .withPropertyValues("jclaim.public-id.template=AB") // < 2 placeholders
             .run(ctx -> assertThat(ctx).getFailure()
                     .rootCause().isInstanceOf(IllegalArgumentException.class));
     }
@@ -246,7 +246,7 @@ class JclaimAutoConfigurationTest {
     private static final class StubResolver implements EntityResolver {
         @Override public ResolutionResult resolveOrMint(Claim c) { throw new UnsupportedOperationException(); }
         @Override public Entity getByUrn(EntityId u) { throw new UnsupportedOperationException(); }
-        @Override public Optional<Entity> findByHumanId(String s) { throw new UnsupportedOperationException(); }
+        @Override public Optional<Entity> findByPublicId(String s) { throw new UnsupportedOperationException(); }
         @Override public Optional<Entity> findByAlias(SourceSystem s, String i) { throw new UnsupportedOperationException(); }
         @Override public Entity addAlias(EntityId u, SourceSystem s, String i) { throw new UnsupportedOperationException(); }
         @Override public Set<Entity> findCandidates(Claim c) { throw new UnsupportedOperationException(); }

@@ -6,14 +6,14 @@ import java.util.Objects;
 import java.util.Optional;
 
 /**
- * Canonical reconciled entity. Holds the URN, a nullable human-friendly lookup
+ * Canonical reconciled entity. Holds the URN, a nullable public lookup
  * ID, the alias graph of contributing source-system claims, the attributes
  * recorded on the entity, an optional {@code supersededBy} pointer for future
  * merge operations, and creation / update timestamps.
  *
- * <p>The {@code humanId} is <strong>nullable</strong>: it is an independently
+ * <p>The {@code publicId} is <strong>nullable</strong>: it is an independently
  * minted lookup attribute, not part of the entity's core identity. An entity
- * type that mints no human-friendly ID carries {@code humanId == null}. When
+ * type that mints no public ID carries {@code publicId == null}. When
  * present it must be non-blank.
  *
  * <p>Records are immutable; mutating operations on the resolver return new
@@ -21,7 +21,7 @@ import java.util.Optional;
  */
 public record Entity(
         EntityId id,
-        String humanId,
+        String publicId,
         List<Alias> aliases,
         List<MatchingAttribute> attributes,
         EntityId supersededBy,
@@ -35,10 +35,10 @@ public record Entity(
         Objects.requireNonNull(attributes, "attributes");
         Objects.requireNonNull(createdAt, "createdAt");
         Objects.requireNonNull(updatedAt, "updatedAt");
-        // humanId is nullable: absent means this entity type mints no humanId.
+        // publicId is nullable: absent means this entity type mints no publicId.
         // When present it must be non-blank.
-        if (humanId != null && humanId.isBlank()) {
-            throw new IllegalArgumentException("humanId must not be blank when present");
+        if (publicId != null && publicId.isBlank()) {
+            throw new IllegalArgumentException("publicId must not be blank when present");
         }
         aliases = List.copyOf(aliases);
         attributes = List.copyOf(attributes);
@@ -59,6 +59,6 @@ public record Entity(
         java.util.ArrayList<Alias> next = new java.util.ArrayList<>(aliases.size() + 1);
         next.addAll(aliases);
         next.add(alias);
-        return new Entity(id, humanId, next, attributes, supersededBy, createdAt, updatedAt);
+        return new Entity(id, publicId, next, attributes, supersededBy, createdAt, updatedAt);
     }
 }

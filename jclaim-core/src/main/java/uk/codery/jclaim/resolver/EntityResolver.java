@@ -21,7 +21,7 @@ import java.util.Set;
  * <ul>
  *   <li>{@link #resolveOrMint(Claim)} — atomic match-or-mint.</li>
  *   <li>{@link #getByUrn(EntityId)} — strict lookup by URN.</li>
- *   <li>{@link #findByHumanId(String)} — Optional lookup by display ID.</li>
+ *   <li>{@link #findByPublicId(String)} — Optional lookup by public identifier.</li>
  *   <li>{@link #findByAlias(SourceSystem, String)} — Optional lookup by
  *       source alias.</li>
  *   <li>{@link #addAlias(EntityId, SourceSystem, String)} — atomic alias
@@ -49,8 +49,8 @@ public interface EntityResolver {
     /** Strict lookup by URN; throws if the entity is unknown. */
     Entity getByUrn(EntityId urn);
 
-    /** Lookup by human-friendly identifier. */
-    Optional<Entity> findByHumanId(String humanId);
+    /** Lookup by public identifier. */
+    Optional<Entity> findByPublicId(String publicId);
 
     /** Lookup by {@code (source, sourceId)} alias. */
     Optional<Entity> findByAlias(SourceSystem source, String sourceId);

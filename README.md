@@ -14,7 +14,7 @@ The MDM (Master Data Management) entity-matching pattern, packaged as a library 
 ## Features
 
 - **Canonical identity** — One stable URN per entity, minted as UUID v7. Source-system IDs become aliases on the canonical entity.
-- **Human-friendly IDs** — Optional, opt-in Crockford Base32 with Damm check digit (`K7M2-9X4P-3`). Minted only when a template is configured (`humanIdTemplate(...)` / `jclaim.human-id.template`); default is none. Phone-readable, OCR-friendly, transcription-error-resistant.
+- **Public IDs** — Optional, opt-in Crockford Base32 with Damm check digit (`K7M2-9X4P-3`). Minted only when a template is configured (`publicIdTemplate(...)` / `jclaim.public-id.template`); default is none. Phone-readable, OCR-friendly, transcription-error-resistant. Generation is pluggable via the `PublicIdGenerator` port (`CrockfordPublicIdGenerator` built-in, `FilteringPublicIdGenerator` decorator for content acceptance).
 - **Match-or-mint as one operation** — `resolveOrMint(claim)` returns a `Matched` or `Minted` result. Callers know which path was taken.
 - **Matching policy as data** — Express your matching logic as a [JSPEC](https://github.com/thekitchencoder/jspec) specification via the optional `jclaim-matching-jspec` module. Tri-state evaluation surfaces `MATCHED`, `NOT_MATCHED`, and `UNDETERMINED` candidates naturally; the default policy is alias-only, so behaviour is unchanged until you opt in. See [Matching policy](#matching-policy).
 - **Alias graph from day one** — Records the mapping from canonical identity to source IDs, with the data shape ready for merge, split, and federation correlation.
@@ -82,8 +82,8 @@ import java.util.List;
 
 // 1. Build a resolver against the in-memory storage adapter.
 var resolver = DefaultEntityResolver.builder(new InMemoryEntityStorage())
-        .namespace("codery")            // urn:codery:entity:<UUID v7>
-        .humanIdTemplate("????-????-?") // opt in to a humanId (omit for none)
+        .namespace("codery")             // urn:codery:entity:<UUID v7>
+        .publicIdTemplate("????-????-?") // opt in to a publicId (omit for none)
         .build();
 
 // 2. First claim — the resolver mints a fresh canonical entity.
@@ -95,7 +95,7 @@ var first = resolver.resolveOrMint(firstClaim);
 
 assert first instanceof ResolutionResult.Minted;
 System.out.println("urn      = " + first.entity().id().urn());
-System.out.println("humanId  = " + first.entity().humanId());
+System.out.println("publicId = " + first.entity().publicId());
 
 // 3. Second claim, same source alias — the resolver matches.
 var second = resolver.resolveOrMint(firstClaim);
@@ -159,7 +159,7 @@ cust-002 -- 3 source record(s)
 
 cust-001
   urn      = urn:codery:entity:019e17f8-...
-  humanId  = K7M2-9X4P-3                (example opts in via humanIdTemplate)
+  publicId = K7M2-9X4P-3                (example opts in via publicIdTemplate)
   aliases  :
       ecommerce/ec-12345
       pos/pos-78910
@@ -240,7 +240,7 @@ The default aggregation is conjunctive — all criteria `MATCHED` yields `MATCHE
 ## Design
 
 - **URN scheme** — `urn:<namespace>:<type>:<UUID v7>`. Both the namespace and the type segment are caller-configurable per resolver — the `type` defaults to `entity` (builder `entityType(...)` / `namespace(...)`, or `jclaim.urn.*`). The UUID is RFC 9562 v7 (time-ordered, B-tree-friendly) generated via [`uuid-creator`](https://github.com/f4b6a3/uuid-creator).
-- **Human ID** — Crockford Base32 data characters plus a Damm check digit, e.g. `K7M2-9X4P-3`. **Optional and opt-in**: a humanId is minted only when a template is configured (builder `humanIdTemplate(...)` / `jclaim.human-id.template`); the default is none, so by default entities carry no humanId. When set, each `?` is a placeholder (the last `?` renders the check digit, every other `?` a random data symbol) and any other character is a literal (`????-????-?` reproduces the historic `XXXX-XXXX-X` shape). Independently minted, never derived from the URN. Storage enforces uniqueness for entities that have one; the resolver re-rolls on collision.
+- **Public ID** — Crockford Base32 data characters plus a Damm check digit, e.g. `K7M2-9X4P-3`. **Optional and opt-in**: a publicId is minted only when a template is configured (builder `publicIdTemplate(...)` / `jclaim.public-id.template`); the default is none, so by default entities carry no publicId. When set, each `?` is a placeholder (the last `?` renders the check digit, every other `?` a random data symbol) and any other character is a literal (`????-????-?` reproduces the historic `XXXX-XXXX-X` shape). Independently minted, never derived from the URN. Storage enforces uniqueness for entities that have one (Postgres `public_id` column + `entities_public_id_unique` partial index; Mongo `publicId` field + `jclaim_publicId_unique` partial index); the resolver re-rolls on collision. Generation is pluggable via the `PublicIdGenerator` port; `CrockfordPublicIdGenerator` is the built-in default, wrapped by `FilteringPublicIdGenerator(delegate, allow-all)` so acceptance filtering can be layered later without changing the port.
 - **Storage as a port** — `EntityStorage` exposes five operations: three reads, one atomic `resolveOrCreate` primitive (Mongo-shaped, maps to `findOneAndUpdate` upsert), and one atomic `addAlias`. The MongoDB and PostgreSQL adapters fit this port without any service-code change, and an abstract `EntityStorageContract` suite pins every adapter to identical behaviour across paradigms.
 - **Pluggable matching policy** — an exact `(source, sourceId)` alias owner short-circuits to `Matched`, preserving the alias-atomic concurrency guarantee. Otherwise `resolveOrMint` scores a capped candidate pool with the configured `MatchingPolicy` (port in `jclaim-core`, default `aliasOnly()`). Attribute-based matching is driven by a [JSPEC](https://github.com/thekitchencoder/jspec) specification through the optional `jclaim-matching-jspec` provider — see [Matching policy](#matching-policy).
 

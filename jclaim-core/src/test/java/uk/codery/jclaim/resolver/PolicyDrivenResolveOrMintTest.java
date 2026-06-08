@@ -6,7 +6,7 @@ import uk.codery.jclaim.event.MatchAmbiguous;
 import uk.codery.jclaim.event.MatchEvent;
 import uk.codery.jclaim.event.MatchEventSink;
 import uk.codery.jclaim.event.MatchUndecided;
-import uk.codery.jclaim.id.HumanIdGenerator;
+import uk.codery.jclaim.id.CrockfordPublicIdGenerator;
 import uk.codery.jclaim.matching.MatchingPolicy;
 import uk.codery.jclaim.matching.TriState;
 import uk.codery.jclaim.model.Alias;
@@ -62,13 +62,13 @@ class PolicyDrivenResolveOrMintTest {
         return seedAttrs(source, sourceId, MatchingAttribute.of("email", email));
     }
 
-    private final Random humanIdRng = new Random(7);
+    private final Random publicIdRng = new Random(7);
 
     private DefaultEntityResolver resolverWith(MatchingPolicy policy, int maxCandidates) {
         return DefaultEntityResolver.builder(storage)
                 .namespace("codery")
                 .uuidSupplier(uuidSupplier)
-                .humanIdGenerator(new HumanIdGenerator(humanIdRng))
+                .publicIdGenerator(new CrockfordPublicIdGenerator(publicIdRng))
                 .clock(Clock.fixed(Instant.parse("2026-05-10T12:00:00Z"), ZoneOffset.UTC))
                 .matchingPolicy(policy)
                 .matchEventSink(sink)
@@ -318,7 +318,7 @@ class PolicyDrivenResolveOrMintTest {
         DefaultEntityResolver seeding = DefaultEntityResolver.builder(storage)
                 .namespace("codery")
                 .uuidSupplier(uuidSupplier)
-                .humanIdGenerator(new HumanIdGenerator(humanIdRng))
+                .publicIdGenerator(new CrockfordPublicIdGenerator(publicIdRng))
                 .clock(Clock.fixed(createdAt, ZoneOffset.UTC))
                 .matchingPolicy(MatchingPolicy.aliasOnly())
                 .build();

@@ -7,6 +7,48 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed (breaking, pre-1.0)
+
+- **Human → Public vocabulary rename across the entire library.** All
+  display-ID vocabulary has been renamed from `human`/`humanId`/`human-id`
+  to `public`/`publicId`/`public-id`. This is a pre-1.0.0 "break once"
+  clean-up applied while there are no external consumers.
+
+  - **`PublicIdGenerator` port introduced.**
+    `HumanIdGenerator` (the former concrete `final class`) is extracted into a
+    `@FunctionalInterface { String generate(); }` port named `PublicIdGenerator`.
+    `CrockfordPublicIdGenerator` is the built-in random Crockford+Damm
+    implementation (the former class, renamed). `FilteringPublicIdGenerator` is a
+    new composable decorator wrapping any `PublicIdGenerator` with a
+    `Predicate<String>` acceptance gate; the default predicate is allow-all, so
+    behaviour is preserved exactly. Resolver builder slot renamed
+    `humanIdTemplate(...)` → `publicIdTemplate(...)`; Spring property
+    `jclaim.human-id.template` → `jclaim.public-id.template`; per-type key
+    `entity-types.<t>.human-id.template` → `entity-types.<t>.public-id.template`.
+
+  - **`Entity.publicId()` (was `humanId()`).** The display-ID accessor on the
+    domain record is renamed. Null behaviour and nullability are unchanged.
+
+  - **`EntityStorage.findByPublicId` (was `findByHumanId`).** The storage port
+    method is renamed. All three adapters (in-memory, Postgres, MongoDB) and the
+    abstract `EntityStorageContract` conformance suite are updated.
+
+  - **Postgres schema:** column `human_id` → `public_id`; unique partial index
+    `entities_human_id_unique` → `entities_public_id_unique`.
+
+  - **MongoDB schema:** document field `humanId` → `publicId`; unique partial
+    index `jclaim_humanId_unique` → `jclaim_publicId_unique`.
+
+  - **Migration note.** Existing deployments that use the display-ID feature
+    (i.e. `human-id.template` was set) must migrate manually — no automated
+    migration script is shipped:
+    - Postgres: `ALTER TABLE entities RENAME COLUMN human_id TO public_id;`
+      then drop `entities_human_id_unique` and recreate as
+      `entities_public_id_unique`.
+    - MongoDB: `db.<collection>.updateMany({ humanId: { $exists: true } }, { $rename: { "humanId": "publicId" } })`,
+      then `db.<collection>.dropIndex("jclaim_humanId_unique")` and recreate via the adapter (auto-created on construction) or
+      `db.<collection>.createIndex({ publicId: 1 }, { unique: true, partialFilterExpression: { publicId: { $exists: true } }, name: "jclaim_publicId_unique" })`.
+
 ## [0.2.0] - 2026-06-07
 
 ### Added

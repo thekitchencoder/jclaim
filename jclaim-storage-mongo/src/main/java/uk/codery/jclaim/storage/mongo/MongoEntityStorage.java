@@ -54,7 +54,7 @@ public final class MongoEntityStorage implements EntityStorage {
     private static final Logger log = LoggerFactory.getLogger(MongoEntityStorage.class);
 
     static final String FIELD_ID = "_id";
-    static final String FIELD_HUMAN_ID = "humanId";
+    static final String FIELD_PUBLIC_ID = "publicId";
     static final String FIELD_SUPERSEDED_BY = "supersededBy";
     static final String FIELD_CREATED_AT = "createdAt";
     static final String FIELD_UPDATED_AT = "updatedAt";
@@ -65,7 +65,7 @@ public final class MongoEntityStorage implements EntityStorage {
     static final String FIELD_ATTRIBUTE_NAME = "name";
     static final String FIELD_ATTRIBUTE_VALUE = "value";
 
-    static final String INDEX_HUMAN_ID = "jclaim_humanId_unique";
+    static final String INDEX_PUBLIC_ID = "jclaim_publicId_unique";
     static final String INDEX_ALIASES = "jclaim_aliases_unique";
     static final String INDEX_ATTRIBUTES = "jclaim_attributes_lookup";
 
@@ -93,9 +93,9 @@ public final class MongoEntityStorage implements EntityStorage {
     }
 
     @Override
-    public Optional<Entity> findByHumanId(String humanId) {
-        Objects.requireNonNull(humanId, "humanId");
-        Document doc = collection.find(Filters.eq(FIELD_HUMAN_ID, humanId)).first();
+    public Optional<Entity> findByPublicId(String publicId) {
+        Objects.requireNonNull(publicId, "publicId");
+        Document doc = collection.find(Filters.eq(FIELD_PUBLIC_ID, publicId)).first();
         return Optional.ofNullable(doc).map(MongoEntityStorage::toEntity);
     }
 
@@ -155,8 +155,8 @@ public final class MongoEntityStorage implements EntityStorage {
             }
         }
         String message = ex.getError().getMessage();
-        if (message != null && message.contains(INDEX_HUMAN_ID)) {
-            throw new IllegalStateException("humanId collision on mint: " + minted.humanId(), ex);
+        if (message != null && message.contains(INDEX_PUBLIC_ID)) {
+            throw new IllegalStateException("publicId collision on mint: " + minted.publicId(), ex);
         }
         if (message != null && (message.contains("_id_") || message.contains("\"" + minted.id().urn() + "\""))) {
             throw new IllegalStateException("URN collision on mint: " + minted.id(), ex);
@@ -257,11 +257,11 @@ public final class MongoEntityStorage implements EntityStorage {
     static Document toDocument(Entity entity) {
         Document doc = new Document();
         doc.put(FIELD_ID, entity.id().urn());
-        // Omit humanId entirely when absent: a present-but-null value would
+        // Omit publicId entirely when absent: a present-but-null value would
         // still satisfy the partial index's {$exists:true} filter and collide
-        // with every other humanId-less entity on null.
-        if (entity.humanId() != null) {
-            doc.put(FIELD_HUMAN_ID, entity.humanId());
+        // with every other publicId-less entity on null.
+        if (entity.publicId() != null) {
+            doc.put(FIELD_PUBLIC_ID, entity.publicId());
         }
         doc.put(FIELD_SUPERSEDED_BY, entity.supersededBy() == null ? null : entity.supersededBy().urn());
         doc.put(FIELD_CREATED_AT, Date.from(entity.createdAt()));
@@ -296,7 +296,7 @@ public final class MongoEntityStorage implements EntityStorage {
 
     static Entity toEntity(Document doc) {
         String urn = doc.getString(FIELD_ID);
-        String humanId = doc.getString(FIELD_HUMAN_ID);
+        String publicId = doc.getString(FIELD_PUBLIC_ID);
         String supersededByUrn = doc.getString(FIELD_SUPERSEDED_BY);
         Instant createdAt = doc.getDate(FIELD_CREATED_AT).toInstant();
         Instant updatedAt = doc.getDate(FIELD_UPDATED_AT).toInstant();
@@ -323,7 +323,7 @@ public final class MongoEntityStorage implements EntityStorage {
 
         return new Entity(
                 new EntityId(urn),
-                humanId,
+                publicId,
                 aliases,
                 attributes,
                 supersededByUrn == null ? null : new EntityId(supersededByUrn),
@@ -334,14 +334,14 @@ public final class MongoEntityStorage implements EntityStorage {
     // ── Index management ──────────────────────────────────────────────────
 
     private void createIndexes() {
-        // Partial unique index: humanId is opt-in, so only documents that
-        // carry the field participate. Entities minted without a humanId omit
+        // Partial unique index: publicId is opt-in, so only documents that
+        // carry the field participate. Entities minted without a publicId omit
         // the field entirely (see toDocument) and never collide on null.
         collection.createIndex(
-                Indexes.ascending(FIELD_HUMAN_ID),
+                Indexes.ascending(FIELD_PUBLIC_ID),
                 new IndexOptions().unique(true)
-                        .partialFilterExpression(Filters.exists(FIELD_HUMAN_ID, true))
-                        .name(INDEX_HUMAN_ID));
+                        .partialFilterExpression(Filters.exists(FIELD_PUBLIC_ID, true))
+                        .name(INDEX_PUBLIC_ID));
         collection.createIndex(
                 Indexes.ascending(FIELD_ALIASES + "." + FIELD_ALIAS_SOURCE,
                         FIELD_ALIASES + "." + FIELD_ALIAS_SOURCE_ID),

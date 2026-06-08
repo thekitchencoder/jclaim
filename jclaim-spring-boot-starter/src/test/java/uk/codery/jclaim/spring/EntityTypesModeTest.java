@@ -25,7 +25,7 @@ class EntityTypesModeTest {
 
     @Test
     void singleTypeResolverAbsentWhenEntityTypesPresent() {
-        runner.withPropertyValues("jclaim.entity-types.customer.human-id.template=????-?")
+        runner.withPropertyValues("jclaim.entity-types.customer.public-id.template=????-?")
                 .run(ctx -> {
                     assertThat(ctx).hasNotFailed();
                     assertThat(ctx).doesNotHaveBean("jclaimResolver");

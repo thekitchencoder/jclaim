@@ -24,13 +24,13 @@ import java.util.Map;
  *
  * <p>This mirrors what the Spring Boot starter's {@code jclaim.entity-types.<type>}
  * map builds for you: one resolver per type, distinct URN {@code <type>}
- * segments, type-specific humanId templates, and <strong>physical per-type
+ * segments, type-specific publicId templates, and <strong>physical per-type
  * storage isolation</strong>. The demo makes the headline isolation property
  * visible: the <em>same</em> {@code (source, sourceId)} alias resolves to
  * <em>independent</em> entities under different types — the customer store and
  * the vehicle store never collide.
  *
- * <p>It also shows the per-scope humanId caveat in action: because uniqueness
+ * <p>It also shows the per-scope publicId caveat in action: because uniqueness
  * is per storage scope, the two types use distinct, type-prefixed templates
  * ({@code CU-…} and {@code VH…}) so a displayed ID is unambiguous about which
  * type it names.
@@ -65,12 +65,12 @@ public final class MultiTypeQuickStart {
         EntityResolver customers = DefaultEntityResolver.builder(new InMemoryEntityStorage())
                 .namespace("acme")
                 .entityType("customer")
-                .humanIdTemplate("CU-????-????-?")
+                .publicIdTemplate("CU-????-????-?")
                 .build();
         EntityResolver vehicles = DefaultEntityResolver.builder(new InMemoryEntityStorage())
                 .namespace("acme")
                 .entityType("vehicle")
-                .humanIdTemplate("VH??????")
+                .publicIdTemplate("VH??????")
                 .build();
 
         Map<String, EntityResolver> byType = new LinkedHashMap<>();
@@ -128,11 +128,11 @@ public final class MultiTypeQuickStart {
             PrintStream out, EntityResolvers jclaim, String type, Claim claim) {
         ResolutionResult result = jclaim.forType(type).resolveOrMint(claim);
         Entity entity = result.entity();
-        out.printf("  resolveOrMint %-18s -> %s  %s  humanId=%s%n",
+        out.printf("  resolveOrMint %-18s -> %s  %s  publicId=%s%n",
                 claim.source().name() + "/" + claim.sourceId(),
                 result instanceof ResolutionResult.Minted ? "Minted " : "Matched",
                 entity.id().urn(),
-                entity.humanId());
+                entity.publicId());
         return entity;
     }
 
@@ -151,7 +151,7 @@ public final class MultiTypeQuickStart {
     private static void printEntity(PrintStream out, String type, Entity entity) {
         out.println(type);
         out.println("  urn      = " + entity.id().urn());
-        out.println("  humanId  = " + entity.humanId());
+        out.println("  publicId = " + entity.publicId());
         out.println("  aliases  :");
         entity.aliases().forEach(alias ->
                 out.println("      " + alias.source().name() + "/" + alias.sourceId()));

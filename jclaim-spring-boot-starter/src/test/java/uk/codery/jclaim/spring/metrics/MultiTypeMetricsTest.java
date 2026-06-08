@@ -33,8 +33,8 @@ class MultiTypeMetricsTest {
             .withBean(MeterRegistry.class, SimpleMeterRegistry::new)
             .withPropertyValues(
                     "jclaim.storage.type=in-memory",
-                    "jclaim.entity-types.customer.human-id.template=????-?",
-                    "jclaim.entity-types.vehicle.human-id.template=????-?");
+                    "jclaim.entity-types.customer.public-id.template=????-?",
+                    "jclaim.entity-types.vehicle.public-id.template=????-?");
 
     private static Claim claim(String source, String sourceId) {
         return new Claim(SourceSystem.of(source), sourceId, List.of());
@@ -116,8 +116,8 @@ class MultiTypeMetricsTest {
                 // Deliberately NO MeterRegistry bean.
                 .withPropertyValues(
                         "jclaim.storage.type=in-memory",
-                        "jclaim.entity-types.customer.human-id.template=????-?",
-                        "jclaim.entity-types.vehicle.human-id.template=????-?")
+                        "jclaim.entity-types.customer.public-id.template=????-?",
+                        "jclaim.entity-types.vehicle.public-id.template=????-?")
                 .run(ctx -> {
                     assertThat(ctx).hasNotFailed();
                     assertThat(ctx).hasBean("jclaimMultiTypeMetricsBeanPostProcessor");
@@ -175,7 +175,7 @@ class MultiTypeMetricsTest {
     private static final class NoopResolver implements EntityResolver {
         @Override public uk.codery.jclaim.model.ResolutionResult resolveOrMint(Claim claim) { throw new UnsupportedOperationException(); }
         @Override public uk.codery.jclaim.model.Entity getByUrn(uk.codery.jclaim.model.EntityId urn) { throw new UnsupportedOperationException(); }
-        @Override public java.util.Optional<uk.codery.jclaim.model.Entity> findByHumanId(String humanId) { return java.util.Optional.empty(); }
+        @Override public java.util.Optional<uk.codery.jclaim.model.Entity> findByPublicId(String publicId) { return java.util.Optional.empty(); }
         @Override public java.util.Optional<uk.codery.jclaim.model.Entity> findByAlias(SourceSystem source, String sourceId) { return java.util.Optional.empty(); }
         @Override public uk.codery.jclaim.model.Entity addAlias(uk.codery.jclaim.model.EntityId urn, SourceSystem source, String sourceId) { throw new UnsupportedOperationException(); }
         @Override public java.util.Set<uk.codery.jclaim.model.Entity> findCandidates(Claim claim) { return java.util.Set.of(); }

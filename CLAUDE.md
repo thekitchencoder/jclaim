@@ -57,7 +57,10 @@ jclaim/
         │   ├── id/                                 # Identifier generation
         │   │   ├── CrockfordBase32.java            # 32-symbol alphabet, ambiguous chars dropped
         │   │   ├── Damm.java                       # Single-digit checksum, totally anti-symmetric quasigroup
-        │   │   ├── HumanIdGenerator.java           # K7M2-9X4P-3 style human-friendly IDs
+        │   │   ├── PublicIdFormat.java             # Template-compiled format (Crockford Base32 + Damm); '?' → data or check char, literals verbatim
+        │   │   ├── PublicIdGenerator.java          # Port: K7M2-9X4P-3 style public-ID generation
+        │   │   ├── CrockfordPublicIdGenerator.java # Crockford Base32 + Damm concrete generator
+        │   │   ├── FilteringPublicIdGenerator.java # Acceptance-filter decorator (allow-all default)
         │   │   └── UuidV7.java                     # RFC 9562 time-ordered UUID
         │   ├── model/                              # Domain model (immutable records)
         │   │   ├── Alias.java                      # (source, sourceId) pair
@@ -88,7 +91,7 @@ jclaim/
         │       ├── DefaultEntityResolver.java      # Concrete implementation
         │       └── EntityResolver.java             # Public interface
         └── test/java/uk/codery/jclaim/
-            ├── id/                                 # Crockford, Damm, HumanId tests
+            ├── id/                                 # Crockford, Damm, PublicId tests
             ├── storage/                            # EntityStorageContract — abstract suite every adapter passes
             │   └── memory/                         # In-memory adapter pinned to the contract
             ├── retail/, product/, property/        # Abstract corpus reconciliation tests + in-memory bindings
@@ -145,7 +148,7 @@ Reconciling **multiple entity types in one application is now delivered**.
 Adding a `jclaim.entity-types.<type>` map (Spring starter) switches the
 application into multi-type mode: each key is a URN `<type>` segment and mints
 its own resolver, inheriting `urn.namespace` + `matching.max-candidates` from
-the top-level keys (`human-id.template` and `matching.spec` are per-type only,
+the top-level keys (`public-id.template` and `matching.spec` are per-type only,
 no global default). Isolation is **physical per type** — Postgres
 schema-per-type, Mongo collection-per-type, in-memory instance-per-type — with
 an optional per-type own-connection escape hatch. The Spring-free
@@ -155,24 +158,24 @@ an optional per-type own-connection escape hatch. The Spring-free
 `[A-Za-z0-9][A-Za-z0-9-]*` (**no underscores**) — a known limitation (see
 Extension Points).
 
-### 2. Human-friendly IDs
+### 2. Public IDs (opt-in display identifiers)
 
-The `humanId` is **opt-in, driven by the presence of a template**.
-`Entity.humanId` is **nullable**: with no template configured (the
-default) the resolver mints entities with `humanId == null` — no
+The `publicId` is **opt-in, driven by the presence of a template**.
+`Entity.publicId()` is **nullable**: with no template configured (the
+default) the resolver mints entities with `publicId == null` — no
 generation, no stored field, no index entry. Configure a template to opt
-in, and each entity then carries a separate `humanId` minted at
-registration:
+in, and each entity then carries a separate `publicId` minted at
+registration via a `PublicIdGenerator` port (default:
+`FilteringPublicIdGenerator(CrockfordPublicIdGenerator, allow-all)`):
 
 - random Crockford Base32 data characters (8 → 40 bits of entropy with
   the historic template)
 - 1 Damm check digit
 - Display format follows the template, e.g. `XXXX-XXXX-X` (`K7M2-9X4P-3`)
 
-The template is supplied via `HumanIdFormat.ofTemplate(...)`, the resolver
-builder slot `DefaultEntityResolver.Builder.humanIdTemplate(String)`
-(null/blank → no humanId; the former `humanIdFormat(HumanIdFormat)` setter
-was **dropped**), or the Spring property `jclaim.human-id.template`
+The template is supplied via `PublicIdFormat.ofTemplate(...)`, the resolver
+builder slot `DefaultEntityResolver.Builder.publicIdTemplate(String)`
+(null/blank → no publicId), or the Spring property `jclaim.public-id.template`
 (default **none**; eagerly validated — a malformed *non-blank* template
 fails context startup). Grammar: `?` is a placeholder (the **last** `?`
 renders the Damm check digit, every other `?` a random data symbol) and
@@ -180,13 +183,21 @@ any other character is a literal emitted verbatim; 1–12 data placeholders
 (2–13 `?` total) keep the value within the ≤60-bit `long` ceiling. The
 template `????-????-?` reproduces the historic `XXXX-XXXX-X` shape.
 
+The `PublicIdGenerator` port (`@FunctionalInterface { String generate(); }`)
+separates *generation* from *acceptance*. `CrockfordPublicIdGenerator` is the
+built-in random Crockford+Damm generator. `FilteringPublicIdGenerator` is a
+composable decorator that wraps any `PublicIdGenerator` with a
+`Predicate<String>` acceptance gate; the default predicate is allow-all (no
+re-rolling), preserving historic behaviour exactly.
+
 Crockford Base32 drops the ambiguous symbols `I`, `L`, `O`, `U` and accepts
 case-insensitive input with the swap aliases `i/l → 1`, `o → 0`. The Damm
-algorithm catches all single-digit and adjacent-transposition errors. Human IDs
+algorithm catches all single-digit and adjacent-transposition errors. Public IDs
 are **not derived** from the URN — they are a separate, independently-minted
 lookup attribute. Storage enforces uniqueness via a **partial** unique
-index covering only entities that have a humanId (Postgres
-`... WHERE human_id IS NOT NULL`, Mongo a `$exists` partial filter);
+index covering only entities that have a publicId (Postgres
+`... WHERE public_id IS NOT NULL`, column `public_id`, index `entities_public_id_unique`;
+Mongo field `publicId`, `$exists` partial filter index `jclaim_publicId_unique`);
 on collision the resolver re-mints.
 
 ### 3. Match-or-mint
@@ -236,7 +247,7 @@ preserved for stewardship.
 `EntityStorage` is a small port interface:
 
 - `findByUrn(EntityId)`
-- `findByHumanId(String)`
+- `findByPublicId(String)`
 - `findByAlias(Alias)`
 - `findCandidates(Claim, int limit)` — capped candidate pool for the
   matching policy (one-arg overload delegates to `Integer.MAX_VALUE`)
@@ -282,8 +293,9 @@ Adding a new adapter is: implement `EntityStorage`, extend
 - **TriState** — the matching-policy verdict for one candidate: `MATCHED` /
   `NOT_MATCHED` / `UNDETERMINED`. Lives in `jclaim-core`; carries no jspec
   coupling.
-- **humanId** — the Crockford+Damm display ID. Lower case to avoid clashing
-  with a hypothetical `HumanId` value type if one is added later.
+- **publicId** — the opt-in Crockford+Damm display ID (`Entity.publicId()`).
+  Minted only when a template is configured; null otherwise. Stored separately
+  from the URN; never derived from it.
 
 ## Development Guidelines
 
@@ -323,7 +335,7 @@ DynamoDB):
 
 ### Logging Levels
 
-- **WARN** — alias collisions during mint, humanId collisions during mint
+- **WARN** — alias collisions during mint, publicId collisions during mint
 - **INFO** — entity minted / matched (optional, off by default in adapters)
 - **DEBUG** — per-claim resolution decisions
 - **TRACE** — attribute-level diff details
@@ -403,7 +415,7 @@ Designed-in extension points; delivery status is noted per item:
   in-memory instance-per-type), with an optional per-type own-connection
   escape hatch (`storage.datasource` / `storage.mongo-client`).
   `urn.namespace` + `matching.max-candidates` inherit from the top-level
-  keys; `human-id.template` + `matching.spec` are per-type only.
+  keys; `public-id.template` + `matching.spec` are per-type only.
   Observability is per type (metric tag `type=<type>`, per-type
   `jclaimHealthIndicator_<type>`). Startup fails fast on bad keys, scope
   collisions, missing connection beans, or a per-type `urn.type`
@@ -469,7 +481,7 @@ When working with this codebase, consider:
   backends (Postgres schema-per-type, Mongo collection-per-type, in-memory
   instance-per-type) plus a per-type own-connection escape hatch; per-type
   metrics (`type` tag) and health. `urn.namespace` + `matching.max-candidates`
-  inherit; `human-id.template` + `matching.spec` are per-type. Known
+  inherit; `public-id.template` + `matching.spec` are per-type. Known
   limitation: per-type scope names follow the URN-segment grammar (no
   underscores); logical/shared-store isolation stays deferred.
 - **Next session**: merge / split operations.

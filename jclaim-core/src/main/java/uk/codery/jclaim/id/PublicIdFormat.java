@@ -3,18 +3,18 @@ package uk.codery.jclaim.id;
 import java.util.Objects;
 
 /**
- * Immutable humanId format compiled from a template. In the template, '?' is a
+ * Immutable public id format compiled from a template. In the template, '?' is a
  * placeholder: the LAST '?' renders the Damm check digit, every other '?'
  * renders a random Crockford Base32 data symbol; any other character is a
  * literal emitted verbatim. Every template char maps to exactly one output
  * char, so formatting and validation are fixed-width position walks.
  */
-public final class HumanIdFormat {
+public final class PublicIdFormat {
 
     /** 60-bit ceiling keeps the value in a long. */
     private static final int MAX_DATA_CHARS = 12;
 
-    public static final HumanIdFormat DEFAULT = ofTemplate("????-????-?");
+    public static final PublicIdFormat DEFAULT = ofTemplate("????-????-?");
 
     private enum SlotType { LITERAL, DATA, CHECK }
     private record Slot(SlotType type, char literal) {}
@@ -23,7 +23,7 @@ public final class HumanIdFormat {
     private final int dataBits;
     private final long mask;
 
-    private HumanIdFormat(Slot[] plan, int dataBits) {
+    private PublicIdFormat(Slot[] plan, int dataBits) {
         this.plan = plan;
         this.dataBits = dataBits;
         // Safe only because MAX_DATA_CHARS caps dataBits at 60; 1L << 65 would wrap
@@ -31,7 +31,7 @@ public final class HumanIdFormat {
         this.mask = (1L << dataBits) - 1L;
     }
 
-    public static HumanIdFormat ofTemplate(String template) {
+    public static PublicIdFormat ofTemplate(String template) {
         Objects.requireNonNull(template, "template");
         int placeholders = 0;
         for (int i = 0; i < template.length(); i++) {
@@ -60,7 +60,7 @@ public final class HumanIdFormat {
             }
         }
         int dataBits = dataChars * 5;
-        return new HumanIdFormat(plan, dataBits);
+        return new PublicIdFormat(plan, dataBits);
     }
 
     public int dataBits() {
