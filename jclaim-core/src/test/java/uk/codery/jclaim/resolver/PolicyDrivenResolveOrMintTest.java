@@ -116,7 +116,6 @@ class PolicyDrivenResolveOrMintTest {
                 .allMatch(o -> o.policyResult() == TriState.UNDETERMINED);
         assertThat(event.candidatesConsidered()).isEqualTo(2);
         assertThat(event.candidatesFound()).isEqualTo(2);
-        assertThat(event.candidatePoolTruncated()).isFalse();
     }
 
     @Test
@@ -170,9 +169,7 @@ class PolicyDrivenResolveOrMintTest {
     }
 
     @Test
-    void candidatePoolTruncated_flagsTruncationInEvent() {
-        // Seed more overlapping entities than the cap; all UNDETERMINED so we
-        // mint and capture a MatchUndecided carrying the truncation flag.
+    void truncatedUndecided_emitsBothTruncatedAndUndecided() {
         for (int i = 0; i < 5; i++) {
             seed(SourceSystem.of("src-" + i), "id-" + i, "alice@example.com");
         }
@@ -184,19 +181,18 @@ class PolicyDrivenResolveOrMintTest {
         ResolutionResult result = resolverWith(policy, cap).resolveOrMint(claim);
 
         assertThat(result).isInstanceOf(ResolutionResult.Minted.class);
-        // CandidatePoolTruncated fires first (index 0), then MatchUndecided (index 1).
         assertThat(sink.events).hasSize(2);
-        assertThat(sink.events.get(0)).isInstanceOf(CandidatePoolTruncated.class);
-        MatchUndecided event = (MatchUndecided) sink.events.get(1);
-        assertThat(event.candidatePoolTruncated()).isTrue();
-        assertThat(event.candidatesConsidered()).isEqualTo(cap);
-        assertThat(event.candidatesFound()).isEqualTo(cap);
+        CandidatePoolTruncated truncation = (CandidatePoolTruncated) sink.events.get(0);
+        assertThat(truncation.cap()).isEqualTo(cap);
+        MatchUndecided undecided = (MatchUndecided) sink.events.get(1);
+        assertThat(undecided.candidatesConsidered()).isEqualTo(cap);
+        assertThat(undecided.candidatesFound()).isEqualTo(cap);
     }
 
     @Test
-    void candidatePoolBelowCap_isNotFlaggedTruncated() {
-        // Two overlapping candidates, cap of 5 -> pool is below the cap, so the
-        // truncation flag must be false and no WARN-worthy truncation occurs.
+    void candidatePoolBelowCap_emitsNoCandidatePoolTruncatedEvent() {
+        // Two overlapping candidates, cap of 5 -> pool is below the cap, so no
+        // CandidatePoolTruncated event fires and the MatchUndecided carries the real counts.
         seed(ECOMMERCE, "cust-1", "alice@example.com");
         seed(CRM, "crm-2", "alice@example.com");
 
@@ -207,8 +203,8 @@ class PolicyDrivenResolveOrMintTest {
         ResolutionResult result = resolverWith(policy, 5).resolveOrMint(claim);
 
         assertThat(result).isInstanceOf(ResolutionResult.Minted.class);
+        assertThat(sink.events).noneMatch(e -> e instanceof CandidatePoolTruncated);
         MatchUndecided event = (MatchUndecided) sink.events.get(0);
-        assertThat(event.candidatePoolTruncated()).isFalse();
         assertThat(event.candidatesFound()).isEqualTo(2);
     }
 

@@ -18,15 +18,13 @@ import java.util.Objects;
  * @param candidates             every candidate considered, with its policy verdict
  * @param candidatesConsidered   how many candidates the policy actually evaluated
  * @param candidatesFound        how many candidates the storage adapter returned
- * @param candidatePoolTruncated whether the candidate pool hit the resolver's cap
  */
 public record MatchUndecided(
         Claim claim,
         Entity minted,
         List<CandidateOutcome> candidates,
         int candidatesConsidered,
-        int candidatesFound,
-        boolean candidatePoolTruncated
+        int candidatesFound
 ) implements MatchEvent {
 
     public MatchUndecided {
