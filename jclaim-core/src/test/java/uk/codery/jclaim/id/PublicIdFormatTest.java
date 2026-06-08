@@ -17,7 +17,7 @@ class PublicIdFormatTest {
     void defaultIsEightDataCharsPlusCheck() {
         String id = PublicIdFormat.DEFAULT.format(0x0123456789L);
         assertThat(id).matches("[0-9A-Z]{4}-[0-9A-Z]{4}-[0-9]");
-        assertThat(PublicIdFormat.DEFAULT.dataBits()).isEqualTo(40);
+        assertThat(PublicIdFormat.DEFAULT.dataChars()).isEqualTo(8);
     }
 
     @Test
@@ -26,13 +26,13 @@ class PublicIdFormatTest {
         String id = f.format(0L);
         assertThat(id).startsWith("JG");
         assertThat(id).hasSize(8);           // 2 literal + 5 data + 1 check
-        assertThat(f.dataBits()).isEqualTo(25);
+        assertThat(f.dataChars()).isEqualTo(5);
     }
 
     @Test
     void literalHashAndShortDataRender() {
         PublicIdFormat f = PublicIdFormat.ofTemplate("#?????"); // '#' + 4 data + check
-        assertThat(f.dataBits()).isEqualTo(20);
+        assertThat(f.dataChars()).isEqualTo(4);
         assertThat(f.format(0L)).isEqualTo("#00000"); // '#' + "0000" + check '0'
     }
 
@@ -52,13 +52,13 @@ class PublicIdFormatTest {
     @Test
     void acceptsTwelveDataCharsAtCeiling() {
         PublicIdFormat f = PublicIdFormat.ofTemplate("?".repeat(13)); // 12 data + 1 check
-        assertThat(f.dataBits()).isEqualTo(60);
+        assertThat(f.dataChars()).isEqualTo(12);
     }
 
     @Test
     void acceptsSingleDataChar() {
         PublicIdFormat f = PublicIdFormat.ofTemplate("??"); // 1 data + 1 check
-        assertThat(f.dataBits()).isEqualTo(5);
+        assertThat(f.dataChars()).isEqualTo(1);
         assertThat(f.format(0L)).isEqualTo("00"); // data '0' + check '0' (Damm(0)=0)
     }
 
@@ -113,5 +113,11 @@ class PublicIdFormatTest {
         long v = 0L;
         while (uk.codery.jclaim.id.Damm.checkDigit(v) != 1) v++;
         assertThat(PublicIdFormat.DEFAULT.format(v)).endsWith("1");
+    }
+
+    @org.junit.jupiter.api.Test
+    void golden_defaultFormatValueUnchanged() {
+        // Characterization anchor captured from pre-refactor code.
+        assertThat(PublicIdFormat.DEFAULT.format(123456789L)).isEqualTo("003N-QK8N-4");
     }
 }
