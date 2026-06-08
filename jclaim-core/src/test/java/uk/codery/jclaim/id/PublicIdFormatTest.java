@@ -49,7 +49,7 @@ class PublicIdFormatTest {
                 .isInstanceOf(IllegalArgumentException.class);
     }
 
-    @org.junit.jupiter.api.Test
+    @Test
     void rejectsAlphabetWithRadixBelowTwo() {
         IdAlphabet degenerate = new IdAlphabet() {
             @Override public int radix() { return 1; }
@@ -128,13 +128,13 @@ class PublicIdFormatTest {
         assertThat(PublicIdFormat.DEFAULT.format(v)).endsWith("1");
     }
 
-    @org.junit.jupiter.api.Test
+    @Test
     void golden_defaultFormatValueUnchanged() {
         // Characterization anchor captured from pre-refactor code.
         assertThat(PublicIdFormat.DEFAULT.format(123456789L)).isEqualTo("003N-QK8N-4");
     }
 
-    @org.junit.jupiter.api.Test
+    @Test
     void olc_formatThenValidateRoundTrips() {
         PublicIdFormat f = PublicIdFormat.ofTemplate("????-????-?", OlcAlphabet.INSTANCE);
         for (long v = 0; v < 5000; v++) {
@@ -143,7 +143,7 @@ class PublicIdFormatTest {
         }
     }
 
-    @org.junit.jupiter.api.Test
+    @Test
     void olc_dataSymbolsExcludeZeroAndOne() {
         PublicIdFormat f = PublicIdFormat.ofTemplate("????-????-?", OlcAlphabet.INSTANCE);
         // The data segment (everything before the last char) never contains 0 or 1.
@@ -152,7 +152,7 @@ class PublicIdFormatTest {
         assertThat(dataSegment).doesNotContain("0").doesNotContain("1");
     }
 
-    @org.junit.jupiter.api.Test
+    @Test
     void olc_capAllowsFourteenDataCharsRejectsFifteen() {
         // radix 20: 20^14 < 2^63 <= 20^15.
         assertThat(PublicIdFormat.ofTemplate("?".repeat(15), OlcAlphabet.INSTANCE).dataChars())
@@ -161,7 +161,7 @@ class PublicIdFormatTest {
                 .isInstanceOf(IllegalArgumentException.class);
     }
 
-    @org.junit.jupiter.api.Test
+    @Test
     void crockford_capStillTwelveDataChars() {
         // radix 32: 32^12 = 2^60 < 2^63 <= 32^13.
         assertThat(PublicIdFormat.ofTemplate("?".repeat(13)).dataChars()).isEqualTo(12);

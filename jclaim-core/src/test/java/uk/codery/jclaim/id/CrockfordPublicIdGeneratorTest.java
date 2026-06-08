@@ -54,7 +54,7 @@ class CrockfordPublicIdGeneratorTest {
         assertThat(gen.format()).isSameAs(f);
     }
 
-    @org.junit.jupiter.api.Test
+    @Test
     void golden_seededOutputUnchanged() {
         // Characterization anchor captured from pre-refactor code.
         var g = new CrockfordPublicIdGenerator(new java.util.Random(42L));
