@@ -43,6 +43,10 @@ public final class PublicIdFormat {
     public static PublicIdFormat ofTemplate(String template, IdAlphabet alphabet) {
         Objects.requireNonNull(template, "template");
         Objects.requireNonNull(alphabet, "alphabet");
+        int radix = alphabet.radix();
+        if (radix < 2) {
+            throw new IllegalArgumentException("alphabet.radix() must be >= 2, was " + radix);
+        }
         int placeholders = 0;
         for (int i = 0; i < template.length(); i++) {
             if (template.charAt(i) == '?') placeholders++;
@@ -52,11 +56,11 @@ public final class PublicIdFormat {
                     "template needs >= 2 '?' (>=1 data + 1 check): '" + template + "'");
         }
         int dataChars = placeholders - 1;
-        int maxDataChars = maxDataChars(alphabet.radix());
+        int maxDataChars = maxDataChars(radix);
         if (dataChars > maxDataChars) {
             throw new IllegalArgumentException(
                     "template has " + dataChars + " data placeholders; max " + maxDataChars
-                    + " for radix " + alphabet.radix() + ": '" + template + "'");
+                    + " for radix " + radix + ": '" + template + "'");
         }
         int lastPlaceholder = template.lastIndexOf('?');
         Slot[] plan = new Slot[template.length()];
@@ -70,7 +74,7 @@ public final class PublicIdFormat {
                 plan[i] = new Slot(SlotType.LITERAL, c);
             }
         }
-        return new PublicIdFormat(plan, alphabet, dataChars, pow(alphabet.radix(), dataChars));
+        return new PublicIdFormat(plan, alphabet, dataChars, pow(radix, dataChars));
     }
 
     /** Largest dataChars with {@code radix^dataChars < 2^63} (keeps maxValue a positive long). */
@@ -125,7 +129,8 @@ public final class PublicIdFormat {
         return Damm.verify(acc, check);
     }
 
-    /** Formats {@code value} (reduced into range) per this template. */
+    /** Formats {@code value}, first reducing it modulo {@code maxValue} (unsigned, so
+     *  negative longs from {@code Random.nextLong()} are accepted), per this template. */
     public String format(long value) {
         long v = Long.remainderUnsigned(value, maxValue);
         int radix = alphabet.radix();

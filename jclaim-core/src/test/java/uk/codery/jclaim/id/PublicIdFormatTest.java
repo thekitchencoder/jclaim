@@ -43,9 +43,22 @@ class PublicIdFormatTest {
     }
 
     @Test
-    void rejectsTemplateOverSixtyBitCeiling() {
-        // 14 '?' => 13 data placeholders => 65 data bits => rejected (max 12 data).
+    void rejectsTemplateExceedingMaxDataChars() {
+        // 14 '?' => 13 data chars => exceeds max 12 for radix 32
         assertThatThrownBy(() -> PublicIdFormat.ofTemplate("?".repeat(14)))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @org.junit.jupiter.api.Test
+    void rejectsAlphabetWithRadixBelowTwo() {
+        IdAlphabet degenerate = new IdAlphabet() {
+            @Override public int radix() { return 1; }
+            @Override public char encode(int index) { return '0'; }
+            @Override public int decode(char c) { return -1; }
+            @Override public char checkChar(int digit) { return '0'; }
+            @Override public int decodeCheck(char c) { return -1; }
+        };
+        assertThatThrownBy(() -> PublicIdFormat.ofTemplate("??", degenerate))
                 .isInstanceOf(IllegalArgumentException.class);
     }
 
