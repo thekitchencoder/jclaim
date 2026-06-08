@@ -16,6 +16,7 @@ import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
 
 import uk.codery.jclaim.event.AttributeDiff;
+import uk.codery.jclaim.event.CandidatePoolTruncated;
 import uk.codery.jclaim.event.EntityAttributesConflicted;
 import uk.codery.jclaim.event.MatchAmbiguous;
 import uk.codery.jclaim.event.MatchEvent;
@@ -45,7 +46,7 @@ class MatchSinkUnitTest {
         return new Claim(SourceSystem.of("crm"), "u-1", List.of());
     }
 
-    // -- LoggingMatchSink: all three switch arms -----------------------------
+    // -- LoggingMatchSink: all four switch arms ------------------------------
     //
     // Each arm is expected to emit exactly one INFO log line carrying the
     // structured fields for that variant. We capture the LoggingMatchSink
@@ -90,7 +91,7 @@ class MatchSinkUnitTest {
 
     @Test
     void loggingSinkHandlesUndecided() {
-        MatchEvent event = new MatchUndecided(claim(), entity(), List.of(), 3, 5, true);
+        MatchEvent event = new MatchUndecided(claim(), entity(), List.of(), 3, 5);
 
         new LoggingMatchSink().accept(event);
 
@@ -100,14 +101,13 @@ class MatchSinkUnitTest {
         assertThat(logged.getFormattedMessage())
                 .contains("match undecided")
                 .contains("candidatesConsidered=3")
-                .contains("candidatesFound=5")
-                .contains("candidatePoolTruncated=true");
+                .contains("candidatesFound=5");
     }
 
     @Test
     void loggingSinkHandlesAmbiguous() {
         MatchEvent event = new MatchAmbiguous(
-                claim(), entity(), List.of(entity()), List.of(), 2, 4, true);
+                claim(), entity(), List.of(entity()), List.of(), 2, 4);
 
         new LoggingMatchSink().accept(event);
 
@@ -118,15 +118,29 @@ class MatchSinkUnitTest {
                 .contains("match ambiguous")
                 .contains("otherMatched=1")
                 .contains("candidatesConsidered=2")
-                .contains("candidatesFound=4")
-                .contains("candidatePoolTruncated=true");
+                .contains("candidatesFound=4");
+    }
+
+    @Test
+    void loggingSinkHandlesPoolTruncated() {
+        MatchEvent event = new CandidatePoolTruncated(claim(), 1);
+
+        new LoggingMatchSink().accept(event);
+
+        assertThat(appender.list).hasSize(1);
+        ILoggingEvent logged = appender.list.get(0);
+        assertThat(logged.getLevel()).isEqualTo(Level.INFO);
+        assertThat(logged.getFormattedMessage())
+                .contains("candidate pool truncated")
+                .contains("claim=")
+                .contains("cap=1");
     }
 
     // -- SpringEventMatchSink + JclaimMatchEvent -----------------------------
 
     @Test
     void springEventSinkPublishesWrappedEvent() {
-        MatchEvent payload = new MatchUndecided(claim(), entity(), List.of(), 0, 0, false);
+        MatchEvent payload = new MatchUndecided(claim(), entity(), List.of(), 0, 0);
         var captured = new java.util.concurrent.atomic.AtomicReference<Object>();
         ApplicationEventPublisher publisher = captured::set;
 
