@@ -97,12 +97,12 @@ class EventTypesTest {
         List<CandidateOutcome> outcomes = new ArrayList<>();
         outcomes.add(new CandidateOutcome(candidate, TriState.UNDETERMINED));
 
-        MatchUndecided event = new MatchUndecided(claim, minted, outcomes, 1, 1, false);
+        MatchUndecided event = new MatchUndecided(claim, minted, outcomes, 1, 1);
         outcomes.clear();
 
         assertThat(event.candidates()).hasSize(1);
         assertThat(event.candidatesConsidered()).isEqualTo(1);
-        assertThatThrownBy(() -> new MatchUndecided(null, minted, List.of(), 0, 0, false))
+        assertThatThrownBy(() -> new MatchUndecided(null, minted, List.of(), 0, 0))
                 .isInstanceOf(NullPointerException.class);
     }
 
@@ -116,14 +116,29 @@ class EventTypesTest {
                 new CandidateOutcome(winner, TriState.MATCHED),
                 new CandidateOutcome(other, TriState.MATCHED)));
 
-        MatchAmbiguous event = new MatchAmbiguous(claim, winner, others, outcomes, 2, 2, true);
+        MatchAmbiguous event = new MatchAmbiguous(claim, winner, others, outcomes, 2, 2);
         others.clear();
         outcomes.clear();
 
         assertThat(event.otherMatched()).containsExactly(other);
         assertThat(event.candidates()).hasSize(2);
-        assertThat(event.candidatePoolTruncated()).isTrue();
-        assertThatThrownBy(() -> new MatchAmbiguous(claim, null, List.of(), List.of(), 0, 0, false))
+        assertThat(event.candidatesConsidered()).isEqualTo(2);
+        assertThat(event.candidatesFound()).isEqualTo(2);
+        assertThatThrownBy(() -> new MatchAmbiguous(claim, null, List.of(), List.of(), 0, 0))
                 .isInstanceOf(NullPointerException.class);
+    }
+
+    @Test
+    void candidatePoolTruncated_carriesClaimAndCap_andRejectsNullClaim() {
+        Claim claim = new Claim(SourceSystem.of("crm"), "id-1", List.of());
+        CandidatePoolTruncated event = new CandidatePoolTruncated(claim, 7);
+        assertThat(event.claim()).isEqualTo(claim);
+        assertThat(event.cap()).isEqualTo(7);
+        assertThatThrownBy(() -> new CandidatePoolTruncated(null, 1))
+                .isInstanceOf(NullPointerException.class);
+        assertThatThrownBy(() -> new CandidatePoolTruncated(claim, 0))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> new CandidatePoolTruncated(claim, -1))
+                .isInstanceOf(IllegalArgumentException.class);
     }
 }

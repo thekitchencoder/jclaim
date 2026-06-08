@@ -77,11 +77,12 @@ jclaim/
         │   ├── event/                              # Stewardship event surface
         │   │   ├── AttributeDiff.java              # Per-attribute divergence record
         │   │   ├── CandidateOutcome.java           # (candidate, TriState) pair carried on deferred-resolution events
-        │   │   ├── MatchEvent.java                 # sealed: EntityAttributesConflicted | MatchUndecided | MatchAmbiguous
+        │   │   ├── MatchEvent.java                 # sealed: EntityAttributesConflicted | MatchUndecided | MatchAmbiguous | CandidatePoolTruncated
         │   │   ├── MatchEventSink.java             # Pluggable consumer (default no-op)
         │   │   ├── EntityAttributesConflicted.java # (Entity stored, Claim claim, List<AttributeDiff> differingValues)
         │   │   ├── MatchUndecided.java             # Mint left at least one candidate UNDETERMINED
-        │   │   └── MatchAmbiguous.java             # Multiple candidates MATCHED; winner = oldest, tiebreak urn
+        │   │   ├── MatchAmbiguous.java             # Multiple candidates MATCHED; winner = oldest, tiebreak urn
+        │   │   └── CandidatePoolTruncated.java     # Pool-cap truncation signal (Claim claim, int cap)
         │   ├── storage/                            # Storage port + in-memory adapter
         │   │   ├── EntityStorage.java              # Port interface
         │   │   ├── StorageOutcome.java             # sealed: Existing | Created
@@ -227,7 +228,7 @@ alias-only baseline.
 
 Stewardship events are delivered to the configured `MatchEventSink` (default
 no-op; integrators wire it to SLF4J, Spring's `ApplicationEventPublisher`,
-Kafka, etc.). The sealed `MatchEvent` permits three variants:
+Kafka, etc.). The sealed `MatchEvent` permits four variants:
 
 - `EntityAttributesConflicted(Entity stored, Claim claim, List<AttributeDiff>
   differingValues)` — a matched entity's stored attributes disagree with the
@@ -237,6 +238,11 @@ Kafka, etc.). The sealed `MatchEvent` permits three variants:
 - `MatchUndecided` — a fresh mint had only `UNDETERMINED` candidates.
 - `MatchAmbiguous` — multiple candidates `MATCHED`; the winner (oldest by
   `createdAt`, tiebreak urn) is linked and the alternatives surfaced.
+- `CandidatePoolTruncated(Claim claim, int cap)` — the candidate pool hit
+  `maxCandidates` and was truncated; fires on any truncated `resolveOrMint`,
+  independent of the match/mint decision. Makes a potentially silently-missed
+  match (false mint) observable. The `jclaim.matching.pool_truncated_total`
+  Micrometer counter increments on this event across all outcomes.
 
 Events carry `TriState` outcomes only — never jspec types, so core stays
 jspec-free. Stored attributes are **not** silently updated; evidence is

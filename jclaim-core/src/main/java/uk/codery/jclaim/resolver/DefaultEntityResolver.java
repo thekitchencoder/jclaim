@@ -5,6 +5,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import uk.codery.jclaim.event.AttributeDiff;
 import uk.codery.jclaim.event.CandidateOutcome;
+import uk.codery.jclaim.event.CandidatePoolTruncated;
 import uk.codery.jclaim.event.EntityAttributesConflicted;
 import uk.codery.jclaim.event.MatchAmbiguous;
 import uk.codery.jclaim.event.MatchEvent;
@@ -116,6 +117,7 @@ public final class DefaultEntityResolver implements EntityResolver {
         if (truncated) {
             log.warn("Candidate pool for alias {} hit the cap of {}; results truncated",
                     alias, maxCandidates);
+            safeAccept(new CandidatePoolTruncated(claim, maxCandidates), alias);
         }
 
         List<CandidateOutcome> outcomes = candidates.stream()
@@ -136,7 +138,7 @@ public final class DefaultEntityResolver implements EntityResolver {
         }
         if (matched.size() > 1) {
             return linkAmbiguousMatch(
-                    claim, alias, matched, outcomes, considered, found, truncated);
+                    claim, alias, matched, outcomes, considered, found);
         }
 
         // 3. No MATCHED candidate: atomic mint preserves the concurrency contract.
@@ -147,7 +149,7 @@ public final class DefaultEntityResolver implements EntityResolver {
                 log.debug("Minted {} for alias {}", minted.id(), alias);
                 if (outcomes.stream().anyMatch(o -> o.policyResult() == TriState.UNDETERMINED)) {
                     safeAccept(new MatchUndecided(
-                            claim, minted, outcomes, considered, found, truncated), minted.id());
+                            claim, minted, outcomes, considered, found), minted.id());
                 }
                 yield new ResolutionResult.Minted(minted);
             }
@@ -193,7 +195,7 @@ public final class DefaultEntityResolver implements EntityResolver {
 
     private ResolutionResult linkAmbiguousMatch(
             Claim claim, Alias alias, List<CandidateOutcome> matched,
-            List<CandidateOutcome> outcomes, int considered, int found, boolean truncated) {
+            List<CandidateOutcome> outcomes, int considered, int found) {
         Entity winner = matched.stream()
                 .map(CandidateOutcome::candidate)
                 .min(Comparator.comparing(Entity::createdAt)
@@ -214,7 +216,7 @@ public final class DefaultEntityResolver implements EntityResolver {
             return new ResolutionResult.Matched(now);
         }
         safeAccept(new MatchAmbiguous(
-                claim, attached, others, outcomes, considered, found, truncated), attached.id());
+                claim, attached, others, outcomes, considered, found), attached.id());
         emitConflictIfDiverged(attached, claim);
         log.debug("Matched alias {} to {} (ambiguous policy match, {} runners-up)",
                 alias, attached.id(), others.size());
@@ -313,6 +315,19 @@ public final class DefaultEntityResolver implements EntityResolver {
         } catch (RuntimeException ex) {
             log.warn("MatchEventSink threw while handling event for {}: {}",
                     entityId, ex.toString());
+        }
+    }
+
+    /**
+     * As {@link #safeAccept(MatchEvent, EntityId)} but for events not tied to a
+     * resolved entity (the pool is evaluated before any match/mint); {@code alias}
+     * names the claim for the error-context log line.
+     */
+    private void safeAccept(MatchEvent event, Alias alias) {
+        try {
+            matchEventSink.accept(event);
+        } catch (RuntimeException ex) {
+            log.warn("MatchEventSink threw while handling event for {}: {}", alias, ex.toString());
         }
     }
 

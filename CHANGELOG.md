@@ -7,7 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **`CandidatePoolTruncated` stewardship event.** Fired by `resolveOrMint`
+  whenever the candidate pool returned by `findCandidates` hits the `maxCandidates`
+  cap, making a possibly silently-missed match (false mint caused by truncation)
+  observable to a `MatchEventSink`. The event carries `(Claim claim, int cap)`.
+  Previously, truncation only produced a `WARN` log entry; it now also surfaces as
+  a first-class `MatchEvent` regardless of whether the truncated call ultimately
+  matched, minted, raised `MatchUndecided`, or raised `MatchAmbiguous`. The Spring
+  metric `jclaim.matching.pool_truncated_total` now counts truncation across all
+  outcomes via this event (previously the counter was only incremented for
+  undecided/ambiguous truncated calls). Implements ADR-0001 action item 4.
+
 ### Changed (breaking, pre-1.0)
+
+- **`candidatePoolTruncated` removed from `MatchUndecided` and `MatchAmbiguous`.**
+  The boolean field carried on those two events is gone; truncation is now reported
+  exclusively by the dedicated `CandidatePoolTruncated` event. Sinks that pattern-
+  matched on `candidatePoolTruncated` must be updated to handle the new event
+  variant instead.
 
 - **Human → Public vocabulary rename across the entire library.** All
   display-ID vocabulary has been renamed from `human`/`humanId`/`human-id`

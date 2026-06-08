@@ -19,7 +19,6 @@ import java.util.Objects;
  * @param candidates             every candidate considered, with its policy verdict
  * @param candidatesConsidered   how many candidates the policy actually evaluated
  * @param candidatesFound        how many candidates the storage adapter returned
- * @param candidatePoolTruncated whether the candidate pool hit the resolver's cap
  */
 public record MatchAmbiguous(
         Claim claim,
@@ -27,8 +26,7 @@ public record MatchAmbiguous(
         List<Entity> otherMatched,
         List<CandidateOutcome> candidates,
         int candidatesConsidered,
-        int candidatesFound,
-        boolean candidatePoolTruncated
+        int candidatesFound
 ) implements MatchEvent {
 
     public MatchAmbiguous {

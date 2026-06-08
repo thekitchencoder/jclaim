@@ -8,6 +8,7 @@ import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import uk.codery.jclaim.event.AttributeDiff;
+import uk.codery.jclaim.event.CandidatePoolTruncated;
 import uk.codery.jclaim.event.EntityAttributesConflicted;
 import uk.codery.jclaim.event.MatchAmbiguous;
 import uk.codery.jclaim.event.MatchEvent;
@@ -58,8 +59,7 @@ class MeteredMatchEventSinkTest {
             seed(storage, SourceSystem.of("crm"), "seed-1", email);
             seed(storage, SourceSystem.of("pos"), "seed-2", email);
 
-            // New alias, same attribute: findCandidates(limit=1) returns 1 of 2 →
-            // truncated. UNDETERMINED policy → MatchUndecided(candidatePoolTruncated=true).
+            // New alias, same attribute: findCandidates(limit=1) returns 1 of 2 -> truncated. Fires one CandidatePoolTruncated (the MatchUndecided that also fires is not counted).
             resolver.resolveOrMint(new Claim(SourceSystem.of("erp"), "probe", List.of(email)));
 
             assertThat(registry.counter("jclaim.matching.pool_truncated_total").count())
@@ -67,10 +67,10 @@ class MeteredMatchEventSinkTest {
         });
     }
 
-    // -- Direct unit coverage of every switch arm + both truncation flags -----
+    // Direct unit coverage: counts only CandidatePoolTruncated, forwards all events.
 
     @Test
-    void directSinkCoversAllEventArmsAndTruncationFlags() {
+    void directSink_countsOnlyCandidatePoolTruncated_andForwardsAll() {
         MeterRegistry registry = new SimpleMeterRegistry();
         var forwarded = new java.util.concurrent.atomic.AtomicReference<MatchEvent>();
         MeteredMatchEventSink sink = new MeteredMatchEventSink(forwarded::set, registry);
@@ -78,18 +78,18 @@ class MeteredMatchEventSinkTest {
         Entity e = entity();
         Claim claim = new Claim(SourceSystem.of("crm"), "u-1", List.of());
 
-        // MatchUndecided, NOT truncated -> counter stays at 0, still forwarded.
-        sink.accept(new MatchUndecided(claim, e, List.of(), 0, 0, false));
-        // MatchAmbiguous, truncated -> counter increments.
-        sink.accept(new MatchAmbiguous(claim, e, List.of(entity()), List.of(), 2, 2, true));
-        // EntityAttributesConflicted -> default arm, never counted.
+        // Decision events never increment the counter, but are forwarded.
+        sink.accept(new MatchUndecided(claim, e, List.of(), 0, 0));
+        sink.accept(new MatchAmbiguous(claim, e, List.of(entity()), List.of(), 2, 2));
+        // The dedicated truncation event increments once.
+        sink.accept(new CandidatePoolTruncated(claim, 1));
+        // EntityAttributesConflicted is forwarded, never counted, and is the last event.
         MatchEvent conflicted = new EntityAttributesConflicted(
                 e, claim, List.of(new AttributeDiff("email", "a@x", "b@x")));
         sink.accept(conflicted);
 
         assertThat(registry.counter("jclaim.matching.pool_truncated_total").count())
                 .isEqualTo(1.0);
-        // The last event was forwarded to the delegate.
         assertThat(forwarded.get()).isSameAs(conflicted);
     }
 

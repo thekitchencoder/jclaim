@@ -62,7 +62,7 @@ class MultiTypeInheritanceTest {
         // resolveMaxCandidates returning the configured value is unit-tested in
         // MultiTypeRegistrarBranchTest, and the builder's maxCandidates actually
         // capping the candidate pool is proven behaviourally in core's
-        // PolicyDrivenResolveOrMintTest#candidatePoolTruncated_flagsTruncationInEvent.
+        // PolicyDrivenResolveOrMintTest#truncatedUndecided_emitsBothTruncatedAndUndecided.
         runner.withPropertyValues(
                         "jclaim.storage.type=in-memory",
                         "jclaim.entity-types.customer.matching.max-candidates=7")
