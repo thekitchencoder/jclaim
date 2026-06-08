@@ -214,8 +214,10 @@ cardinality, and watch population skew (common surname + common DoB buckets).
    projection, score on full claim).
 3. [x] Tests: weak attribute widens the pool under the default; under
    `blockingKeys={...}` the weak-only entity is excluded yet still scored.
-4. [ ] Promote the `truncated` flag from `WARN` log to a first-class
-   `MatchEvent` (`CandidatePoolTruncated` or a field on existing events).
+4. [x] Promote the `truncated` flag from `WARN` log to a first-class
+   `MatchEvent` — shipped as the dedicated `CandidatePoolTruncated` event (fired on
+   every truncated `resolveOrMint`); the `candidatePoolTruncated` flag was removed
+   from `MatchUndecided`/`MatchAmbiguous`.
 5. [ ] Document the deterministic vs probabilistic tiers and the
    normalise-at-the-boundary rule in the matching README.
 6. [ ] Decide whether probabilistic scoring ships as a provider module
