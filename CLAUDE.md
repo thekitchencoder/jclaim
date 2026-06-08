@@ -55,11 +55,14 @@ jclaim/
     └── src/
         ├── main/java/uk/codery/jclaim/
         │   ├── id/                                 # Identifier generation
+        │   │   ├── IdAlphabet.java                 # Alphabet strategy: radix + symbol/check encode-decode
         │   │   ├── CrockfordBase32.java            # 32-symbol alphabet, ambiguous chars dropped
         │   │   ├── Damm.java                       # Single-digit checksum, totally anti-symmetric quasigroup
         │   │   ├── PublicIdFormat.java             # Template-compiled format (Crockford Base32 + Damm); '?' → data or check char, literals verbatim
         │   │   ├── PublicIdGenerator.java          # Port: K7M2-9X4P-3 style public-ID generation
         │   │   ├── CrockfordPublicIdGenerator.java # Crockford Base32 + Damm concrete generator
+        │   │   ├── OlcAlphabet.java                # Open Location Code 20-symbol vowel-resistant alphabet
+        │   │   ├── OlcPublicIdGenerator.java       # OLC generator — base-20, decimal Damm check char; sibling to Crockford
         │   │   ├── FilteringPublicIdGenerator.java # Acceptance-filter decorator (allow-all default)
         │   │   └── UuidV7.java                     # RFC 9562 time-ordered UUID
         │   ├── model/                              # Domain model (immutable records)
@@ -190,6 +193,12 @@ built-in random Crockford+Damm generator. `FilteringPublicIdGenerator` is a
 composable decorator that wraps any `PublicIdGenerator` with a
 `Predicate<String>` acceptance gate; the default predicate is allow-all (no
 re-rolling), preserving historic behaviour exactly.
+
+`OlcPublicIdGenerator` is a vowel-resistant sibling over Open Location Code's
+20-symbol alphabet (no vowels, no `0`/`1`); its data symbols are base-20 and its
+Damm check digit renders as a literal decimal `0`–`9` in the final position.
+`PublicIdFormat` is alphabet-parametric via the `IdAlphabet` strategy
+(`CrockfordBase32.INSTANCE` / `OlcAlphabet.INSTANCE`).
 
 Crockford Base32 drops the ambiguous symbols `I`, `L`, `O`, `U` and accepts
 case-insensitive input with the swap aliases `i/l → 1`, `o → 0`. The Damm

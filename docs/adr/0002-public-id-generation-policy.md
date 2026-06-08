@@ -306,8 +306,10 @@ Blank/absent template still yields a `null` generator and no public ID.
    no-op, a rejecting predicate re-rolls, budget exhaustion throws.
 
 **Deferred (separate ADRs / efforts — enabled by, not part of, this change)**
-7. [ ] `OlcPublicIdGenerator` (vowel-resistant 20-symbol alphabet) + Damm-radix
-   handling for non-Crockford alphabets.
+7. [x] `OlcPublicIdGenerator` (vowel-resistant 20-symbol alphabet). Damm-radix
+   handling: keep order-10 Damm over the base-20 value, render the check digit as
+   a literal decimal `0`–`9` in the final position (data symbols stay pure OLC).
+   `PublicIdFormat` made alphabet-parametric via the `IdAlphabet` strategy.
 8. [ ] Denylist acceptance filter with leetspeak normalisation (strip hyphens;
    fold `0/1/3/4/5/7`) and a sibling module carrying multilingual lists.
 9. [ ] Per-type config keys

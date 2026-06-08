@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `OlcPublicIdGenerator` — a vowel-resistant public-ID generator over Open
+  Location Code's curated 20-symbol alphabet (`23456789CFGHJMPQRVWX`), a sibling
+  to `CrockfordPublicIdGenerator`. Implements ADR-0002 item 7.
+- `IdAlphabet` strategy and an alphabet-parametric `PublicIdFormat`
+  (`ofTemplate(template, alphabet)`); Crockford output is unchanged.
+
 - **`CandidatePoolTruncated` stewardship event.** Fired by `resolveOrMint`
   whenever the candidate pool returned by `findCandidates` hits the `maxCandidates`
   cap, making a possibly silently-missed match (false mint caused by truncation)
