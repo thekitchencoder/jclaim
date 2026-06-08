@@ -47,6 +47,16 @@ public final class FilteringPublicIdGenerator implements PublicIdGenerator {
         this.maxAttempts = maxAttempts;
     }
 
+    /**
+     * Returns the first candidate the acceptance predicate accepts, re-rolling
+     * the delegate up to the configured budget.
+     *
+     * @throws IllegalStateException if no candidate is accepted within
+     *         {@code maxAttempts}. This is fail-fast: the resolver calls this
+     *         without a {@code try/catch} and does not retry, so a misconfigured
+     *         acceptance predicate surfaces to the caller rather than silently
+     *         degrading.
+     */
     @Override
     public String generate() {
         for (int attempt = 0; attempt < maxAttempts; attempt++) {
@@ -54,9 +64,12 @@ public final class FilteringPublicIdGenerator implements PublicIdGenerator {
             if (acceptable.test(candidate)) {
                 return candidate;
             }
-            log.warn("Public ID candidate rejected by acceptance policy on attempt {}; re-rolling",
+            // DEBUG, not WARN: with a real acceptance predicate the odd rejection
+            // is routine; only giving up entirely warrants an operator's attention.
+            log.debug("Public ID candidate rejected by acceptance policy on attempt {}; re-rolling",
                     attempt + 1);
         }
+        log.warn("Acceptance policy rejected all {} public ID candidates; giving up", maxAttempts);
         throw new IllegalStateException(
                 "No acceptable public ID after " + maxAttempts + " attempts");
     }
