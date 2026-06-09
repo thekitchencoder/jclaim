@@ -314,8 +314,11 @@ Blank/absent template still yields a `null` generator and no public ID.
    fold `0/1/3/4/5/7`) and a sibling module carrying multilingual lists.
 9. [ ] Per-type config keys
    (`entity-types.<type>.public-id.{filter,generator}`).
-10. [ ] Decide the default posture: safe-by-default baseline denylist vs
-    permissive allow-all.
+10. [x] Decide the default posture: safe-by-default baseline denylist vs
+    permissive allow-all. **Decided in
+    [ADR-0003](0003-public-id-acceptance-default-posture.md): permissive default
+    (allow-all) paired with a one-time unfiltered-posture WARN and an explicit
+    opt-out.**
 
 ## Notes
 
