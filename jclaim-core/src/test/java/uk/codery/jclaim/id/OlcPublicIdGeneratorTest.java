@@ -97,4 +97,11 @@ class OlcPublicIdGeneratorTest {
                 .isInstanceOf(NullPointerException.class)
                 .hasMessage("random");
     }
+
+    @Test
+    void golden_seededOutputUnchanged() {
+        // Regression anchor: pins the OLC base-20 divmod + decimal-Damm pipeline for a fixed seed.
+        var g = new OlcPublicIdGenerator(new Random(42L));
+        assertThat(g.generate()).isEqualTo("6QV2-26F5-4");
+    }
 }
