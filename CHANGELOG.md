@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `OlcPublicIdGenerator` — a vowel-resistant public-ID generator over Open
+  Location Code's curated 20-symbol alphabet (`23456789CFGHJMPQRVWX`), a sibling
+  to `CrockfordPublicIdGenerator`. Implements ADR-0002 item 7.
+- `IdAlphabet` strategy and an alphabet-parametric `PublicIdFormat`
+  (`ofTemplate(template, alphabet)`); Crockford output is unchanged.
+
 - **`CandidatePoolTruncated` stewardship event.** Fired by `resolveOrMint`
   whenever the candidate pool returned by `findCandidates` hits the `maxCandidates`
   cap, making a possibly silently-missed match (false mint caused by truncation)
@@ -21,6 +27,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   undecided/ambiguous truncated calls). Implements ADR-0001 action item 4.
 
 ### Changed (breaking, pre-1.0)
+
+- **`PublicIdFormat.dataBits()` replaced by `dataChars()`.** Now that
+  `PublicIdFormat` renders over any `IdAlphabet`, the entropy width in *bits* is
+  Crockford-specific (base-20 OLC has no integer bits-per-symbol). The
+  `dataBits()` accessor (which returned `dataChars × 5`) is removed in favour of
+  the radix-independent `dataChars()`. Callers needing a bit count should compute
+  it from the alphabet's radix.
 
 - **`candidatePoolTruncated` removed from `MatchUndecided` and `MatchAmbiguous`.**
   The boolean field carried on those two events is gone; truncation is now reported

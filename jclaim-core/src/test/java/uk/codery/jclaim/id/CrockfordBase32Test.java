@@ -77,4 +77,18 @@ class CrockfordBase32Test {
         assertThat(CrockfordBase32.decodeChar('-')).isEqualTo(-1);
         assertThat(CrockfordBase32.decodeChar('!')).isEqualTo(-1);
     }
+
+    @Test
+    void instance_behavesAsBase32IdAlphabet() {
+        IdAlphabet a = CrockfordBase32.INSTANCE;
+        assertThat(a.radix()).isEqualTo(32);
+        assertThat(a.encode(0)).isEqualTo('0');
+        assertThat(a.encode(10)).isEqualTo('A');
+        assertThat(a.decode('A')).isEqualTo(10);
+        assertThat(a.decode('U')).isEqualTo(-1);   // dropped letter
+        assertThat(a.decode('o')).isEqualTo(0);    // documented alias o->0
+        assertThat(a.checkChar(7)).isEqualTo('7');
+        assertThat(a.decodeCheck('7')).isEqualTo(7);
+        assertThat(a.decodeCheck('A')).isEqualTo(-1); // value 10 > 9, not a check digit
+    }
 }
