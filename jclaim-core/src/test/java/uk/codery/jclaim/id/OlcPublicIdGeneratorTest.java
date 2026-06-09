@@ -89,4 +89,12 @@ class OlcPublicIdGeneratorTest {
         OlcPublicIdGenerator g = new OlcPublicIdGenerator(f, new Random(1L));
         assertThat(g.format()).isSameAs(f);
     }
+
+    @Test
+    void rejectsNullRandomAtConstruction() {
+        // Explicit, message-bearing guard — must fail fast at construction, not at generate().
+        assertThatThrownBy(() -> new OlcPublicIdGenerator((Random) null))
+                .isInstanceOf(NullPointerException.class)
+                .hasMessage("random");
+    }
 }

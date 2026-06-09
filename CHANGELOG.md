@@ -28,6 +28,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed (breaking, pre-1.0)
 
+- **`PublicIdFormat.dataBits()` replaced by `dataChars()`.** Now that
+  `PublicIdFormat` renders over any `IdAlphabet`, the entropy width in *bits* is
+  Crockford-specific (base-20 OLC has no integer bits-per-symbol). The
+  `dataBits()` accessor (which returned `dataChars × 5`) is removed in favour of
+  the radix-independent `dataChars()`. Callers needing a bit count should compute
+  it from the alphabet's radix.
+
 - **`candidatePoolTruncated` removed from `MatchUndecided` and `MatchAmbiguous`.**
   The boolean field carried on those two events is gone; truncation is now reported
   exclusively by the dedicated `CandidatePoolTruncated` event. Sinks that pattern-

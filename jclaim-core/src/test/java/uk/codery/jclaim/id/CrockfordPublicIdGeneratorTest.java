@@ -6,6 +6,7 @@ import java.util.Random;
 import java.util.function.Supplier;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class CrockfordPublicIdGeneratorTest {
 
@@ -59,5 +60,12 @@ class CrockfordPublicIdGeneratorTest {
         // Characterization anchor captured from pre-refactor code.
         var g = new CrockfordPublicIdGenerator(new java.util.Random(42L));
         assertThat(g.generate()).isEqualTo("6M6Z-X2QQ-4");
+    }
+
+    @Test
+    void rejectsNullRandomAtConstruction() {
+        assertThatThrownBy(() -> new CrockfordPublicIdGenerator((Random) null))
+                .isInstanceOf(NullPointerException.class)
+                .hasMessage("random");
     }
 }

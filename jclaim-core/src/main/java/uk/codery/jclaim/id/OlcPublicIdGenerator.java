@@ -43,8 +43,10 @@ public final class OlcPublicIdGenerator implements PublicIdGenerator {
 
     /** Generator for {@code format} drawing bits from {@code random}. */
     public OlcPublicIdGenerator(PublicIdFormat format, Random random) {
-        // Cast disambiguates the overload — bind to the (PublicIdFormat, Supplier) ctor.
-        this(format, (Supplier<Long>) random::nextLong);
+        // requireNonNull guards explicitly (and with a message) rather than relying on the
+        // method-ref receiver NPE — keeps the null contract fail-fast if this is ever
+        // refactored to a lambda. Cast disambiguates the (PublicIdFormat, Supplier) overload.
+        this(format, (Supplier<Long>) Objects.requireNonNull(random, "random")::nextLong);
     }
 
     /** Generator for {@code format} drawing raw entropy from {@code entropy}. */
