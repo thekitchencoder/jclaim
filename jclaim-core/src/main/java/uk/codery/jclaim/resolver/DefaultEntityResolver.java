@@ -360,6 +360,19 @@ public final class DefaultEntityResolver implements EntityResolver {
         return diffs;
     }
 
+    /**
+     * Whether {@code build()} should emit the unfiltered-posture warning
+     * (ADR-0003): a publicId IS being minted, through the default allow-all
+     * filter, and the integrator has not explicitly acknowledged unfiltered IDs.
+     * Package-private and static so the decision is unit-testable without log
+     * capture.
+     */
+    static boolean shouldWarnUnfiltered(PublicIdGenerator generator, boolean acknowledgedUnfiltered) {
+        return !acknowledgedUnfiltered
+                && generator instanceof FilteringPublicIdGenerator filtering
+                && filtering.acceptsAllCandidates();
+    }
+
     /** Fluent builder for {@link DefaultEntityResolver}. */
     public static final class Builder {
         private final EntityStorage storage;
@@ -371,6 +384,7 @@ public final class DefaultEntityResolver implements EntityResolver {
         private MatchEventSink matchEventSink = MatchEventSink.noop();
         private MatchingPolicy matchingPolicy = MatchingPolicy.aliasOnly();
         private int maxCandidates = 100;
+        private boolean acknowledgedUnfiltered = false;
 
         private Builder(EntityStorage storage) {
             this.storage = storage;
@@ -446,9 +460,30 @@ public final class DefaultEntityResolver implements EntityResolver {
             return this;
         }
 
+        /**
+         * Acknowledges that public IDs are minted <strong>unfiltered</strong> and
+         * silences the ADR-0003 discoverability warning. Use this only when the
+         * deployment has deliberately accepted that a minted display ID may read as
+         * an undesirable word; an issued ID cannot be recalled. Configuring a real
+         * acceptance filter is the alternative — and silences the warning too.
+         */
+        public Builder allowUnfilteredPublicIds() {
+            this.acknowledgedUnfiltered = true;
+            return this;
+        }
+
         public DefaultEntityResolver build() {
             EntityId.requireValidSegment("namespace", namespace);
             EntityId.requireValidSegment("type", entityType);
+            if (shouldWarnUnfiltered(publicIdGenerator, acknowledgedUnfiltered)) {
+                log.warn("publicId template configured but no acceptance filter — public IDs are "
+                        + "minted unfiltered and cannot be recalled once issued. Configure an "
+                        + "acceptance filter, or acknowledge unfiltered IDs explicitly to silence "
+                        + "this (builder: allowUnfilteredPublicIds(); other runtimes have an "
+                        + "equivalent opt-out — see "
+                        + "https://github.com/thekitchencoder/jclaim/blob/main/docs/adr/"
+                        + "0003-public-id-acceptance-default-posture.md).");
+            }
             return new DefaultEntityResolver(this);
         }
     }

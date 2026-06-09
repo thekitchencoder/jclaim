@@ -71,14 +71,17 @@ public class JclaimAutoConfiguration {
             MatchEventSink matchSink,
             MatchingPolicy matchingPolicy,
             JclaimProperties properties) {
-        return DefaultEntityResolver.builder(storage)
+        DefaultEntityResolver.Builder builder = DefaultEntityResolver.builder(storage)
                 .namespace(properties.urn().namespace())
                 .entityType(properties.urn().type())
                 .publicIdTemplate(properties.publicId().template())
                 .matchEventSink(matchSink)
                 .matchingPolicy(matchingPolicy)
-                .maxCandidates(properties.matching().maxCandidates())
-                .build();
+                .maxCandidates(properties.matching().maxCandidates());
+        if ("off".equalsIgnoreCase(properties.publicId().filter())) {
+            builder.allowUnfilteredPublicIds();
+        }
+        return builder.build();
     }
 
     /**
