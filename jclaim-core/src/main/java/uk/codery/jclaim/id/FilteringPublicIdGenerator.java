@@ -73,4 +73,16 @@ public final class FilteringPublicIdGenerator implements PublicIdGenerator {
         throw new IllegalStateException(
                 "No acceptable public ID after " + maxAttempts + " attempts");
     }
+
+    /**
+     * Whether this decorator's acceptance predicate is the {@link #ALLOW_ALL}
+     * singleton — i.e. it filters nothing and never re-rolls. The resolver uses
+     * this to detect an unfiltered publicId posture and emit a discoverability
+     * warning at build time (ADR-0003). A user-supplied predicate that happens to
+     * accept everything is deliberately reported as {@code false}: it is an
+     * explicit choice, not the default posture.
+     */
+    public boolean acceptsAllCandidates() {
+        return acceptable == ALLOW_ALL;
+    }
 }
