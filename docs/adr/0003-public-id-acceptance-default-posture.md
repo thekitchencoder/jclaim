@@ -186,19 +186,19 @@ someone has, in either direction.
 ## Action Items
 
 **This change**
-1. [ ] `DefaultEntityResolver.Builder`: track `acknowledgedUnfiltered`; add
+1. [x] `DefaultEntityResolver.Builder`: track `acknowledgedUnfiltered`; add
    `allowUnfilteredPublicIds()`.
-2. [ ] In `build()`, emit a single SLF4J WARN when a template is configured, the
+2. [x] In `build()`, emit a single SLF4J WARN when a template is configured, the
    acceptance predicate is the allow-all default, and `acknowledgedUnfiltered`
    is false. Message points at docs, not the module name.
-3. [ ] Starter: map `jclaim.public-id.filter: off` to the builder
+3. [x] Starter: map `jclaim.public-id.filter: off` to the builder
    acknowledgement; absent key + template ⇒ warns; a configured filter ⇒ silent.
-4. [ ] Tests: warns on default + template; silent on `allowUnfilteredPublicIds()`;
+4. [x] Tests: warns on default + template; silent on `allowUnfilteredPublicIds()`;
    silent with a real (non-allow-all) filter; silent when no template; warning
    emitted at most once per resolver.
-5. [ ] README / docs: document the permissive posture, the asymmetric
+5. [x] README / docs: document the permissive posture, the asymmetric
    un-recallable risk, and how to opt into filtering or acknowledge unfiltered.
-6. [ ] Tick ADR-0002 item 10 `[x]` with a pointer to this ADR.
+6. [x] Tick ADR-0002 item 10 `[x]` with a pointer to this ADR.
 
 **Out of scope (separate items — enabled by, not part of, this change)**
 - Denylist acceptance filter + `jclaim-filter` sibling module — ADR-0002 item 8.

@@ -478,8 +478,11 @@ public final class DefaultEntityResolver implements EntityResolver {
             if (shouldWarnUnfiltered(publicIdGenerator, acknowledgedUnfiltered)) {
                 log.warn("publicId template configured but no acceptance filter — public IDs are "
                         + "minted unfiltered and cannot be recalled once issued. Configure an "
-                        + "acceptance filter, or call Builder.allowUnfilteredPublicIds() to "
-                        + "acknowledge and silence this warning.");
+                        + "acceptance filter, or acknowledge unfiltered IDs explicitly to silence "
+                        + "this (builder: allowUnfilteredPublicIds(); other runtimes have an "
+                        + "equivalent opt-out — see "
+                        + "https://github.com/thekitchencoder/jclaim/blob/main/docs/adr/"
+                        + "0003-public-id-acceptance-default-posture.md).");
             }
             return new DefaultEntityResolver(this);
         }

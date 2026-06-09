@@ -23,6 +23,10 @@ class PublicIdUnfilteredWarningTest {
                 .run(ctx -> {
                     assertThat(ctx).hasSingleBean(EntityResolver.class);
                     assertThat(output).contains("minted unfiltered");
+                    // The message must give a Spring user (who never touches the
+                    // builder) an actionable path: a docs link covering the opt-out.
+                    assertThat(output).contains(
+                            "docs/adr/0003-public-id-acceptance-default-posture.md");
                 });
     }
 
