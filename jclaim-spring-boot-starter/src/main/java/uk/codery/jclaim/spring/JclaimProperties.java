@@ -144,12 +144,28 @@ public class JclaimProperties {
         /** Display template; null/blank means no publicId is minted. */
         private String template;
 
+        /**
+         * Acceptance filter selector. Currently only {@code off} is recognised —
+         * an explicit acknowledgement that public IDs are minted unfiltered, which
+         * silences the unfiltered-posture startup warning (ADR-0003). Named denylist
+         * filters arrive with ADR-0002 item 8.
+         */
+        private String filter;
+
         public String template() {
             return template;
         }
 
         public void setTemplate(String template) {
             this.template = template;
+        }
+
+        public String filter() {
+            return filter;
+        }
+
+        public void setFilter(String filter) {
+            this.filter = filter;
         }
     }
 
