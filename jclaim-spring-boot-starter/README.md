@@ -24,7 +24,7 @@ Spring Boot 3.x auto-configuration for [JCLAIM](../README.md).
 <dependency>
     <groupId>uk.codery</groupId>
     <artifactId>jclaim-spring-boot-starter</artifactId>
-    <version>0.2.0</version>
+    <version>0.3.0</version>
 </dependency>
 ```
 
@@ -72,7 +72,7 @@ Boot's Mongo starter):
 <dependency>
     <groupId>uk.codery</groupId>
     <artifactId>jclaim-storage-mongo</artifactId>
-    <version>0.2.0</version>
+    <version>0.3.0</version>
 </dependency>
 <dependency>
     <groupId>org.springframework.boot</groupId>
@@ -106,7 +106,7 @@ Boot's JDBC starter):
 <dependency>
     <groupId>uk.codery</groupId>
     <artifactId>jclaim-storage-postgres</artifactId>
-    <version>0.2.0</version>
+    <version>0.3.0</version>
 </dependency>
 <dependency>
     <groupId>org.springframework.boot</groupId>
