@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-06-10
+
 ### Added
 
 - `OlcPublicIdGenerator` — a vowel-resistant public-ID generator over Open
@@ -14,6 +16,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   to `CrockfordPublicIdGenerator`. Implements ADR-0002 item 7.
 - `IdAlphabet` strategy and an alphabet-parametric `PublicIdFormat`
   (`ofTemplate(template, alphabet)`); Crockford output is unchanged.
+
+- **Unfiltered public-ID discoverability nudge + explicit opt-out.** When a
+  `publicId` template is configured but the acceptance predicate is the
+  allow-all default, the resolver now logs a single SLF4J **WARN** at build
+  time — public IDs are minted unfiltered and cannot be recalled once issued.
+  The nudge lives in `jclaim-core` (`DefaultEntityResolver.Builder.build()`) so
+  Spring-free embedders get the same signal, and points at documentation rather
+  than naming a not-yet-existing filter module. Silence it by configuring a real
+  acceptance filter, or acknowledge unfiltered IDs explicitly via
+  `DefaultEntityResolver.Builder.allowUnfilteredPublicIds()` or the Spring
+  property `jclaim.public-id.filter: off`. The default acceptance posture stays
+  **permissive** (allow-all) — no minted value changes and core carries no
+  reference data. Records ADR-0003 and closes ADR-0002 item 10. (#24)
 
 - **`CandidatePoolTruncated` stewardship event.** Fired by `resolveOrMint`
   whenever the candidate pool returned by `findCandidates` hits the `maxCandidates`
@@ -389,6 +404,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Re-import the Maven project in your IDE so the new modules
   register.
 
-[Unreleased]: https://github.com/thekitchencoder/jclaim/compare/0.2.0...HEAD
+[Unreleased]: https://github.com/thekitchencoder/jclaim/compare/0.3.0...HEAD
+[0.3.0]: https://github.com/thekitchencoder/jclaim/compare/0.2.0...0.3.0
 [0.2.0]: https://github.com/thekitchencoder/jclaim/compare/0.1.0...0.2.0
 [0.1.0]: https://github.com/thekitchencoder/jclaim/releases/tag/0.1.0

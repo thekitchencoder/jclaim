@@ -12,7 +12,7 @@ the port relies on.
 <dependency>
     <groupId>uk.codery</groupId>
     <artifactId>jclaim-storage-postgres</artifactId>
-    <version>0.2.0</version>
+    <version>0.3.0</version>
 </dependency>
 ```
 

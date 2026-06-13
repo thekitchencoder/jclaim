@@ -29,7 +29,7 @@ The MDM (Master Data Management) entity-matching pattern, packaged as a library 
 <dependency>
     <groupId>uk.codery</groupId>
     <artifactId>jclaim-core</artifactId>
-    <version>0.2.0</version>
+    <version>0.3.0</version>
 </dependency>
 ```
 
@@ -40,28 +40,28 @@ The MDM (Master Data Management) entity-matching pattern, packaged as a library 
 <dependency>
     <groupId>uk.codery</groupId>
     <artifactId>jclaim-storage-mongo</artifactId>
-    <version>0.2.0</version>
+    <version>0.3.0</version>
 </dependency>
 
 <!-- PostgreSQL adapter -->
 <dependency>
     <groupId>uk.codery</groupId>
     <artifactId>jclaim-storage-postgres</artifactId>
-    <version>0.2.0</version>
+    <version>0.3.0</version>
 </dependency>
 
 <!-- Spring Boot 3.x auto-configuration -->
 <dependency>
     <groupId>uk.codery</groupId>
     <artifactId>jclaim-spring-boot-starter</artifactId>
-    <version>0.2.0</version>
+    <version>0.3.0</version>
 </dependency>
 
 <!-- JSPEC-backed matching policy (optional) -->
 <dependency>
     <groupId>uk.codery</groupId>
     <artifactId>jclaim-matching-jspec</artifactId>
-    <version>0.2.0</version>
+    <version>0.3.0</version>
 </dependency>
 ```
 
